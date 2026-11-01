@@ -149,7 +149,7 @@ final class AppModel: ObservableObject {
     @Published var generating = false
     @Published var streaming = false
     // A title draft never mutates the visible task until the backend confirms
-    // the RPC. Session-only wording stays honest while #347 persistence gates
+    // the RPC. The backend persists before success, while #347 packaged relaunch gates
     // remain incomplete across native desktop hosts.
     @Published var titleEditing = false
     @Published var titleSaving = false
@@ -219,7 +219,7 @@ final class AppModel: ObservableObject {
         titleError = nil
         titleSaving = false
         titleEditing = true
-        status = "Draft pending — Apply for this session or Discard draft."
+        status = "Draft pending — Save or Discard draft."
     }
 
     func discardTitleEdit() {

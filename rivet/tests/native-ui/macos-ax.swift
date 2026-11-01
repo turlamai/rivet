@@ -515,7 +515,7 @@ do {
             "visibleTitle=\(visibleTitle) draft=\(draft); underlying=\(error)"
         )
     }
-    _ = try waitFor("explicit session-only save feedback") {
+    _ = try waitFor("explicit save feedback") {
         guard let status = find(window, identifier: "application-status"),
               statusText(status).contains("resets on restart") else { return nil as Bool? }
         return true

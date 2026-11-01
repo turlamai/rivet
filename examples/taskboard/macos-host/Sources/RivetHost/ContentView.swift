@@ -54,14 +54,14 @@ struct ContentView: View {
                 VStack(alignment: .leading, spacing: 18) {
                     if model.titleEditing {
                         VStack(alignment: .leading, spacing: 10) {
-                            TextField("Task title (session-only)", text: $model.titleDraft)
+                            TextField("Task title", text: $model.titleDraft)
                                 .textFieldStyle(.roundedBorder)
                                 .accessibilityIdentifier("edit-task-title")
                                 .focused($titleFieldFocused)
                                 .onExitCommand { model.discardTitleEdit() }
                                 .disabled(model.titleSaving)
                             VStack(alignment: .leading, spacing: 8) {
-                                Button("Apply for this session") { model.saveTitleEdit() }
+                                Button("Save") { model.saveTitleEdit() }
                                     .buttonStyle(.borderedProminent)
                                     .accessibilityIdentifier("save-task")
                                 Button("Discard draft", role: .cancel) {
