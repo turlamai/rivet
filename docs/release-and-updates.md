@@ -232,3 +232,45 @@ parsing, cryptography, download watchdogs, staging, or installer scripts.
 ## External validation points
 
 CI can test signing, tampering, selection, hashing, packaging structure, and native compilation without publisher identities. A real release still needs the publisher's Authenticode certificate or Apple Developer ID/notary profile, an Ed25519 update key, an HTTPS artifact origin, and a final install/upgrade/rollback exercise on supported OS versions.
+
+
+## Gate: signed update manifest matches staged assets
+
+A valid Ed25519 signature alone does **not** prove that the GitHub Release contains
+the referenced bytes. In the release **publish job**, after collecting every
+platform artifact and generating the signed manifest, run the offline parity
+gate before \`gh release upload\`:
+
+\`\`\`sh
+raco rivet verify-release-assets \\
+  --manifest dist/update-manifest.json \\
+  --dir dist \\
+  --public-key /secure/updates-public.der \\
+  --key-id my-product-2026 \\
+  --base-url "https://github.com/OWNER/PRODUCT/releases/download/v1.2.3" \\
+  --application-id site.example.product \\
+  --require macos:arm64:zip \\
+  --require windows:x64:msi \\
+  --require linux:x64:targz
+\`\`\`
+
+The public key must be the **same** one embedded in the installed clients.
+The base URL is the immutable versioned release-tag location, not the moving
+\`latest/download\` feed. The gate verifies the signature and key identity,
+application ID (when supplied), per-artifact URL location and filename,
+physical file presence, exact byte length, SHA-256 and declared required
+platform/architecture/installer targets. It rejects duplicate asset names
+and unsafe path segments. It neither downloads files nor mutates the release.
+
+\`--require\` is **product-specific**: do not require Windows/macOS assets for
+a Linux-only application, or desktop installers for a CLI-only tool. AppImage
+installers use \`appimage\`; portable Linux archive update payloads use
+\`targz\`. If a product uses an independent store or package-manager feed,
+validate its channel through an appropriate additional gate.
+
+**This is a pre-publish artifact consistency gate, not an installed upgrade
+test.** Product-specific CI still needs N→N+1 checks for actual installed
+MSI, macOS bundle and Linux AppImage/package-manager handoffs, including
+data preservation, failure recovery and relaunch. A previously published,
+signed \`update-stable.json\` cannot be fixed by text replacement; regenerate
+and sign it with the authorized key.
