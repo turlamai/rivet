@@ -55,6 +55,16 @@
            (lambda () (check! base #:targets '((macos arm64 zip)))))
 (check-exn #rx"signed asset URL is not in"
            (lambda () (check! "https://github.com/other/example/releases/download/v1.2.3")))
+(check-exn #rx"immutable release tag"
+           (lambda ()
+             (check! "https://github.com/turlamai/example/releases/latest/download")))
+;; Never authenticate a manifest that claims an installer kind incompatible
+;; with the physical package's filename, even when its digest is correct.
+(sign! (struct-copy update-manifest signed
+                    [artifacts (list (struct-copy update-artifact entry
+                                                  [installer 'msi]))]))
+(check-exn #rx"does not match installer kind" (lambda () (check!)))
+(sign! signed)
 (check-exn #rx"application identity"
            (lambda ()
              (verify-release-assets! feed assets pub-path
