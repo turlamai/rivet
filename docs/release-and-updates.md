@@ -262,8 +262,10 @@ physical file presence, exact byte length, SHA-256 and declared required
 platform/architecture/installer targets. It rejects duplicate asset names
 and unsafe path segments. It neither downloads files nor mutates the release.
 
-`--require` is **product-specific**: a three-part target checks an 
-untagged artifact, while `--require windows:x64:zip:cli` requires the\nexplicit CLI component and cannot be satisfied by an app ZIP. Do not require\nWindows/macOS assets for
+`--require` is **product-specific**: a three-part target checks an
+untagged artifact, while `--require windows:x64:zip:cli` requires the 
+explicit CLI component and cannot be satisfied by an app ZIP. Do not require 
+Windows/macOS assets for
 a Linux-only application, or desktop installers for a CLI-only tool. AppImage
 installers use `appimage`; portable Linux archive update payloads use
 `targz`. If a product uses an independent store or package-manager feed,
