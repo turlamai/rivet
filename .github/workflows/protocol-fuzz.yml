@@ -9,8 +9,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: protocol-fuzz-${{ github.ref }}
-  cancel-in-progress: true
+  # Keep main fuzz evidence; supersede only older runs of the same PR.
+  group: protocol-fuzz-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   native-protocol-fuzz:

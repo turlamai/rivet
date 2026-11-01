@@ -9,8 +9,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Keep every main quality gate; supersede only older runs of the same PR.
+  group: ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   racket-minimum:
@@ -35,6 +36,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Validate CI latency reporter
+        run: python3 -m unittest discover -s .github/scripts -p 'test_ci_latency.py'
       - name: Test release tag provenance validator
         shell: bash
         run: bash .github/scripts/test-release-tag.sh

@@ -55,7 +55,9 @@
       [else (set! mounted? #f)]))
   (detach-mounted-image! "hdiutil" attached-device attached-path
                          #:run! fake-run
-                         #:mounted? (lambda () mounted?))
+                         #:mounted? (lambda () mounted?)
+                         #:retries 1
+                         #:pause (lambda (_) (void)))
   (check-equal? (reverse calls)
                 '(("detach" "/dev/disk7s2")
                   ("detach" "-force" "/dev/disk7s2"))

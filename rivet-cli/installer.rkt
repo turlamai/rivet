@@ -380,35 +380,38 @@
   (when (file-exists? path) (delete-file path))
   (when (directory-exists? path) (delete-directory/files path)))
 
-;; `hdiutil attach` identifies the mounted filesystem by both a device node and
-;; a Finder-visible path. Detaching the path is racy after Finder closes its
-;; icon-view window: `hdiutil` can report "resource busy", complete the forced
-;; detach, and then report "no such file or directory" to the caller. Target
-;; the stable device node and accept an already-disappeared mount as success.
+;; Identify hdiutil's mounted filesystem device instead of the Finder path.
 (define (attached-image-location output)
   (define mounted-line
     (for/last ([line (in-list (string-split (string-trim output) "\n"))]
-               #:when (regexp-match? #px"^/dev/[^[:space:]]+.*\t/" line))
+               #:when (regexp-match? #px"^/dev/[^[:space:]]+.*\\t/" line))
       line))
   (unless mounted-line
     (error 'create-installer! "hdiutil did not report a mounted filesystem"))
   (define fields (string-split mounted-line "\t" #:trim? #f))
-  (values (string-trim (first fields))
-          (string-trim (last fields))))
+  (values (string-trim (first fields)) (string-trim (last fields))))
 
+;; Bounded retry and forced detach retain resilience to Finder/Spotlight.
+;; A failed hdiutil call is harmless only if the mount has disappeared.
 (define (detach-mounted-image! hdiutil device mount-path
                                #:run! [runner run!]
-                               #:mounted? [mounted?
-                                           (lambda ()
-                                             (directory-exists? mount-path))])
+                               #:mounted? [mounted? (lambda ()
+                                                     (directory-exists? mount-path))]
+                               #:retries [retries 5]
+                               #:pause [pause sleep])
   (define (attempt force?)
-    (with-handlers ([exn:fail? (lambda (_) #f)])
-      (if force?
-          (runner 'create-installer! hdiutil "detach" "-force" device)
-          (runner 'create-installer! hdiutil "detach" device))
-      #t))
-  (unless (or (attempt #f)
-              (not (mounted?))
+    (cond
+      [(not (mounted?)) #t]
+      [else
+       (with-handlers ([exn:fail? (lambda (_) (not (mounted?)))])
+         (if force?
+             (runner 'create-installer! hdiutil "detach" "-force" device)
+             (runner 'create-installer! hdiutil "detach" device))
+         (not (mounted?)))]))
+  (unless (or (for/or ([_ (in-range retries)])
+                (define ok (attempt #f))
+                (unless ok (pause 2))
+                ok)
               (attempt #t)
               (not (mounted?)))
     (raise-arguments-error 'create-installer!
@@ -517,6 +520,19 @@
       (display (dmg-style-applescript disk-name app-name) out)))
   (define (detach!)
     (detach-mounted-image! hdiutil mounted-device mount-path))
+  (with-handlers ([exn:fail? (lambda (_) #f)])
+         (apply run! 'create-installer! hdiutil "detach"
+                (append flags (list mount-path)))
+         (volume-gone?))]))
+  (define (detach!)
+    (or (for/or ([_ (in-range 5)])
+          (define ok (detach-attempt!))
+          (unless ok (sleep 2))
+          ok)
+        (detach-attempt! "-force")
+        ;; Preserve the familiar failure shape when the volume truly
+        ;; cannot go away.
+        (run! 'create-installer! hdiutil "detach" "-force" mount-path)))
   (with-handlers ([exn:fail?
                    (lambda (e)
                      (with-handlers ([exn:fail? void]) (detach!))
@@ -582,6 +598,4 @@
            text->rtf
            dmg-style-applescript
            raster-pixel-size
-           attached-image-location
-           detach-mounted-image!
            create-macos-installer!))
