@@ -384,7 +384,7 @@
 (define (attached-image-location output)
   (define mounted-line
     (for/last ([line (in-list (string-split (string-trim output) "\n"))]
-               #:when (regexp-match? #px"^/dev/[^[:space:]]+.*\\t/" line))
+               #:when (and (string-prefix? line "/dev/") (string-contains? line "\t/")))
       line))
   (unless mounted-line
     (error 'create-installer! "hdiutil did not report a mounted filesystem"))
