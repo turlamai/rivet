@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- `raco rivet doctor` now identifies a targeted source-owned WinUI
+  `SetIcon(exe_path)` mistake, with a native helper remediation and
+  a false-positive guard for borderless windows (#379).
+
+## Unreleased
+
 - DMG packaging survives slow volume teardown on CI runners. The installer
   now probes the mount point instead of trusting one `hdiutil detach` exit
   code, retries the graceful detach across the few-second window where a

@@ -15,6 +15,7 @@
 
 (provide doctor-report
          doctor-remediations
+         windows-icon-source-warnings
          run-doctor
          installed-rivet-release-version
          update-api-contract-violations
@@ -72,6 +73,35 @@
                  (executable-string "clang++"))
         'ldd (executable-string "ldd")
         'gtk4 (command-success? pkg-config "--atleast-version=4.10" "gtk4")))
+
+;; Detect an exact bad WinUI overload, not an absent icon in borderless windows.
+(define (windows-icon-source-warnings root)
+  (define windows-root (build-path root "windows"))
+  (define (bad-line? line)
+    (define trimmed (string-trim line))
+    (define compact (string-replace (string-replace trimmed " " "") "\t" ""))
+    (and (not (or (string-prefix? trimmed "//")
+                  (string-prefix? trimmed "/*")
+                  (string-prefix? trimmed "*")))
+         (for/or ([name (in-list '("exe_path" "exePath" "executable_path"
+                                   "executablePath" "module_path" "modulePath"))])
+           (string-contains? compact (string-append "SetIcon(" name ")")))))
+  (if (directory-exists? windows-root)
+      (for/list ([source (in-directory windows-root)]
+                 #:when (and (file-exists? source)
+                             (regexp-match? #rx"Window[.]xaml[.]cpp$"
+                                            (path->string source))
+                             (<= (file-size source) (* 1024 1024)))
+                 #:when (with-handlers ([exn:fail? (lambda (_) #f)])
+                          (for/or ([line (in-list (file->lines source))])
+                            (bad-line? line))))
+        (hash 'code "invalid-winui-window-icon-path"
+              'severity "warning"
+              'message (format "~a passes an executable path to AppWindow.SetIcon."
+                               (path->string (find-relative-path root source)))
+              'remediation
+              "The WinUI SetIcon(string) overload requires an .ico file. For a titled window use winui_window.hpp and rivet::system::ApplyAppIcon(*this) after InitializeComponent; verify Settings/About windows too."))
+      '()))
 
 (define (doctor-report)
   (define os (system-type 'os))
@@ -139,6 +169,11 @@
                'message "The project has no committed rivet-schema.json compatibility baseline."
                'remediation "Run `raco rivet schema --output rivet-schema.json`, review and commit it, then add `raco rivet schema check rivet-schema.json --json` to CI."))
         '()))
+  (define warnings
+    (append schema-warnings
+            (if project
+                (windows-icon-source-warnings (rivet-project-root project))
+                '())))
   (hash 'os (symbol->string os)
         'architecture (format "~a" arch)
         'supported supported?

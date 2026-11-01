@@ -36,6 +36,30 @@
 (check-true (list? (hash-ref report 'warnings)))
 (check-true (list? (doctor-remediations report)))
 
+;; A real Settings window's SetIcon(exe_path) must be diagnosed on any OS.
+(define icon-root (make-temporary-file "rivet-icon-doctor-~a" 'directory))
+(dynamic-wind
+ void
+ (lambda ()
+   (define windows (build-path icon-root "windows"))
+   (make-directory* windows)
+   (call-with-output-file (build-path windows "SettingsWindow.xaml.cpp")
+     #:exists 'truncate/replace
+     (lambda (out) (displayln "AppWindow().SetIcon(exe_path);" out)))
+   (call-with-output-file (build-path windows "MainWindow.xaml.cpp")
+     #:exists 'truncate/replace
+     (lambda (out) (displayln "rivet::system::ApplyAppIcon(*this);" out)))
+   (call-with-output-file (build-path windows "BorderlessOverlay.cpp")
+     #:exists 'truncate/replace
+     (lambda (out) (displayln "AppWindow().SetIcon(exe_path);" out)))
+   (define findings (windows-icon-source-warnings icon-root))
+   (check-equal? (length findings) 1)
+   (check-equal? (hash-ref (car findings) 'code)
+                 "invalid-winui-window-icon-path")
+   (check-regexp-match #rx"SettingsWindow[.]xaml[.]cpp"
+                       (hash-ref (car findings) 'message)))
+ (lambda () (delete-directory/files icon-root)))
+
 ;; Keep remediation logic deterministic and useful even when this test runs on
 ;; a machine whose real developer toolchain is complete.
 (define incomplete-windows
