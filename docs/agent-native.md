@@ -122,6 +122,16 @@ checks, and shutdown order. Ship the required library for every supported
 platform/architecture or document a system dependency, then make package
 verification prove that no undeclared developer-machine library leaked in.
 
+**Embedded hosts: load libraries and call FFI from the backend's original
+thread.** Racket CS services parts of the FFI — first-time `ffi-lib` loads in
+particular — through the place's original thread. In an embedded desktop host
+that thread is owned by the native event loop and never yields to the runtime,
+so the first `ffi-lib` call from a backend worker thread can block forever,
+and `kill-thread` cannot cancel a thread parked inside a foreign call (timeout
+guards around it deadlock the same way). Load every foreign library during
+backend boot, before worker threads start, or ship a small checked wrapper
+module that performs the loads eagerly at module attach time.
+
 ### 4. Use a CLI for coarse-grained isolated work
 
 A mature executable is often the lowest-risk integration for media conversion,
