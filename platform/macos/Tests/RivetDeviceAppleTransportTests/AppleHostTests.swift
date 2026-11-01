@@ -471,10 +471,14 @@ private func waitUntil(
     let first = FakePendingConnection()
     let second = FakePendingConnection()
     let rejected = FakePendingConnection()
+    // Driver callbacks enqueue independent tasks on the listener actor.
+    // Emitting all three synchronously does not guarantee FIFO admission;
+    // test the intended first-two-admitted boundary deterministically.
     driver.emit(first)
+    await waitUntil { await listener.snapshot().activeConnections == 1 }
     driver.emit(second)
-    driver.emit(rejected)
     await waitUntil { await listener.snapshot().activeConnections == 2 }
+    driver.emit(rejected)
     await waitUntil { await listener.snapshot().rejectedConnections == 1 }
 
     #expect(first.connectionsMade == 1)
