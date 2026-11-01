@@ -102,30 +102,51 @@ service. Permission denial, a missing Linux session bus, or another unavailable
 notification service is intentionally non-fatal: the domain mutation has
 already succeeded and remains visible in the task list.
 
-## Title-edit interaction (Windows preview)
+## Title editing and local persistence (Windows and Linux previews)
 
-The Windows WinUI 3 reference now exposes **Edit title → Apply for this session / Discard draft** with the native `edit-task-title`, `save-task`, and
-`cancel-task-edit` automation IDs. The user must explicitly apply; Enter
-does not commit an IME composition. Escape in the editor, or **Discard
-draft**, cancels the edit. The task list and other mutations are disabled
-while the draft is active, and the Racket `update-task` RPC validates the
-title. A rejected update keeps the typed draft and shows a recoverable error;
-the native UI Automation driver exercises cancel, validation failure, and
-successful in-session update against a packaged WinUI host.
+The WinUI 3 reference exposes **Edit title → Save / Discard draft**, with
+`edit-task-title`, `save-task` and `cancel-task-edit` automation IDs.
+Save is explicit, and Enter deliberately does not submit an IME candidate.
+Escape or Discard cancels. While a draft is active, list selection and
+competing mutations are disabled. A rejected Racket update preserves the
+typed draft, displays an error and permits a retry. The packaged native
+UI Automation driver covers these paths.
 
-This is **not yet** the full cross-platform or persistent-data acceptance
-contract from [issue #347](https://github.com/turlamai/rivet/issues/347).
-The Taskboard backend stores its task list in process memory: successful
-changes do **not** survive application relaunch. The Linux native editor is
-implemented in this change, while the macOS editor and all three hosts still need clean-profile persistence,
-focus/keyboard/accessibility and real-window evidence before #347 can close.
-Do not use this example as proof of a production-ready task editor.
+Task changes are **persisted locally by the Racket backend before a successful
+RPC or State update is reported**. The versioned `tasks-v1.rktd` snapshot
+is stored under `RIVET_TASKBOARD_DATA_DIR` when that environment variable
+is set, otherwise in `(find-system-path 'pref-dir)/rivet-taskboard/`.
+The current record includes title, notes, status, stable task IDs and the
+next-ID counter. A new app session reloads the snapshot instead of silently
+restoring the demo tasks. Each snapshot has a hard 64 MiB size limit,
+with separate task-count and per-field limits. The snapshot write stages a
+bounded temporary file beside the destination and then replaces it. File-system write errors leave
+the previous State intact and surface as RPC failures. Invalid/corrupted
+snapshots prevent startup instead of overwriting the user's file.
 
-## Native title editing (Linux GTK4 preview)
+For an isolated test, set `RIVET_TASKBOARD_DATA_DIR` to a disposable
+directory before launching the packaged app. To back up, restore or delete
+data, close the app first and copy, replace or remove the entire snapshot in
+the indicated directory; keep a backup before attempting manual recovery.
+There is no automatic backup, migration from a future format, cloud sync or
+concurrent multi-process writer coordination in this reference.
 
-The Linux GTK4 reference now offers **Edit title → Apply for this session / Discard draft**, backed by the existing typed Racket `update-task` RPC. The native `GtkEntry` keeps the draft separate from the committed task; Return is not wired to Save (for IME safety), Escape discards it, and failed validation leaves the input editable with a visible error and retry. Editing disables task selection and competing mutations. The GTK4 accessible widget names/labels expose `edit-task`, `edit-task-title`, `save-task`, `cancel-task-edit`, and `task-edit-error`. The packaged Wayland/AT-SPI driver exercises cancel, whitespace rejection/draft retention and a successful backend update.
+### Linux native title editor
 
-This is deliberately **session-only** until the product-owned persistence PR #352, now independently tracking Windows #350, is integrated and the desktop apps have passed actual relaunch/recovery acceptance. The separate macOS preview #353 provides equivalent SwiftUI semantics; all three native builds, keyboard/IME/accessibility traces and human visual review must still pass [#347](https://github.com/turlamai/rivet/issues/347) before completion is claimed.
+The GTK4 reference now offers **Edit title → Save / Discard draft**.
+The native GtkEntry retains the draft independently of committed State.
+Return does not save (IME-safe); Escape cancels; failed RPC validation keeps
+the draft for retry. Accessible identifiers include `edit-task`,
+`edit-task-title`, `save-task`, `cancel-task-edit`, and
+`task-edit-error`. Packaged Wayland AT-SPI checks exercise these interactions.
+The shared Racket backend stores a durable snapshot before returning success;
+packaged relaunch/recovery, keyboard/IME and visual review remain #347 gates.
+
+**Issue [#347](https://github.com/turlamai/rivet/issues/347) remains
+open.** macOS still needs an equivalent native title editor and
+packaged-app relaunch acceptance. Windows close-while-dirty, real keyboard/IME
+and focus traces, scaling/accessibility and human visual review also require
+evidence. A successful Racket storage test is not a production UX certificate.
 
 ## Accessibility and performance contracts
 

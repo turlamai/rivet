@@ -262,7 +262,7 @@ def main():
     edit_text(draft, "   ")
     press(wait_for(
         "Apply title action",
-        lambda: find_named(window, "Apply for this session", "push button"),
+        lambda: find_named(window, "Save", "push button"),
     ))
     wait_for(
         "rejected backend edit keeps text and explains the error",
@@ -278,7 +278,7 @@ def main():
     edit_text(draft, "Edited via native AT-SPI")
     press(wait_for(
         "retry Apply action",
-        lambda: find_named(window, "Apply for this session", "push button"),
+        lambda: find_named(window, "Save", "push button"),
     ))
     wait_for(
         "successful edit updates the selected detail title",

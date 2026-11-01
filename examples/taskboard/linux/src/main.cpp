@@ -523,7 +523,7 @@ void on_edit_clicked(GtkButton*, gpointer) {
   gtk_label_set_text(g_state.title_edit_error, "");
   gtk_widget_set_visible(g_state.title_edit_box, TRUE);
   set_busy(false);
-  g_state.set_status("Draft pending — Apply for this session or Discard draft.");
+  g_state.set_status("Draft pending — Save or Discard draft.");
   gtk_widget_grab_focus(GTK_WIDGET(g_state.title_edit));
 }
 
@@ -744,9 +744,9 @@ void on_activate(GtkApplication* app, gpointer) {
   auto* title_edit = gtk_entry_new();
   gtk_entry_set_max_length(GTK_ENTRY(title_edit), 4000);
   gtk_entry_set_placeholder_text(GTK_ENTRY(title_edit),
-                                 "Task title (session-only)");
+                                 "Task title");
   gtk_widget_set_hexpand(title_edit, TRUE);
-  auto* save_task = gtk_button_new_with_label("Apply for this session");
+  auto* save_task = gtk_button_new_with_label("Save");
   auto* cancel_task_edit = gtk_button_new_with_label("Discard draft");
   auto* title_edit_error = gtk_label_new("");
   gtk_label_set_wrap(GTK_LABEL(title_edit_error), TRUE);
@@ -806,7 +806,7 @@ void on_activate(GtkApplication* app, gpointer) {
   gtk_accessible_update_property(GTK_ACCESSIBLE(title_edit),
                                  GTK_ACCESSIBLE_PROPERTY_DESCRIPTION,
                                  "Task title draft", -1);
-  set_accessible_identity(save_task, "save-task", "Apply for this session");
+  set_accessible_identity(save_task, "save-task", "Save");
   set_accessible_identity(cancel_task_edit, "cancel-task-edit", "Discard draft");
   set_accessible_identity(title_edit_error, "task-edit-error", "Task edit error");
   gtk_accessible_update_property(GTK_ACCESSIBLE(title_edit_error),

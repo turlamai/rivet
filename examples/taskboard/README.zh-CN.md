@@ -90,27 +90,44 @@ git diff -- rivet-schema.json
 授权、Linux 缺少 session bus 或通知服务不可用时不会把已成功的领域操作变成失败；
 任务状态仍会正常显示在列表中。
 
-## 标题编辑交互（Windows 预览）
+## 标题编辑与本地持久化（Windows/Linux 预览）
 
-Windows 的 WinUI 3 参考界面现已提供 **Edit title → Apply for this session / Discard draft**（编辑标题、仅本次运行应用修改、丢弃草稿），对应原生自动化标识
-`edit-task-title`、`save-task` 和 `cancel-task-edit`。用户需要显式
-应用；按 Enter 不会在输入法候选词确认时误提交。编辑框中按 Escape 或点击
-**Discard draft** 会取消本次编辑。编辑期间暂时禁用任务列表及其他修改操作；
-Racket 的 `update-task` RPC 验证标题。更新被拒绝时保留草稿并显示可恢复的
-错误。Windows UI Automation 测试覆盖已打包原生应用中的取消、验证失败和
-成功应用会话内修改。
+WinUI 3 参考界面提供 **Edit title → Save / Discard draft**（编辑标题、
+保存、丢弃草稿），自动化标识为 `edit-task-title`、`save-task` 和
+`cancel-task-edit`。用户必须显式保存；按 Enter 不会因输入法确认候选词
+而误提交。按 Escape 或点击 Discard draft 取消编辑。草稿存在期间禁用
+列表切换和冲突操作。Racket 更新失败会保留输入内容、显示错误并允许重试。
+打包后的原生 UI Automation 测试覆盖上述路径。
 
-**这尚未满足** [Issue #347](https://github.com/turlamai/rivet/issues/347)
-的全部跨平台及持久化验收条件。目前 Taskboard 后端仅在进程内存保存任务：
-界面仅表明当前运行期间更新成功，退出并重新启动后修改**不会保留**。macOS 交互仍需验证；Linux 的原生标题编辑已在本分支落地，三个平台还需基于隔离用户配置的持久化、
-焦点、键盘、无障碍与真实窗口证据。在 #347 通过全部验收之前，不能把本示例
-描述为生产级任务编辑器。
+**Racket 后端先完成本地持久化，再返回成功的 RPC 或 State 更新。**
+版本化快照名为 `tasks-v1.rktd`。设置环境变量
+`RIVET_TASKBOARD_DATA_DIR` 时存放于该目录；否则存放于
+`(find-system-path 'pref-dir)/rivet-taskboard/`。快照记录标题、备注、
+状态、稳定任务 ID 和下一个 ID。重启时读取该快照，而不是默认恢复三条演示数据。
+快照文件的大小上限为 64 MiB，另有任务数量与单字段长度限制。
+写入时先在目标目录创建大小受限的临时文件，再替换原文件。写入失败不会
+提交新的 State，而是通过 RPC 返回错误。损坏或不兼容的快照会阻止启动，
+不会悄悄覆盖原始用户数据。
 
-## 原生标题编辑（Linux GTK4 预览）
+进行隔离测试时，请在启动应用前将 `RIVET_TASKBOARD_DATA_DIR` 指向临时目录。
+备份、恢复或删除数据前请先退出应用，再复制、替换或删除该目录中的快照；
+尝试手工恢复前应保留备份。本参考程序尚无自动备份、未来格式迁移、云同步
+或多进程并发写入协调功能。
 
-Linux GTK4 示例现已提供 **Edit title → Apply for this session / Discard draft**（编辑标题 → 本次运行应用 / 丢弃草稿），通过现有 Racket `update-task` RPC 修改任务。`GtkEntry` 草稿不会提前替换已保存任务；Enter 不绑定保存（避免输入法误提交），Escape 丢弃草稿，校验失败则保留可编辑内容、显示错误并允许重试。编辑期间禁止切换任务和其他冲突操作。原生无障碍标识包含 `edit-task`、`edit-task-title`、`save-task`、`cancel-task-edit`、`task-edit-error`。Wayland/AT-SPI 打包验收覆盖取消、空白标题失败保留输入及真实后端修改成功。
+### Linux GTK4 原生标题编辑
 
-**当前仍为会话内修改**。需要等已独立对接主分支的持久化 PR #352 通过并合并，且三个平台真正完成关闭重启、恢复和错误路径验收，才能承诺落盘保存。macOS #353 提供独立的 SwiftUI 交互预览；三个平台的键盘/输入法/无障碍证据和真人界面可读性检查仍属于 [#347](https://github.com/turlamai/rivet/issues/347) 未完成的验收条件。
+GTK4 示例新增 **Edit title → Save / Discard draft**，`GtkEntry` 的草稿
+与已保存的任务分离。Enter 不会误保存输入法候选，Escape 可取消；
+后端校验拒绝后仍保留输入供重试，禁止同时执行冲突操作。无障碍标识包含
+`edit-task`、`edit-task-title`、`save-task`、`cancel-task-edit`、
+`task-edit-error`；打包应用的 Wayland/AT-SPI 测试覆盖这些流程。
+Racket 后端在报告成功之前持久化快照，但关闭重启、恢复、真实输入法和
+视觉验收仍须在 #347 提供证据。
+
+**[Issue #347](https://github.com/turlamai/rivet/issues/347) 仍然开放。**
+macOS 尚需语义一致的原生标题编辑器及打包后重启验收；Windows 关闭窗口时
+草稿处理、真实键盘/输入法/焦点追踪、缩放/无障碍与人工视觉评审也仍需证据。
+Racket 存储测试通过不代表生产级 UI 体验已经达标。
 
 ## 无障碍与性能契约
 
