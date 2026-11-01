@@ -94,6 +94,22 @@
  (for/or ([fix (in-list linux-fixes)])
    (regexp-match? #rx"Linux native toolchain" (car fix))))
 
+;; The Racket executable can be present while its separate native-embedding
+;; runtime is missing. The remedy must not recommend a *full* distribution
+;; as the fix for missing boot files / static libraries (issue #365).
+(define unavailable-embedding
+  (hash-set (hash-set incomplete-linux 'runtime #f)
+            'runtime-error
+            "missing: petite.boot, scheme.boot, and racket.boot"))
+(define embedding-fixes (doctor-remediations unavailable-embedding))
+(check-true
+ (for/or ([fix (in-list embedding-fixes)])
+   (and (regexp-match? #rx"minimal source-built Racket CS" (cdr fix))
+        (regexp-match? #rx"RIVET_RACKET_BOOT_DIR" (cdr fix)))))
+(check-false
+ (for/or ([fix (in-list embedding-fixes)])
+   (regexp-match? #rx"Install a full Racket CS distribution" (cdr fix))))
+
 ;; `doctor --json` is intended for CI and agents. Keep the report inside the
 ;; Racket JSON data model and verify it survives a complete encode/decode pass.
 (define encoded
@@ -172,7 +188,7 @@ RKT
        #:exists 'truncate
        (lambda (out)
          (displayln
-          (format "packages: 'https://github.com/turinglambdaai/rivet.git#v~a'"
+          (format "packages: 'https://github.com/turlamai/rivet.git#v~a'"
                   installed)
           out))))
 
@@ -222,7 +238,7 @@ RKT
        #:exists 'truncate
        (lambda (out)
          (displayln
-          "packages: 'https://github.com/turinglambdaai/rivet.git#'"
+          "packages: 'https://github.com/turlamai/rivet.git#'"
           out)))
       (define empty-ref-report (release-doctor-report project))
       (release-check-failed? empty-ref-report
@@ -242,7 +258,7 @@ RKT
            (lambda (out) (displayln content out))))
         ;; mediated and resolved to the installed release -> passes
         (write-ci
-         (format "env:\n  RIVET_PIN: v~a\npackages: \"https://github.com/turinglambdaai/rivet.git#${{ env.RIVET_PIN }}\""
+         (format "env:\n  RIVET_PIN: v~a\npackages: \"https://github.com/turlamai/rivet.git#${{ env.RIVET_PIN }}\""
                  installed))
         (define mediated-report (release-doctor-report project))
         (release-check-passed?
@@ -250,7 +266,7 @@ RKT
          "dependency pins are non-empty and match the installed release")
         ;; mediated but undefined -> fails naming the variable
         (write-ci
-         "packages: \"https://github.com/turinglambdaai/rivet.git#${{ env.RIVET_PIN }}\"")
+         "packages: \"https://github.com/turlamai/rivet.git#${{ env.RIVET_PIN }}\"")
         (define unresolved-report (release-doctor-report project))
         (release-check-failed?
          unresolved-report
@@ -258,7 +274,7 @@ RKT
          #rx"reads an env variable this file does not define")
         ;; mediated and resolved to a wrong tag -> fails the comparison
         (write-ci
-         "env:\n  RIVET_PIN: v0.0.1\npackages: \"https://github.com/turinglambdaai/rivet.git#${{ env.RIVET_PIN }}\"")
+         "env:\n  RIVET_PIN: v0.0.1\npackages: \"https://github.com/turlamai/rivet.git#${{ env.RIVET_PIN }}\"")
         (define wrong-tag-report (release-doctor-report project))
         (release-check-failed?
          wrong-tag-report
@@ -267,7 +283,7 @@ RKT
         ;; restore the live workflow to the installed release, then check
         ;; that changelog prose naming a past pin is exempt from the comparison
         (write-ci
-         (format "env:\n  RIVET_PIN: v~a\npackages: \"https://github.com/turinglambdaai/rivet.git#${{ env.RIVET_PIN }}\""
+         (format "env:\n  RIVET_PIN: v~a\npackages: \"https://github.com/turlamai/rivet.git#${{ env.RIVET_PIN }}\""
                  installed))
         (call-with-output-file
          (build-path project-root "CHANGELOG.md")

@@ -8,12 +8,28 @@
   `.github` script. Its Python 3 scanner is packaged with `rivet-cli`; CLI
   argument tests and a real packaged macOS CI smoke guard the public entry.
 
+
 - Add a read-only, JSON-reporting Apple channel preflight for packaged macOS
   bundles. It detects malformed bundle/privacy metadata, checks effective
   entitlements and code signatures on macOS, flags Store sandbox/unsafe runtime
   exceptions and explicitly reports missing iOS standalone/Store evidence.
   The paired English/Chinese guide distinguishes Developer ID notarization
   from App Store review; this is not automatic Apple approval.
+
+
+- DMG packaging survives slow volume teardown on CI runners. The installer
+  now probes the mount point instead of trusting one `hdiutil detach` exit
+  code, retries the graceful detach across the few-second window where a
+  lingering `diskimages-helper` or Spotlight still holds the volume, treats
+  an already-torn-down volume as success, and only then falls back to the
+  forced detach (fulcrum v0.14.1: macos-x64 packaging failed twice in a row
+  with `couldn't eject "disk2" - Resource busy` followed by
+  `detach failed - No such file or directory`).
+
+- Taskboard WinUI 3 reference: explicit title draft/apply/discard controls,
+  rejected backend mutations retain the draft, with packaged Windows UI
+  Automation coverage. Updates are session-only until persistent storage and
+  three-platform acceptance for #347 land.
 
 - New Rivet projects now tell coding agents to design and verify native
   interaction through the real packaged app, not require a separate mockup.
@@ -48,7 +64,21 @@
   includes deterministic route, revocation, and budget tests. App packaging
   and physical-device acceptance remain separate release gates.
 
+### Added
+
+- Application threads can now emit events. `emit-event!` falls back to
+  the unique active server's emitter when no thread-local parameter exists
+  (`send!` is already thread-safe through the writer channel), so file
+  watchers, network workers, and other backend threads can notify the
+  UI without polling. Emissions with multiple active servers or after shutdown raise as
+  before.
+
 ### Fixed
+
+- `raco rivet doctor` now points full-distribution users with missing CS boot
+  files or static libraries to the minimal source-built embedding runtime and
+  the four `RIVET_RACKET_*` overrides instead of recommending another full
+  installation (issue #365). Tests cover both direct errors and doctor fixes.
 
 - Document the thread-scoped event emitter required for live chart tickers
   (issue #341): event publishers must be spawned from a server-owned RPC
