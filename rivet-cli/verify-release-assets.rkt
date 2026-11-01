@@ -137,7 +137,7 @@
   (unless (and (= (length parts) 3)
                (memq (first parts) '(windows macos linux))
                (memq (second parts) '(x64 arm64))
-               (memq (third parts) '(zip msi deb rpm appimage targz)))
+               (memq (third parts) '(zip targz msi msix exe dmg pkg deb rpm appimage)))
     (raise-arguments-error 'verify-release-assets
                            "--require expects platform:arch:installer"
                            "value" value))
