@@ -39,7 +39,8 @@
 (define (artifact-target artifact)
   (list (update-artifact-platform artifact)
         (update-artifact-architecture artifact)
-        (update-artifact-installer artifact)))
+        (update-artifact-installer artifact)
+        (update-artifact-component artifact)))
 
 (define (verify-release-assets! manifest-path release-dir public-key-path
                                 #:base-url base-url
@@ -134,14 +135,21 @@
 
 (define (parse-target value)
   (define parts (map string->symbol (string-split value ":")))
-  (unless (and (= (length parts) 3)
+  (unless (and (memq (length parts) '(3 4))
                (memq (first parts) '(windows macos linux))
                (memq (second parts) '(x64 arm64))
-               (memq (third parts) '(zip targz msi msix exe dmg pkg deb rpm appimage)))
+               (memq (third parts) '(zip targz msi msix exe dmg pkg deb rpm appimage))
+               (or (= (length parts) 3)
+                   (memq (fourth parts) '(app cli tool))))
     (raise-arguments-error 'verify-release-assets
-                           "--require expects platform:arch:installer"
+                           "--require expects platform:arch:installer[:component]"
                            "value" value))
-  parts)
+  ;; A three-part target asserts the legacy *untagged* application payload.
+  ;; Explicit app/CLI/tool payloads need four parts so one cannot satisfy
+  ;; a required target intended for another component.
+  (if (= (length parts) 3)
+      (append parts (list #f))
+      parts))
 
 (define (parse-verify-release-assets-arguments arguments)
   (let loop ([remaining arguments] [options (hasheq)]
