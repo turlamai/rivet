@@ -17,7 +17,9 @@
          "signing-options.rkt"
          "tar.rkt")
 
-(provide create-installer!)
+(provide create-installer!
+         attached-image-location
+         detach-mounted-image!)
 
 (define (run! who executable . arguments)
   (unless executable (error who "required executable was not found"))
