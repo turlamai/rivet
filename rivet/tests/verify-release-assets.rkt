@@ -58,6 +58,15 @@
 (check-exn #rx"immutable release tag"
            (lambda ()
              (check! "https://github.com/turlamai/example/releases/latest/download")))
+;; Correctly signed v1.2.4 metadata must never be published underneath a
+;; v1.2.3 release tag, even when its physical file and signature are valid.
+(sign! (struct-copy update-manifest signed [version "1.2.4"]))
+(check-exn #rx"release tag does not match signed manifest version"
+           (lambda () (check!)))
+(sign! signed)
+(check-exn #rx"release tag does not match signed manifest version"
+           (lambda ()
+             (check! "https://github.com/turlamai/example/releases/download/v9.9.9")))
 ;; Never authenticate a manifest that claims an installer kind incompatible
 ;; with the physical package's filename, even when its digest is correct.
 (sign! (struct-copy update-manifest signed
