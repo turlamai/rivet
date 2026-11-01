@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Document embedded Racket CS's original-place-thread FFI loading risk
+  (issue #363) in embedding/capability guidance and machine-readable
+  `inspect --json`, with a regression assertion. A packaged-host scheduling
+  fix and proof remain separate; no general worker-thread FFI safety is claimed.
+
 - DMG packaging survives slow volume teardown on CI runners. The installer
   now probes the mount point instead of trusting one `hdiutil detach` exit
   code, retries the graceful detach across the few-second window where a

@@ -100,7 +100,7 @@
      3
      "ffi"
      "A stable C ABI needs frequent, low-latency, in-process calls."
-     "Hide ffi/unsafe behind a small safe Racket module; specify ownership, callbacks, threads, ABI/version checks, and packaged native libraries.")
+     "Hide ffi/unsafe behind a checked Racket module. In embedded Racket CS, lazy ffi-lib/get-ffi-obj from background workers can block waiting on an unserviced original place thread; initialize on a serviced original thread before workers, or use a native adapter/supervised subprocess. Check ownership, callbacks, ABI and packaged libraries.")
     (sourcing-option
      4
      "cli"

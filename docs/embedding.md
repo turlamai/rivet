@@ -101,6 +101,24 @@ Rivet therefore uses this rule:
 
 The Racket worker may construct temporary symbols/pairs required to enter the application. The WinUI, SwiftUI, and GTK4 layers never see them.
 
+## FFI and the original place thread
+
+When embedding Racket CS behind a native UI message loop, first-time
+`ffi-lib` or `get-ffi-obj` from a Racket application worker may wait for
+work on the original thread of its Racket place. If the host owns that
+original thread and never lets it service Racket, the call can hang even
+though it succeeds in a standalone `racket` process. Killing a thread
+blocked in the foreign call is not a reliable cancellation strategy.
+
+Initialize foreign bindings before workers only where the *actual* embedded
+runtime provides a serviced original place thread; an arbitrary backend
+worker is not equivalent. Otherwise use a native host adapter or supervised
+child process. Verify the packaged host on each supported platform rather
+than inferring correctness from REPL or unit-only behavior. See the
+[capability-sourcing guidance](agent-native.md#embedded-racket-cs-original-thread-ffi-loading-363)
+and [issue #363](https://github.com/turlamai/rivet/issues/363).
+The issue remains open pending an embedded-host regression test.
+
 ## Runtime files
 
 Packaging should use `raco ctool --runtime` alongside `--mods` to collect runtime dependencies. On Windows, collected optional DLLs used by Racket should be made discoverable using `racket_boot_arguments_t.dll_dir` or an equivalent controlled DLL search path.
