@@ -126,7 +126,13 @@
                            "asset" duplicate))
   (define available-targets (map artifact-target artifacts))
   (for ([target (in-list required-targets)])
-    (unless (member target available-targets equal?)
+    ;; Preserve the programmatic three-part legacy contract: it refers
+    ;; specifically to untagged (#f) application payloads.
+    (define identity
+      (if (= (length target) 3)
+          (append target (list #f))
+          target))
+    (unless (member identity available-targets equal?)
       (raise-arguments-error 'verify-release-assets!
                              "required release target is missing from signed manifest"
                              "target" target
