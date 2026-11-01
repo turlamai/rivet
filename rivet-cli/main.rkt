@@ -70,7 +70,7 @@
     "  raco rivet verify-release-assets --manifest <feed> --dir <dist>\n"
     "                                  --public-key <DER> --key-id <id>\n"
     "                                  --base-url <immutable release-tag URL>\n"
-    "                                  [--application-id <id>] [--require <os>:<arch>:<installer>]...\n"
+    "                                  [--application-id <id>] [--require <os>:<arch>:<installer>[:component]]...\n"
     "                                      verify signed release asset parity\n"
     "  raco rivet sign-manifest --application-id <id> --version <v> --build <n>\n"
     "                           --channel <stable|beta|dev> --base-url <url>\n"
