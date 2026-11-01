@@ -73,6 +73,20 @@
         (verify-signed-manifest in
                                 (read-ed25519-public-key public-key-path)
                                 #:key-id key-id))))
+  ;; A correctly signed manifest must still belong to the exact release
+  ;; tag that is about to receive its assets. Otherwise a CI packaging
+  ;; mistake can publish vNext metadata under an older/newer GitHub tag.
+  ;; Do not impose this GitHub naming convention on independent HTTPS feeds.
+  (when (regexp-match? #px"^https://github[.]com/" base-url)
+    (define expected-tag (string-append "v" (update-manifest-version manifest)))
+    (define actual-tag
+      (second (regexp-match
+               #px"/releases/download/([^/]+)$" base-url)))
+    (unless (string=? actual-tag expected-tag)
+      (raise-arguments-error 'verify-release-assets!
+                             "GitHub release tag does not match signed manifest version"
+                             "release tag" actual-tag
+                             "expected tag" expected-tag)))
   (when (and application-id
              (not (equal? (update-manifest-application-id manifest)
                           application-id)))
