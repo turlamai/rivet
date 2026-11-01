@@ -7,6 +7,14 @@
   Its labels reflect the persisted Racket snapshot from #352; packaged
   relaunch/recovery and complete human visual/IME review remain pending.
 
+- Add a read-only, JSON-reporting Apple channel preflight for packaged macOS
+  bundles. It detects malformed bundle/privacy metadata, checks effective
+  entitlements and code signatures on macOS, flags Store sandbox/unsafe runtime
+  exceptions and explicitly reports missing iOS standalone/Store evidence.
+  The paired English/Chinese guide distinguishes Developer ID notarization
+  from App Store review; this is not automatic Apple approval.
+
+
 - DMG packaging survives slow volume teardown on CI runners. The installer
   now probes the mount point instead of trusting one `hdiutil detach` exit
   code, retries the graceful detach across the few-second window where a
