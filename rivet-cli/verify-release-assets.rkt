@@ -12,6 +12,7 @@
          racket/path
          racket/string
          "../rivet/distribution/crypto.rkt"
+         "../rivet/distribution/identity.rkt"
          "../rivet/distribution/manifest.rkt")
 
 (provide verify-release-assets!
@@ -50,6 +51,17 @@
                (not (regexp-match? #px"[?#]" base-url)))
     (raise-argument-error 'verify-release-assets!
                           "immutable HTTPS release base URL" base-url))
+  ;; GitHub's moving latest/download URL is NOT an immutable asset source.
+  ;; Keep releases/latest strictly for fetching the channel manifest; every
+  ;; verified payload URL must be pinned to its release tag.
+  (when (regexp-match? #px"^https://github[.]com/" base-url)
+    (unless (and (regexp-match?
+                  #px"^https://github[.]com/[^/]+/[^/]+/releases/download/[^/]+$"
+                  base-url)
+                 (not (regexp-match? #px"/releases/download/latest$" base-url)))
+      (raise-arguments-error 'verify-release-assets!
+                             "GitHub base URL must use an immutable release tag"
+                             "base URL" base-url)))
   (unless (directory-exists? release-dir)
     (raise-arguments-error 'verify-release-assets!
                            "release directory does not exist" "path" release-dir))
@@ -71,7 +83,22 @@
   (define names
     (for/list ([artifact (in-list artifacts)])
       (define name (asset-name-for-url (update-artifact-url artifact) base-url))
+      ;; The signature covers an installer *kind* as well as a URL. A feed
+      ;; with installer=msi pointing to a ZIP (or vice versa) would otherwise
+      ;; pass the hash gate but fail installation. Validate its basic shape.
+      (define expected-extension
+        (installer-extension (update-artifact-installer artifact)))
+      (unless (string-suffix? name expected-extension)
+        (raise-arguments-error 'verify-release-assets!
+                               "signed asset filename does not match installer kind"
+                               "asset" name
+                               "installer" (update-artifact-installer artifact)
+                               "expected extension" expected-extension))
       (define local-path (build-path release-dir name))
+      (when (link-exists? local-path)
+        (raise-arguments-error 'verify-release-assets!
+                               "release asset must be a regular file, not a symlink"
+                               "asset" name))
       (unless (file-exists? local-path)
         (raise-arguments-error 'verify-release-assets!
                                "signed release asset is missing"
