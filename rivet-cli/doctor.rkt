@@ -160,7 +160,7 @@
                 [configured? (file-exists? baseline)])
            (hash 'root (path-string (rivet-project-root project))
                  'schema-baseline-configured configured?))))
-  (define warnings
+  (define schema-warnings
     (if (and project-readiness
              (not (hash-ref project-readiness 'schema-baseline-configured)))
         (list
