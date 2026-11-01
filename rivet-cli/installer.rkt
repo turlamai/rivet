@@ -520,19 +520,6 @@
       (display (dmg-style-applescript disk-name app-name) out)))
   (define (detach!)
     (detach-mounted-image! hdiutil mounted-device mount-path))
-  (with-handlers ([exn:fail? (lambda (_) #f)])
-         (apply run! 'create-installer! hdiutil "detach"
-                (append flags (list mount-path)))
-         (volume-gone?))]))
-  (define (detach!)
-    (or (for/or ([_ (in-range 5)])
-          (define ok (detach-attempt!))
-          (unless ok (sleep 2))
-          ok)
-        (detach-attempt! "-force")
-        ;; Preserve the familiar failure shape when the volume truly
-        ;; cannot go away.
-        (run! 'create-installer! hdiutil "detach" "-force" mount-path)))
   (with-handlers ([exn:fail?
                    (lambda (e)
                      (with-handlers ([exn:fail? void]) (detach!))
