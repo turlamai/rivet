@@ -129,7 +129,7 @@
          "--key-id" "example-2026"
          "--application-id" "site.jrtx.example"
          "--require" "linux:x64:targz")))
-(check-equal? (hash-ref args 'required-targets) '((linux x64 targz)))
+(check-equal? (hash-ref args 'required-targets) '((linux x64 targz #f)))
 (check-exn #rx"required option is missing"
            (lambda () (parse-verify-release-assets-arguments '())))
 (check-exn #rx"expects platform:arch:installer"
