@@ -67,6 +67,11 @@
     "  raco rivet release --update-payload <installer>:<glob>[:<component>]\n"
     "                                      add a per-platform update payload to the feed\n"
     "  raco rivet manifest-compose <inputs...> [--output <file>]\n"
+    "  raco rivet verify-release-assets --manifest <feed> --dir <dist>\n"
+    "                                  --public-key <DER> --key-id <id>\n"
+    "                                  --base-url <immutable release-tag URL>\n"
+    "                                  [--application-id <id>] [--require <os>:<arch>:<installer>[:component]]...\n"
+    "                                      verify signed release asset parity\n"
     "  raco rivet sign-manifest --application-id <id> --version <v> --build <n>\n"
     "                           --channel <stable|beta|dev> --base-url <url>\n"
     "                           --key-id <id> --artifact <platform>:<arch>:<installer>:<file> ...\n"
@@ -304,6 +309,10 @@
      (define sign-manifest! (command "sign-manifest" 'sign-manifest!))
      (define output (sign-manifest! artifacts options))
      (say "signed update manifest: ~a" output)]
+    [(cons "verify-release-assets" rest)
+     (define run-verify-release-assets-command
+       (command "verify-release-assets" 'run-verify-release-assets-command))
+     (run-verify-release-assets-command rest)]
     [(cons "apple-review" review-args)
      (define run-apple-review-command
        (command "apple-review" 'run-apple-review-command))
