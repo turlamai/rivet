@@ -49,7 +49,7 @@
 (sign! signed)
 (check-equal? (update-manifest-version (check!)) "1.2.3")
 (check-equal? (update-manifest-version
-               (check! base #:targets '((linux x64 targz))))
+               (check! base #:targets '((linux x64 targz #f))))
               "1.2.3")
 (check-exn #rx"required release target"
            (lambda () (check! base #:targets '((macos arm64 zip)))))
@@ -106,6 +106,18 @@
                       [artifacts (list (struct-copy update-artifact entry
                                                     [url url]))]))
   (check-exn #rx"unsafe or ambiguous filename" (lambda () (check!))))
+(sign! signed)
+
+;; A CLI ZIP must not satisfy a required *app* ZIP target. The
+;; component is part of the signed artifact identity.
+(sign! (struct-copy update-manifest signed
+                    [artifacts (list (struct-copy update-artifact entry
+                                                  [component 'cli]))]))
+(check-exn #rx"required release target"
+           (lambda () (check! base #:targets '((linux x64 targz #f)))))
+(check-equal? (update-manifest-version
+               (check! base #:targets '((linux x64 targz cli))))
+              "1.2.3")
 (sign! signed)
 
 (define args
