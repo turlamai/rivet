@@ -6,8 +6,10 @@
 ;; signed update manifest containing exactly one artifact. Multi-platform
 ;; products then hand-roll a merge (five repos, five schemes). This module
 ;; folds the per-platform manifests into one signed manifest — same
-;; application identity, one artifact per (platform, architecture) — using
-;; the same Ed25519 wrapper every client already verifies.
+;; application identity, and one artifact per (platform, architecture,
+;; installer, component) — using the same Ed25519 wrapper every client
+;; already verifies. This supports a native installer alongside portable
+;; ZIP/CLI payloads for the same operating system and architecture.
 
 (require racket/file
          racket/list
@@ -108,16 +110,22 @@
     (last (sort (map update-manifest-published-at manifests) string<?)))
   (define artifacts
     (append* (map update-manifest-artifacts manifests)))
-  (define repeated-pairs
+  ;; Match the signed-manifest schema's artifact identity exactly.
+  ;; A Windows MSI and ZIP (or an app ZIP and a CLI ZIP) may legitimately
+  ;; share a platform/architecture; two entries with identical *full*
+  ;; identities would make an update install ambiguous.
+  (define repeated-identities
     (duplicates (map (lambda (artifact)
-                       (cons (update-artifact-platform artifact)
-                             (update-artifact-architecture artifact)))
+                       (list (update-artifact-platform artifact)
+                             (update-artifact-architecture artifact)
+                             (update-artifact-installer artifact)
+                             (update-artifact-component artifact)))
                      artifacts)))
-  (unless (null? repeated-pairs)
+  (unless (null? repeated-identities)
     (raise-arguments-error
      'compose-manifests!
-     "more than one artifact for the same platform and architecture"
-     "duplicates" repeated-pairs))
+     "duplicate artifact platform, architecture, installer, and component identity"
+     "duplicates" repeated-identities))
   (define composed
     (update-manifest application-id version build channel published-at
                      minimum-version previous-version rollback-allowed?
