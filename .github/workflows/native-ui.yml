@@ -33,6 +33,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Exercise transient/detached AT-SPI children without a desktop
+          # first; the packaged Wayland scenario below remains mandatory.
+          python3 "$GITHUB_WORKSPACE/rivet/tests/native-ui/test_linux_atspi_traversal.py"
           cd examples/taskboard
           raco rivet package --skip-launch-smoke
           # Keep persisted Taskboard state in an isolated CI-only profile.
