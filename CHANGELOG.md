@@ -8,6 +8,11 @@
   `.github` script. Its Python 3 scanner is packaged with `rivet-cli`; CLI
   argument tests and a real packaged macOS CI smoke guard the public entry.
 
+- Taskboard Linux GTK4 native title editing now has explicit Save/Discard,
+  recoverable validation errors, and packaged Wayland AT-SPI checks (#347).
+  Its labels reflect the persisted Racket snapshot from #352; packaged
+  relaunch/recovery and complete human visual/IME review remain pending.
+
 - Taskboard macOS SwiftUI native title editing now has explicit Save/Discard
   with recoverable validation errors and packaged AX checks (issue #347).
   Its user-facing language now agrees with the durable Racket task snapshot
