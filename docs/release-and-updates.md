@@ -157,9 +157,11 @@ Require `rivet/distribution`. `fetch-update-manifest` verifies before parsing, `
 checks actual dpkg/rpm ownership of the executable instead of assuming that
 every binary under `/opt` or `/usr` was installed by the OS; portable
 applications copied to those directories remain portable. AppImage's runtime
-environment still takes precedence. If the package database is missing or
-unavailable, the detector reports portable; applications with a special
-installation model should pass their known installer kind explicitly. AppImage and portable installs only select their matching payload, while deb/rpm installations return `package-manager` and do not consume the AppImage feed. `prepare-platform-installation` turns a verified portable ZIP or Linux AppImage into Rivet's first-party atomic replacement; pass its result to `execute-platform-installation!`. The application supplies restart and health callbacks because it owns its process model and readiness signal. On Windows and macOS the default staged-payload verifier requires Authenticode or a deep strict code signature; development builds may inject an explicit verifier.
+environment still takes precedence. If package database ownership is unavailable, the detector conservatively
+keeps executables under `/opt` or `/usr` package-managed rather than
+attempting an unsafe replacement; other paths remain portable. Applications
+with a special installation model should pass their known installer kind
+explicitly. AppImage and portable installs only select their matching payload, while deb/rpm installations return `package-manager` and do not consume the AppImage feed. `prepare-platform-installation` turns a verified portable ZIP or Linux AppImage into Rivet's first-party atomic replacement; pass its result to `execute-platform-installation!`. The application supplies restart and health callbacks because it owns its process model and readiness signal. On Windows and macOS the default staged-payload verifier requires Authenticode or a deep strict code signature; development builds may inject an explicit verifier.
 
 Applications that need an in-app progress UI should use `make-updater` instead
 of rebuilding this orchestration. `updater-check!` performs the authenticated
