@@ -139,4 +139,58 @@
                       'output (path->string other-output)))))
 (check-false (file-exists? other-output))
 
+;; --- key-rotation dual-trust window (issue #370) ---------------------------
+
+;; A second keypair plays the "next" release key. During the window the
+;; client still primary-trusts the old key id and additionally trusts the
+;; next key id, each wrapper verified against its own paired public key.
+(define next-private-key
+  (generate-private-key ed25519-impl '((curve ed25519))))
+(define next-public-key-path (build-path root "next-public.der"))
+(call-with-output-file next-public-key-path
+  #:exists 'truncate/replace
+  (lambda (out)
+    (write-bytes (pk-key->datum next-private-key 'SubjectPublicKeyInfo) out)))
+
+(define rotation-output (build-path root "rotation-update.json"))
+(call-with-output-file rotation-output
+  #:exists 'truncate/replace
+  (lambda (out)
+    (write-signed-manifest manifest next-private-key "release-2027" out)))
+
+;; Without the dual-trust window the next-key feed is rejected outright.
+(check-exn #rx"unexpected key"
+           (lambda ()
+             (call-with-input-file rotation-output
+               (lambda (in)
+                 (verify-signed-manifest
+                  in (read-ed25519-public-key public-key-path)
+                  #:key-id "release-2026")))))
+
+;; Inside the window it verifies against the next key's own public half.
+(define rotation-manifest
+  (call-with-input-file rotation-output
+    (lambda (in)
+      (verify-signed-manifest
+       in (read-ed25519-public-key public-key-path)
+       #:key-id "release-2026"
+       #:trusted-keys
+       (list (cons "release-2027"
+                   (read-ed25519-public-key next-public-key-path)))))))
+(check-equal? (update-manifest-application-id rotation-manifest)
+              (update-manifest-application-id manifest))
+
+;; A trusted id whose signature does not verify under its paired key fails
+;; closed instead of falling back to the primary key.
+(check-exn #rx"verification failed"
+           (lambda ()
+             (call-with-input-file rotation-output
+               (lambda (in)
+                 (verify-signed-manifest
+                  in (read-ed25519-public-key public-key-path)
+                  #:key-id "release-2026"
+                  #:trusted-keys
+                  (list (cons "release-2027"
+                              (read-ed25519-public-key public-key-path))))))))
+
 (delete-directory/files root)

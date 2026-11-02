@@ -23,6 +23,30 @@ Applications that deliberately ship without an online update channel can run `ra
 
 WiX Toolset v4 or later is required to build the Windows MSI. macOS uses the system `hdiutil`. Rivet signs the final MSI/DMG as well as the contained application. On Linux the final tarball is signed and, because the archive is deterministic, `raco rivet verify --production` re-derives it from the package and checks the detached signature.
 
+## Unsigned distribution constraints
+
+Shipping in a no-paid-credentials mode is supported, with honest
+constraints that product support pages must carry verbatim rather than
+bury:
+
+- **Windows (`windows=unsigned`)**: first launch shows SmartScreen's
+  unknown-publisher warning for the MSI and portable exe. Support pages
+  explain what the dialog is, how to choose *More info → Run anyway*, and
+  why the warning exists; never instruct users to disable SmartScreen or
+  Defender, and never describe the binary as verified. Upgrades stay
+  non-destructive (MSI major-upgrade semantics; portable via the verified
+  atomic replacement) so users do not fear the dialog on update paths.
+- **macOS (`macos=adhoc`)**: ad-hoc signed bundles are labeled unsigned
+  for users. Gatekeeper requires the explicit right-click open on first
+  launch until real Developer ID + notarization credentials exist; the
+  update feed is still Ed25519-verified, and code signatures are preserved
+  through updates. Do not claim notarization anywhere in UI or docs.
+- **Linux (`linux=unsigned-package+signed-update`)**: deb/rpm install
+  through the package manager with its repository trust; AppImage runs
+  from an executable bit. No publisher account is required, and the
+  update feed's Ed25519 signature plus checksum parity gate provide the
+  trust chain. Architecture mapping (`x64`/`arm64`) is part of the feed
+  contract, not a download-page convention.
 ## Release modes (cross-product standard, issue #371)
 
 These named modes are the reusable standard for every Rivet-based product.
@@ -119,7 +143,13 @@ openssl genpkey -algorithm Ed25519 -outform DER -out update-private.der
 openssl pkey -inform DER -in update-private.der -pubout -outform DER -out update-public.der
 ```
 
-Embed only `update-public.der` (or its bytes) in the native host. Key rotation is explicit through `key_id`; ship a client trusting the next public key before signing releases exclusively with it.
+Embed only `update-public.der` (or its bytes) in the native host. Key rotation is explicit through `key_id` and is a supported, tested dual-trust window (issue #370):
+
+1. Ship a client release whose updater carries the **next** key id and public key as an additional trusted key, still primary-trusting the current one — `make-updater` takes `#:trusted-keys` as a list of `(cons key-id public-key-bytes)`; RivetUpdate on macOS takes `additionalTrustedKeys` (`[String: String]`, key id → base64 public key).
+2. Start signing release feeds with the next key. Clients in the window verify the wrapper's `key_id` against the trusted map and authenticate the payload with **that entry's own public key**; a trusted id whose signature does not verify under its paired key fails closed rather than falling back to the primary key.
+3. After the fleet has rotated, ship a client that primary-trusts the new key and drops the old entry; feeds signed with the retired key are rejected outright.
+
+Every feed is verified against the key its `key_id` selects; there is no "any trusted key works for any signature" fallback, and the wrong-key rejection tests cover the window on both the engine and macOS sides.
 
 ## Application API
 
@@ -171,7 +201,7 @@ runtime, which is exactly how shipped releases have failed on user machines.
 `raco rivet doctor --release` scans host source against the installed rivet's
 own contracts, so drift fails in CI instead:
 
-- `fetch-update-manifest` accepts `#:key-id` `#:maximum-bytes` `#:connect-timeout-seconds` `#:idle-timeout-seconds`.
+- `fetch-update-manifest` accepts `#:key-id` `#:trusted-keys` `#:maximum-bytes` `#:connect-timeout-seconds` `#:idle-timeout-seconds`.
 - `select-update` accepts `#:install-kind`.
 - `download-update` accepts `#:on-progress` `#:progress-every` `#:stall-timeout-seconds` `#:total-timeout-seconds`.
 - `fetch-sibling-asset` accepts `#:sha256` `#:maximum-bytes` `#:on-progress` `#:connect-timeout-seconds` `#:idle-timeout-seconds`.

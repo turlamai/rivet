@@ -36,6 +36,7 @@ a product overview rather than a second documentation index.
 - [Production signing](production-signing.md)
 - [Apple release readiness](apple-release-readiness.md) · [中文](apple-release-readiness.zh-CN.md) — channel-specific bundle preflight and App Store evidence boundaries
 - [Release and updates](release-and-updates.md)
+- [Cross-product adoption inventory](adoption.md) — which products run which release/update contract parts
 - [Releasing the Rivet framework](releasing.md)
 - [Native UI end-to-end testing](native-ui-testing.md)
 - [Protocol fuzzing](fuzzing.md) and [performance benchmarks](benchmarks.md)

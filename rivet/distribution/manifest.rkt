@@ -286,16 +286,35 @@
   (define-values (payload key-id signature) (read-wrapper input))
   (values (payload-bytes->manifest payload) payload key-id signature))
 
-(define (verify-signed-manifest input public-key #:key-id [expected-key-id #f])
+(define (verify-signed-manifest input public-key
+                                #:key-id [expected-key-id #f]
+                                #:trusted-keys [trusted-keys #f])
   ;; The payload is attacker-controlled until the signature succeeds. Parse
   ;; only the small outer wrapper first, authenticate the exact payload bytes,
   ;; and cross the semantic parsing boundary afterwards.
+  ;;
+  ;; `trusted-keys` implements the key-rotation dual-trust window (issue
+  ;; #370): an alist of (cons key-id-string public-key-bytes) entries the
+  ;; client additionally trusts while a publisher signs with the next key.
+  ;; A wrapper key id must be the expected primary id (verified with the
+  ;; primary `public-key`) or one of the trusted entries (verified with
+  ;; that entry's own public key); anything else is rejected, and a trusted
+  ;; id whose signature does not verify under its paired key fails closed.
   (define-values (payload key-id signature) (read-wrapper input))
-  (when (and expected-key-id (not (string=? expected-key-id key-id)))
-    (raise-arguments-error 'verify-signed-manifest
-                           "manifest was signed by an unexpected key"
-                           "expected" expected-key-id
-                           "actual" key-id))
-  (unless (ed25519-verify public-key payload signature)
+  (define trusted-entry
+    (and trusted-keys
+         (assf (lambda (trusted-id) (string=? trusted-id key-id)) trusted-keys)))
+  (define verifying-key
+    (cond
+      [trusted-entry (cdr trusted-entry)]
+      [(not expected-key-id) public-key]
+      [(string=? expected-key-id key-id) public-key]
+      [else
+       (raise-arguments-error 'verify-signed-manifest
+                              "manifest was signed by an unexpected key"
+                              "expected" expected-key-id
+                              "trusted" (if trusted-keys (map car trusted-keys) '())
+                              "actual" key-id)]))
+  (unless (ed25519-verify verifying-key payload signature)
     (error 'verify-signed-manifest "Ed25519 manifest signature verification failed"))
   (payload-bytes->manifest payload))

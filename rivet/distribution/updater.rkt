@@ -149,6 +149,7 @@
 
 (define (fetch-update-manifest manifest-url public-key
                                #:key-id [key-id #f]
+                               #:trusted-keys [trusted-keys #f]
                                #:maximum-bytes [maximum-bytes (* 1024 1024)]
                                #:connect-timeout-seconds
                                [connect-timeout-seconds
@@ -178,7 +179,8 @@
                         #:stall-seconds idle-timeout-seconds)
          (verify-signed-manifest (open-input-bytes (get-output-bytes out))
                                  public-key
-                                 #:key-id key-id))
+                                 #:key-id key-id
+                                 #:trusted-keys trusted-keys))
        (lambda () (close-input-port in))))))
 
 ;; Release sidecars and sibling artifacts (sha256 files, extra installers)

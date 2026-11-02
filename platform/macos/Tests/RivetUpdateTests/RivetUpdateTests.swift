@@ -84,6 +84,56 @@ private var testConfiguration: RivetUpdateConfiguration {
     }
 }
 
+// MARK: - Key rotation dual-trust window (issue #370)
+
+// A second fixed seed gives the deterministic "next" release signing key.
+private let nextKeySeed = Data(repeating: 0x43, count: 32)
+
+private var nextSigningKey: Curve25519.Signing.PrivateKey {
+    try! Curve25519.Signing.PrivateKey(rawRepresentation: nextKeySeed)
+}
+
+@Test func rotationWindowAcceptsFeedSignedByNextKey() throws {
+    let wrapper = try wrapperData(payloadJSON: innerManifestJSON(version: "1.2.3"),
+                                  key: nextSigningKey,
+                                  keyID: "release-2027")
+    let manifest = try RivetUpdateService.verifyManifest(
+        wrapper,
+        keyBase64: testConfiguration.publicKeyBase64,
+        keyID: "test-key",
+        additionalTrustedKeys: ["release-2027":
+            nextSigningKey.publicKey.rawRepresentation.base64EncodedString()])
+    #expect(manifest.version == "1.2.3")
+}
+
+@Test func rotationFeedWithoutTrustedEntryIsRejected() throws {
+    let wrapper = try wrapperData(payloadJSON: innerManifestJSON(version: "1.2.3"),
+                                  key: nextSigningKey,
+                                  keyID: "release-2027")
+    #expect(throws: RivetUpdateError.signatureInvalid) {
+        try RivetUpdateService.verifyManifest(
+            wrapper,
+            keyBase64: testConfiguration.publicKeyBase64,
+            keyID: "test-key")
+    }
+}
+
+@Test func rotationEntryWithMismatchedSignatureIsRejected() throws {
+    // A trusted key id whose signature does not verify under its paired
+    // public key fails closed instead of falling back to the primary key.
+    let wrapper = try wrapperData(payloadJSON: innerManifestJSON(version: "1.2.3"),
+                                  key: signingKey,
+                                  keyID: "release-2027")
+    #expect(throws: RivetUpdateError.signatureInvalid) {
+        try RivetUpdateService.verifyManifest(
+            wrapper,
+            keyBase64: testConfiguration.publicKeyBase64,
+            keyID: "test-key",
+            additionalTrustedKeys: ["release-2027":
+                nextSigningKey.publicKey.rawRepresentation.base64EncodedString()])
+    }
+}
+
 @Test func tamperedPayloadIsRejected() throws {
     let wrapper = try wrapperData(payloadJSON: innerManifestJSON(version: "9.9.9"),
                                   payloadBase64: Data("{}".utf8).base64EncodedString())
@@ -201,6 +251,20 @@ private var testConfiguration: RivetUpdateConfiguration {
         keyID: "",
         bundleName: "Taskly.app")
     #expect(throws: RivetUpdateError.invalidConfiguration("key id must not be empty")) {
+        try RivetUpdateService(configuration: config)
+    }
+}
+
+@Test func additionalTrustedKeyCannotShadowPrimaryID() {
+    let config = RivetUpdateConfiguration(
+        feedURL: testConfiguration.feedURL,
+        publicKeyBase64: testConfiguration.publicKeyBase64,
+        keyID: "test-key",
+        bundleName: "Taskly.app",
+        additionalTrustedKeys: ["test-key":
+            testConfiguration.publicKeyBase64])
+    #expect(throws: RivetUpdateError.invalidConfiguration(
+        "additional trusted key ids must be non-empty and distinct from the primary key id")) {
         try RivetUpdateService(configuration: config)
     }
 }
