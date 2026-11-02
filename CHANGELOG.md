@@ -13,16 +13,30 @@
   refuses the downgrade, and uninstalls cleanly — installed-package
   upgrade acceptance beyond portable packaging (issue #370).
 
+- `raco rivet doctor` now identifies a targeted source-owned WinUI
+  `SetIcon(exe_path)` mistake, with a native helper remediation and
+  a false-positive guard for borderless windows (#379).
+
 - The Apple preflight is now available as `raco rivet apple-review
   --channel <developer-id|mac-app-store|ios-app-store> --app <path.app> --json`
   from an installed Rivet package, instead of requiring a source-checkout
   `.github` script. Its Python 3 scanner is packaged with `rivet-cli`; CLI
   argument tests and a real packaged macOS CI smoke guard the public entry.
 
+- Taskboard Linux GTK4 native title editing now has explicit Save/Discard,
+  recoverable validation errors, and packaged Wayland AT-SPI checks (#347).
+  Its labels reflect the persisted Racket snapshot from #352; packaged
+  relaunch/recovery and complete human visual/IME review remain pending.
+
 - Taskboard macOS SwiftUI native title editing now has explicit Save/Discard
   with recoverable validation errors and packaged AX checks (issue #347).
   Its user-facing language now agrees with the durable Racket task snapshot
   from #352. Full packaged relaunch and visual/IME review remain outstanding.
+
+- Document embedded Racket CS's original-place-thread FFI loading risk
+  (issue #363) in embedding/capability guidance and machine-readable
+  `inspect --json`, with a regression assertion. A packaged-host scheduling
+  fix and proof remain separate; no general worker-thread FFI safety is claimed.
 
 - Add a read-only, JSON-reporting Apple channel preflight for packaged macOS
   bundles. It detects malformed bundle/privacy metadata, checks effective

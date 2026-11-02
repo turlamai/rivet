@@ -90,7 +90,7 @@ git diff -- rivet-schema.json
 授权、Linux 缺少 session bus 或通知服务不可用时不会把已成功的领域操作变成失败；
 任务状态仍会正常显示在列表中。
 
-## 标题编辑与本地持久化（Windows/macOS 预览）
+## 标题编辑与本地持久化（Windows/macOS/Linux 预览）
 
 WinUI 3 参考界面提供 **Edit title → Save / Discard draft**（编辑标题、
 保存、丢弃草稿），自动化标识为 `edit-task-title`、`save-task` 和
@@ -114,6 +114,16 @@ WinUI 3 参考界面提供 **Edit title → Save / Discard draft**（编辑标�
 尝试手工恢复前应保留备份。本参考程序尚无自动备份、未来格式迁移、云同步
 或多进程并发写入协调功能。
 
+### Linux GTK4 原生标题编辑
+
+GTK4 示例新增 **Edit title → Save / Discard draft**，`GtkEntry` 的草稿
+与已保存的任务分离。Enter 不会误保存输入法候选，Escape 可取消；
+后端校验拒绝后仍保留输入供重试，禁止同时执行冲突操作。无障碍标识包含
+`edit-task`、`edit-task-title`、`save-task`、`cancel-task-edit`、
+`task-edit-error`；打包应用的 Wayland/AT-SPI 测试覆盖这些流程。
+Racket 后端在报告成功之前持久化快照，但关闭重启、恢复、真实输入法和
+视觉验收仍须在 #347 提供证据。
+
 ### macOS 原生标题编辑
 
 SwiftUI 示例新增 **Edit title → Save / Discard draft**，通过明确保存、
@@ -124,7 +134,7 @@ Escape 取消、失败后保留草稿，并使用 `edit-task-title`、`save-task
 仍需在 #347 记录证据。
 
 **[Issue #347](https://github.com/turlamai/rivet/issues/347) 仍然开放。**
-GTK4 尚需语义一致的原生标题编辑器及打包后重启验收；Windows 关闭窗口时
+Windows 关闭窗口时
 草稿处理、真实键盘/输入法/焦点追踪、缩放/无障碍与人工视觉评审也仍需证据。
 Racket 存储测试通过不代表生产级 UI 体验已经达标。
 
