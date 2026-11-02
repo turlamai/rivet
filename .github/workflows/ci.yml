@@ -412,6 +412,30 @@ jobs:
           if (-not (Test-Path 'app\backend.rkt')) {
             throw 'raco rivet clean removed application source'
           }
+      - name: Doctor flags the exact bad icon overload in a consumer fixture
+        shell: pwsh
+        run: |
+          $smoke = Join-Path (Join-Path $env:RUNNER_TEMP 'rivet-smoke') 'Smoke'
+          if (-not (Test-Path (Join-Path $smoke 'rivet.rktd'))) { throw 'smoke consumer project is missing' }
+          New-Item -ItemType Directory -Force -Path (Join-Path $smoke 'windows') | Out-Null
+          # The exact downstream mistake behind issue #379 (Fulcrum v0.14.1):
+          # SetIcon handed an executable-path variable instead of an .ico file.
+          Set-Content -Path (Join-Path $smoke 'windows\SettingsWindow.xaml.cpp') -Value "AppWindow().SetIcon(exe_path);"
+          # A correct helper call in the same project must stay silent.
+          Set-Content -Path (Join-Path $smoke 'windows\MainWindow.xaml.cpp') -Value "rivet::system::ApplyAppIcon(*this);"
+          Set-Location $smoke
+          $json = raco rivet doctor --json
+          if ($LASTEXITCODE -ne 0) { throw 'doctor exited nonzero on warning-only findings' }
+          $report = $json | ConvertFrom-Json
+          $hits = @($report.warnings | Where-Object { $_.code -eq 'invalid-winui-window-icon-path' })
+          if ($hits.Count -ne 1) { throw "expected exactly one invalid-winui-window-icon-path warning, got $($hits.Count)" }
+          if ($hits[0].message -notmatch 'SettingsWindow\.xaml\.cpp') { throw 'icon warning did not name the offending file' }
+          if ($hits[0].remediation -notmatch 'ApplyAppIcon') { throw 'icon warning lacks the helper remediation' }
+          # Removing the offending file clears the warning again.
+          Remove-Item (Join-Path $smoke 'windows\SettingsWindow.xaml.cpp')
+          $clean = raco rivet doctor --json | ConvertFrom-Json
+          $remaining = @($clean.warnings | Where-Object { $_.code -eq 'invalid-winui-window-icon-path' })
+          if ($remaining.Count -ne 0) { throw 'icon warning persisted after removing the offending file' }
       - name: Build and verify the maintained WinUI reference app
         shell: pwsh
         run: |
