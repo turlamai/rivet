@@ -11,16 +11,51 @@
 
 (define platform (current-update-platform))
 
+;; This probe makes ownership deterministic on every CI host. Paths alone
+;; cannot reveal whether dpkg or rpm actually owns an executable.
+(define (ownership-in-fixture executable)
+  (if (member (path->string executable)
+              '("/opt/Example/RivetHost" "/usr/bin/example"))
+      'owned
+      'unowned))
+
 (check-equal? (detect-install-kind 'linux "/tmp/App.AppImage"
                                    "/tmp/App.AppImage")
               'appimage)
-(check-equal? (detect-install-kind 'linux "/opt/Example/RivetHost" #f)
+(check-equal? (detect-install-kind 'linux "/opt/Example/RivetHost" #f
+                                   ownership-in-fixture)
               'package-manager)
-(check-equal? (detect-install-kind 'linux "/usr/bin/example" #f)
+(check-equal? (detect-install-kind 'linux "/usr/bin/example" #f
+                                   ownership-in-fixture)
               'package-manager)
-(check-equal? (detect-install-kind 'linux "/home/user/example" #f)
+;; Previously /opt and /usr were always assumed to be package-managed:
+;; a manually placed portable app in either directory was misclassified.
+(check-equal? (detect-install-kind 'linux "/opt/Portable/RivetHost" #f
+                                   ownership-in-fixture)
               'portable)
-(check-equal? (detect-install-kind 'windows "C:\\Example\\RivetHost.exe" #f)
+(check-equal? (detect-install-kind 'linux "/usr/local/bin/RivetHost" #f
+                                   ownership-in-fixture)
+              'portable)
+(check-equal? (detect-install-kind 'linux "/home/user/example" #f
+                                   ownership-in-fixture)
+              'portable)
+;; An AppImage's runtime environment wins even if its extracted executable
+;; happens to be at a package-owned path.
+(check-equal? (detect-install-kind 'linux "/opt/Example/RivetHost"
+                                   "/tmp/Demo.AppImage"
+                                   ownership-in-fixture)
+              'appimage)
+(check-equal? (detect-install-kind 'windows "C:\\\\Example\\\\RivetHost.exe" #f
+                                   ownership-in-fixture)
+              'portable)
+
+;; If no package database can be consulted, do not classify an executable
+;; under the OS installation prefixes as safely self-updatable.
+(check-equal? (detect-install-kind 'linux "/opt/MaybeOwned/RivetHost" #f
+                                   (lambda (_) 'unknown))
+              'package-manager)
+(check-equal? (detect-install-kind 'linux "/home/user/RivetHost" #f
+                                   (lambda (_) 'unknown))
               'portable)
 
 (define (candidate installer [version "2.0.0"])
