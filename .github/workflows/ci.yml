@@ -433,6 +433,10 @@ jobs:
           New-Item -ItemType Directory -Force -Path 'assets\nested' | Out-Null
           Set-Content -Path 'assets\nested\product.txt' -Value 'msi-v1' -NoNewline
           $config = Get-Content 'rivet.rktd' -Raw
+          $updated = $config.Replace('(resources . ())', '(resources . ("assets"))')
+          if ($updated -eq $config) { throw 'failed to configure the assets resource directory' }
+          Set-Content -Path 'rivet.rktd' -Value $updated -NoNewline
+          $config = Get-Content 'rivet.rktd' -Raw
           if ($config -notmatch '0\.1\.0') { throw 'expected scaffold version 0.1.0' }
           raco rivet release --development --without-updates
           $v1 = Get-ChildItem 'dist\*-0.1.0-windows-*.msi' | Select-Object -First 1
