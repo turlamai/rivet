@@ -173,7 +173,7 @@ runtime, which is exactly how shipped releases have failed on user machines.
 `raco rivet doctor --release` scans host source against the installed rivet's
 own contracts, so drift fails in CI instead:
 
-- `fetch-update-manifest` accepts `#:key-id` `#:maximum-bytes` `#:connect-timeout-seconds` `#:idle-timeout-seconds`.
+- `fetch-update-manifest` accepts `#:key-id` `#:trusted-keys` `#:maximum-bytes` `#:connect-timeout-seconds` `#:idle-timeout-seconds`.
 - `select-update` accepts `#:install-kind`.
 - `download-update` accepts `#:on-progress` `#:progress-every` `#:stall-timeout-seconds` `#:total-timeout-seconds`.
 - `fetch-sibling-asset` accepts `#:sha256` `#:maximum-bytes` `#:on-progress` `#:connect-timeout-seconds` `#:idle-timeout-seconds`.
