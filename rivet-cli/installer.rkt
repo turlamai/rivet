@@ -193,7 +193,7 @@
              "    <CustomAction Id=\"LaunchApplication\" BinaryRef=\"Wix4UtilCA_~a\" DllEntry=\"WixShellExec\" Impersonate=\"yes\" />\n"
              "    <ui:WixUI Id=\"WixUI_InstallDir\" />\n"
              "    <UI>\n"
-             "      <Publish Dialog=\"ExitDialog\" Control=\"Finish\" Event=\"DoAction\" Value=\"LaunchApplication\" Condition=\"WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed\" Order=\"2\" />\n"
+             "      <Publish Dialog=\"ExitDialog\" Control=\"Finish\" Event=\"DoAction\" Value=\"LaunchApplication\" Condition=\"WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT (REMOVE = &quot;ALL&quot;)\" Order=\"2\" />\n"
              "    </UI>\n")
             (xml-escape (path->string license-path))
             (or (bitmap-variable "WixUIBannerBmp" 'banner) "")
