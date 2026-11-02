@@ -5,8 +5,9 @@
 - Linux install-kind detection now queries actual dpkg/rpm ownership instead
   of treating every executable under `/opt` or `/usr` as package-managed.
   Portable applications in those directories retain their update path;
-  AppImage detection still wins. Tests inject an ownership probe so they do
-  not depend on the CI host's package database.
+  AppImage detection still wins. Unknown ownership under system prefixes
+  fails closed to package-manager policy. Tests inject ownership states so they
+  do not depend on the CI host's package database.
 
 - Key rotation for update feeds is now a supported, tested dual-trust
   window instead of a prose suggestion. `verify-signed-manifest` accepts
