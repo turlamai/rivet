@@ -92,6 +92,86 @@ show a caption icon; borderless and custom-caption windows may opt out.
 Test both main and Settings/About titled HWNDs in a packaged installation
 with `WM_GETICON` and actual visible icons. Shell/tray icons are independent.
 
+## Explicit WebView2 environment in an installed WinUI 3 host
+
+An unpackaged WinUI 3 app installed by MSI under `Program Files` must **not**
+let WebView2 select its executable-adjacent default user data folder (UDF).
+That location is generally not writable by a normal user. A failed automatic
+environment creation has also been observed to trigger a NULL-interface crash
+inside the WinUI 3 WebView2 control's failure path on Windows ARM64/x64
+emulation ([issue #376](https://github.com/turlamai/rivet/issues/376)).
+Rivet cannot repair that upstream control crash by catching an RVT1 exception.
+
+Create one stable, per-user UDF under `%LOCALAPPDATA%` **before** setting
+`WebView2.Source` or otherwise initiating implicit initialization. Supply it
+to an explicitly constructed environment, and pass that environment into
+`EnsureCoreWebView2Async`. This C++/WinRT sketch belongs in a native host
+coroutine on the WinUI owning thread (replace `browser` and the product path):
+
+```cpp
+// Include <ShlObj.h>, <filesystem>, <memory>, and the WinRT WebView2
+// Core projection. Never create this folder next to the installed EXE.
+PWSTR rawLocalAppData = nullptr;
+winrt::check_hresult(::SHGetKnownFolderPath(
+    FOLDERID_LocalAppData, KF_FLAG_DEFAULT, nullptr, &rawLocalAppData));
+std::unique_ptr<wchar_t, decltype(&::CoTaskMemFree)>
+    ownedLocalAppData(rawLocalAppData, &::CoTaskMemFree);
+auto const udf = std::filesystem::path(rawLocalAppData) /
+                 L"YourPublisher" / L"YourProduct" / L"WebView2";
+std::filesystem::create_directories(udf);
+
+// Inside the UI-thread coroutine, before assigning any WebView2 Source:
+using namespace winrt::Microsoft::Web::WebView2::Core;
+auto const environment =
+    co_await CoreWebView2Environment::CreateWithOptionsAsync(
+        L"", winrt::hstring{udf.wstring()},
+        CoreWebView2EnvironmentOptions{});
+co_await browser.EnsureCoreWebView2Async(environment);
+```
+
+Wrap path creation, `CreateWithOptionsAsync`, and
+`EnsureCoreWebView2Async` in the host's error-handling boundary; report
+failure using **native controls**, not the WebView2 that failed to start.
+Do not render remote content or offer destructive UDF deletion as an automatic
+retry. The WebView2 runtime, options, and concurrent browser processes must
+agree on the selected profile. Never move the UDF into `Program Files`,
+make the installation directory writable, or rely solely on
+`WEBVIEW2_USER_DATA_FOLDER`: process environment overrides have been
+observed to behave differently across launch contexts. Use
+`CoreWebView2Environment.UserDataFolder` to verify the effective path.
+Define an explicit policy for preserving or removing this profile at uninstall.
+
+**Required acceptance before calling a consumer fixed:** exercise a real
+installed MSI under a standard user and a filtered administrator token; a
+clean profile; immediate restart after force-termination; an independently
+locked UDF; an unwritable UDF; and normal open/navigate/recovery with the
+exact packaged WinUI host, including the Windows ARM64/x64-emulation case.
+Record the observed UDF path and crash/no-crash behavior. A successful
+standalone Racket or development-directory run is insufficient. If the
+failure path still dereferences a NULL interface, report it upstream to
+Windows App SDK/WebView2 with the isolated dump and minimal repro.
+
+### 中文：WinUI 3 WebView2 数据目录与失败恢复
+
+通过 MSI 安装到 `Program Files` 的非 MSIX WinUI 3 应用，不应依赖
+WebView2 位于可执行文件旁的默认用户数据目录。请在首次初始化及设置
+`WebView2.Source` **之前**，在 `%LOCALAPPDATA%/发布者/产品/WebView2`
+准备可写的用户目录，使用
+`CoreWebView2Environment::CreateWithOptionsAsync` 显式创建环境，再传给
+`EnsureCoreWebView2Async(environment)`；不能只设置
+`WEBVIEW2_USER_DATA_FOLDER` 环境变量。
+
+文件夹创建或浏览器环境初始化失败时，应使用原生 WinUI 控件显示错误及
+恢复方式，不能依赖失败的 WebView2，也不能自动清空用户登录信息或放宽
+`Program Files` 权限。验证时必须覆盖真实 MSI 安装、普通用户、
+受限管理员令牌、强制退出后立即重启、目录占用/不可写及 Windows ARM64
+模拟运行。此方法属于应用端预防措施，**不代表微软控件内部的崩溃已经修复**。
+问题和验收证据统一跟踪于 [#376](https://github.com/turlamai/rivet/issues/376)。
+
+Microsoft's current references:
+[WebView2 user-data-folder guidance](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/user-data-folder) and
+[WebView2 in WinUI 3](https://learn.microsoft.com/en-us/windows/apps/develop/ui/controls/webview2).
+
 ## Non-blocking generated API
 
 The generated C++ client exposes two compatible styles for every RPC and
