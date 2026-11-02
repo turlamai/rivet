@@ -35,6 +35,8 @@
     "  raco rivet new <name>              create a new Rivet application\n"
     "  raco rivet doctor                  inspect the local native toolchain\n"
     "  raco rivet doctor --json           emit machine-readable toolchain diagnostics\n"
+    "  raco rivet entitlements --json     emit the channel entitlement manifest (macOS)\n"
+    "  raco rivet entitlements --check APP   fail closed unless APP matches the manifest\n"
     "  raco rivet doctor --release        run the release gate: generated-file freshness,\n"
     "                                     schema baseline, update-API keyword contracts, pins\n"
     "  raco rivet inspect                 show the current project's edit and verification map\n"
@@ -117,6 +119,21 @@
     [(list "doctor" "--release")
      (define run-release-doctor (command "doctor" 'run-release-doctor))
      (exit (run-release-doctor))]
+    [(list "entitlements" "--json")
+     (define run-entitlements (command "entitlements" 'run-entitlements-command))
+     (exit (run-entitlements 'json))]
+    [(list "entitlements" "--plist")
+     (define run-entitlements (command "entitlements" 'run-entitlements-command))
+     (exit (run-entitlements 'plist))]
+    [(list "entitlements" "--dev-overlay" "--plist")
+     (define run-entitlements (command "entitlements" 'run-entitlements-command))
+     (exit (run-entitlements 'dev-overlay))]
+    [(list "entitlements" "--check" entitlements-app)
+     (define run-entitlements (command "entitlements" 'run-entitlements-command))
+     (exit (run-entitlements 'check entitlements-app))]
+    [(list "entitlements" "--check-overlay" entitlements-app)
+     (define run-entitlements (command "entitlements" 'run-entitlements-command))
+     (exit (run-entitlements 'check-overlay entitlements-app))]
     [(list "inspect")
      (define run-inspect (command "inspect" 'run-inspect))
      (exit (run-inspect (current-project!)))]
