@@ -47,15 +47,36 @@ JSON 协议版本是 `rivet.apple-review-preflight.v1`，包含 `blockers`、
 任何一种结果均不表示苹果已经批准应用。正式 Developer ID 产物还应执行
 `raco rivet verify --production` 检查公证票据与 Gatekeeper。
 
-## 已知且必须验证的运行时例外
+## 已声明的 macOS entitlement 策略（issue #358）
 
-Rivet 当前 macOS 打包器会统一写入
-`com.apple.security.cs.allow-unsigned-executable-memory=true`。
-这不是假设风险，而是真实存在、需要最小权限审查的配置。新增预检会根据
-实际签名后的 entitlement 提醒开发者，但调整默认值前，必须在 Apple
-Silicon 与 Intel 的已打包应用上验证 Racket CS 启动及 RVT1 行为，
-不能为了避免审核问题而未经测试直接禁用；Developer ID 公证不等于
-Mac App Store 合规。
+macOS 打包器不再硬编码 entitlements。Rivet 现在携带按渠道、按架构声明
+的清单（`raco rivet entitlements --json`，schema
+`rivet.macos-entitlements.v1`），并严格按声明的键集合签名：
+
+- **Developer ID / ad-hoc 开发，arm64**：仅
+  `com.apple.security.cs.allow-jit`。2026-11-02 完成鉴定：打包应用以
+  hardened runtime（`--options runtime`）重签后，仅凭该键即可启动内嵌
+  Racket CS 并通过打包启动冒烟；Apple Silicon 上**不再需要**更宽的
+  `allow-unsigned-executable-memory`。CI 每次运行都会以 hardened 重签并
+  端到端演练内嵌运行时来复证。
+- **Developer ID / ad-hoc 开发，x64**：在等效的 Intel 探针完成
+  `allow-jit` 鉴定之前，继续保留
+  `com.apple.security.cs.allow-unsigned-executable-memory`；今日的
+  hardened CI 门禁按声明集合覆盖 Intel。
+- **mac-app-store / ios-app-store**：尚无鉴定过的策略。请求这些渠道会
+  fail closed（`raco rivet entitlements`、打包、production verify 均拒绝），
+  不会在别的旗号下静默复用 Developer ID 集合。
+
+`raco rivet verify --production` 双重 fail closed：打包应用必须是
+hardened runtime 签名，**且**实际 entitlements 与声明清单完全一致——
+多出的键或缺失的键都会拒绝发布。`--dev-overlay` 模式在声明键之上追加
+`disable-library-validation`；该豁免是 **ad-hoc 开发签名专用**（ad-hoc
+应用否则无法加载同样 ad-hoc 的内嵌框架：AMFI "different Team IDs"），
+永不进入分发清单；换用真实 Developer ID 凭据后框架与应用同属一个
+Team ID，该豁免既无必要也不会生成。
+
+预检仍会对实际签名的 hardened 例外告警——包括已鉴定的
+`allow-jit`——因为最小权限审查与渠道鉴定独立于打包器默认值。
 
 ## Rivet 框架应承担
 

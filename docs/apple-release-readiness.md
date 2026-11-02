@@ -49,15 +49,42 @@ missing essential platform evidence. Neither exit 0 nor a valid manifest
 guarantees Apple review approval. For an actual Developer ID release also
 run `raco rivet verify --production` to verify stapling and Gatekeeper.
 
-## Known runtime exception requiring qualification
+## Declared macOS entitlement policy (issue #358)
 
-The current macOS packager always writes
-`com.apple.security.cs.allow-unsigned-executable-memory=true` into its
-entitlements. This is a **real, not hypothetical** least-privilege review risk.
-The new preflight detects the signed effective entitlement and warns, but
-changing that default requires packaged Racket CS startup/RVT1 tests before
-and after signing on both Apple architectures. Do not disable it speculatively,
-and do not infer Mac App Store compatibility from Developer ID notarization.
+The macOS packager no longer hard-codes its entitlements. Rivet ships a
+channel- and architecture-scoped manifest (`raco rivet entitlements --json`,
+schema `rivet.macos-entitlements.v1`) and signs bundles with exactly the
+declared key set:
+
+- **Developer ID / ad-hoc development, arm64**: `com.apple.security.cs.allow-jit`
+  only. Qualified 2026-11-02: a hardened-runtime (`--options runtime`)
+  re-sign of a packaged app launches the embedded Racket CS runtime and
+  survives the packaged launch smoke with this key alone; the broader
+  `allow-unsigned-executable-memory` is **not** required on Apple Silicon.
+  CI re-proves this on every run by re-signing hardened and exercising the
+  embedded runtime end to end.
+- **Developer ID / ad-hoc development, x64**: keeps
+  `com.apple.security.cs.allow-unsigned-executable-memory` until an
+  equivalent Intel probe qualifies `allow-jit`; the hardened CI gate covers
+  the declared set on Intel today.
+- **mac-app-store / ios-app-store**: no qualified policy exists. Requesting
+  them fails closed (`raco rivet entitlements`, packaging, and production
+  verify all refuse) instead of silently reusing the Developer ID set under
+  another flag.
+
+`raco rivet verify --production` fails closed unless the packaged app is
+hardened-runtime signed **and** its effective entitlements equal the
+declared manifest exactly — extra or missing keys both reject the release.
+The `--dev-overlay` mode adds `disable-library-validation` on top of the
+declared keys; that exemption is a **development-signing artifact** for
+ad-hoc hardened signatures (an ad-hoc app cannot load its ad-hoc embedded
+framework otherwise: AMFI "different Team IDs"). It is never part of a
+distribution manifest, and with real Developer ID credentials the framework
+and app share a team ID so the exemption is neither needed nor emitted.
+
+The preflight still warns on any effective hardened-runtime exception —
+now including the qualified `allow-jit` — because least-privilege review
+and channel qualification remain independent of the packager's default.
 
 ## Shared Rivet responsibility
 

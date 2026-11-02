@@ -7,6 +7,7 @@
          racket/string
          racket/system
          "build.rkt"
+         "entitlements.rkt"
          "linux-package.rkt"
          "project.rkt"
          "signing-options.rkt"
@@ -124,14 +125,6 @@
                url-fragment
                association-fragment
                localization-fragment))))
-
-(define (write-entitlements! path)
-  (call-with-output-file path
-    #:exists 'truncate/replace
-    (lambda (out)
-      (display
-       "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\"><dict>\n  <key>com.apple.security.cs.allow-unsigned-executable-memory</key><true/>\n</dict></plist>\n"
-       out))))
 
 (define (sign-windows-production! executable settings)
   (define tools (discover-windows-toolchain))
