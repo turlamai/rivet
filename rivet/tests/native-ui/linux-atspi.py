@@ -10,11 +10,22 @@ import pyatspi
 
 
 def children(node):
-    for index in range(node.childCount):
+    # AT-SPI is a live tree. GTK can remove an accessible between observing
+    # childCount and resolving that index; pyatspi then returns None or raises.
+    # Skip only the detached subtree, not the entire native interaction gate.
+    if node is None:
+        return
+    try:
+        count = node.childCount
+    except Exception:
+        return
+    for index in range(count):
         try:
-            yield node.getChildAtIndex(index)
+            child = node.getChildAtIndex(index)
         except Exception:
             continue
+        if child is not None:
+            yield child
 
 
 def walk(node):
