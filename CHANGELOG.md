@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- The Apple preflight is now available as `raco rivet apple-review
+  --channel <developer-id|mac-app-store|ios-app-store> --app <path.app> --json`
+  from an installed Rivet package, instead of requiring a source-checkout
+  `.github` script. Its Python 3 scanner is packaged with `rivet-cli`; CLI
+  argument tests and a real packaged macOS CI smoke guard the public entry.
+
 - Document embedded Racket CS's original-place-thread FFI loading risk
   (issue #363) in embedding/capability guidance and machine-readable
   `inspect --json`, with a regression assertion. A packaged-host scheduling
