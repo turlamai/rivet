@@ -150,6 +150,51 @@
       (check-equal? cli-key-id "family-key")
       (check-equal? (length (update-manifest-artifacts cli-composed)) 3))
 
+    ;; A family release can ship MSI and portable ZIP for the same
+    ;; Windows architecture. A ZIP can also have distinct app/CLI
+    ;; components: the full installer+component identity is authoritative.
+    (define windows-app-zip
+      (build-path temp-root "update-windows-app-zip.json"))
+    (define windows-cli-zip
+      (build-path temp-root "update-windows-cli-zip.json"))
+    (write-manifest!
+     windows-app-zip
+     (manifest
+      #:artifacts
+      (list (struct-copy update-artifact
+                         (artifact 'windows 'x64
+                                   "https://updates.example/w-app.zip")
+                         [installer 'zip]
+                         [component 'app]))))
+    (write-manifest!
+     windows-cli-zip
+     (manifest
+      #:artifacts
+      (list (struct-copy update-artifact
+                         (artifact 'windows 'x64
+                                   "https://updates.example/w-cli.zip")
+                         [installer 'zip]
+                         [component 'cli]))))
+    (define multi-output (build-path temp-root "multi-installer-family.json"))
+    (compose-manifests!
+     (list windows-manifest windows-app-zip windows-cli-zip)
+     multi-output #:private-key private-key #:key-id "family-key")
+    (define multi
+      (call-with-input-file multi-output
+        (lambda (in)
+          (verify-signed-manifest in private-key #:key-id "family-key"))))
+    (check-equal? (length (update-manifest-artifacts multi)) 3)
+    (check-equal?
+     (map (lambda (a)
+            (list (update-artifact-platform a)
+                  (update-artifact-architecture a)
+                  (update-artifact-installer a)
+                  (update-artifact-component a)))
+          (update-manifest-artifacts multi))
+     '((windows x64 msi #f)
+       (windows x64 zip app)
+       (windows x64 zip cli)))
+
     ;; Disagreeing versions must be rejected loudly.
     (define deviant
       (build-path temp-root "update-deviant.json"))
@@ -163,8 +208,9 @@
                                      #:private-key private-key
                                      #:key-id "family-key")))
 
-    ;; Duplicate platform+architecture legs are a release mistake.
-    (check-exn #rx"same platform and architecture"
+    ;; Duplicate full identities are a release mistake; distinct installers
+    ;; and component payloads above must not be rejected.
+    (check-exn #rx"duplicate artifact platform, architecture, installer"
                (lambda ()
                  (compose-manifests!
                   (list windows-manifest windows-manifest)

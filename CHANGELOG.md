@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- The Apple preflight is now available as `raco rivet apple-review
+  --channel <developer-id|mac-app-store|ios-app-store> --app <path.app> --json`
+  from an installed Rivet package, instead of requiring a source-checkout
+  `.github` script. Its Python 3 scanner is packaged with `rivet-cli`; CLI
+  argument tests and a real packaged macOS CI smoke guard the public entry.
+
+- Add a read-only, JSON-reporting Apple channel preflight for packaged macOS
+  bundles. It detects malformed bundle/privacy metadata, checks effective
+  entitlements and code signatures on macOS, flags Store sandbox/unsafe runtime
+  exceptions and explicitly reports missing iOS standalone/Store evidence.
+  The paired English/Chinese guide distinguishes Developer ID notarization
+  from App Store review; this is not automatic Apple approval.
+
+
 - DMG packaging survives slow volume teardown on CI runners. The installer
   now probes the mount point instead of trusting one `hdiutil detach` exit
   code, retries the graceful detach across the few-second window where a
@@ -11,10 +25,13 @@
   with `couldn't eject "disk2" - Resource busy` followed by
   `detach failed - No such file or directory`).
 
-- Taskboard WinUI 3 reference: explicit title draft/apply/discard controls,
+- Taskboard WinUI 3 reference: explicit title draft/save/discard controls,
   rejected backend mutations retain the draft, with packaged Windows UI
-  Automation coverage. Updates are session-only until persistent storage and
-  three-platform acceptance for #347 land.
+  Automation coverage. The product-owned Racket task snapshot saves locally
+  before reporting a successful mutation and reloads across restarts; bounded
+  same-directory staged replacement, corrupt-input rejection and RVT1 relaunch tests cover
+  the storage path. Cross-platform native edit parity and full #347 acceptance
+  remain outstanding.
 
 - New Rivet projects now tell coding agents to design and verify native
   interaction through the real packaged app, not require a separate mockup.
