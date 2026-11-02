@@ -49,8 +49,11 @@ Set:
 
 - `RIVET_MACOS_SIGN_IDENTITY` — the Developer ID Application identity passed to `codesign`.
 - `RIVET_MACOS_NOTARY_PROFILE` — the keychain profile name passed to `xcrun notarytool --keychain-profile`.
+- `RIVET_MACOS_CHANNEL` — optional; `developer-id` (default) or `mac-app-store`. The Mac App Store channel has no qualified entitlement policy yet and fails closed (issue #358).
 
 Create the notary profile outside the repository with Apple's `notarytool store-credentials` flow. The profile may be backed by an App Store Connect API key or Apple ID credentials; Rivet only receives the profile name.
+
+Entitlements come from the channel/arch entitlement manifest (`raco rivet entitlements --json`), not a hard-coded list. Production verification fails closed unless the bundle is hardened-runtime signed and its effective entitlements equal the declared manifest exactly; see [Apple release readiness](apple-release-readiness.md) for the qualified key sets per architecture.
 
 Production packaging performs these steps:
 
@@ -59,7 +62,7 @@ Production packaging performs these steps:
 3. Create a temporary notarization ZIP under `.rivet/notary/`.
 4. Submit it with `xcrun notarytool submit --wait`.
 5. Staple the accepted ticket to the `.app`.
-6. Run normal package verification plus `xcrun stapler validate` and Gatekeeper `spctl --assess`.
+6. Run normal package verification plus `xcrun stapler validate`, Gatekeeper `spctl --assess`, and the entitlement-manifest equality check.
 
 The temporary notarization ZIP is a build artifact, not a credential store.
 

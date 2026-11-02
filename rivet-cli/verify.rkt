@@ -9,6 +9,7 @@
          "../rivet/distribution/crypto.rkt"
          "appimage.rkt"
          "deb.rkt"
+         "entitlements.rkt"
          "launch-smoke.rkt"
          "linux-native-package.rkt"
          "linux-package.rkt"
@@ -446,16 +447,31 @@
        "Info.plist" info)))
 
   (when production?
+    (define codesign-tool (find-executable-path "codesign"))
     (define xcrun (find-executable-path "xcrun"))
     (define spctl (find-executable-path "spctl"))
     (unless xcrun
       (error who "xcrun was not found; cannot validate notarization ticket"))
     (unless spctl
       (error who "spctl was not found; cannot assess production macOS package"))
+    (unless codesign-tool
+      (error who "codesign was not found; cannot assert hardened runtime entitlements"))
     (run-command! who xcrun "stapler" "validate" (path->string app))
     (run-command! who spctl
                   "--assess" "--type" "execute" "--verbose=4"
-                  (path->string app)))
+                  (path->string app))
+    ;; Production must ship the hardened runtime and exactly the entitlement
+    ;; key set the channel manifest declares (issue #358). Extra keys widen
+    ;; trust beyond the qualified policy; missing keys mean the bundle was
+    ;; not signed with the policy at all. Both fail the release.
+    (define signature-description
+      (capture-command! who codesign-tool
+                        "-d" (path->string app)))
+    (unless (regexp-match? #rx"\\(runtime\\)" signature-description)
+      (raise-arguments-error who
+                             "production macOS package is not signed with the hardened runtime"
+                             "app" (path->string app)))
+    (check-entitlements! who app))
   app)
 
 (define (packaged-executable package #:binary-name [binary-name "RivetHost"])

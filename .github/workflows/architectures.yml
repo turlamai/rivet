@@ -156,6 +156,19 @@ jobs:
           test "$(cat dist/Smoke.app/Contents/Resources/app/assets/nested/product.txt)" = packaged-resource
           codesign --verify --deep --strict dist/Smoke.app
           test "$(plutil -extract LSMinimumSystemVersion raw -o - dist/Smoke.app/Contents/Info.plist)" = "14.1"
+          # Hardened-runtime qualification of the declared Intel entitlement
+          # set (issue #358): re-sign with the dev overlay (declared keys
+          # plus the ad-hoc library-validation exemption), confirm the
+          # effective signature matches, and re-run the packaged launch
+          # smoke under the hardened signature on x64.
+          raco rivet entitlements --dev-overlay --plist > "$root/dev-overlay.plist"
+          inner="$(find dist/Smoke.app/Contents/Frameworks/Racket.framework/Versions -name Racket -type f | head -n 1)"
+          codesign --force --sign - --options runtime "$inner"
+          codesign --force --sign - --options runtime dist/Smoke.app/Contents/Frameworks/Racket.framework
+          codesign --force --sign - --options runtime --entitlements "$root/dev-overlay.plist" dist/Smoke.app
+          codesign --verify --strict dist/Smoke.app
+          raco rivet entitlements --check-overlay dist/Smoke.app
+          raco rivet verify
           raco rivet clean
           test ! -e .rivet
           test ! -e build

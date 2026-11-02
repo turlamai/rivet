@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- macOS entitlements are now declared, not hard-coded. The packager writes a
+  channel/arch manifest (`raco rivet entitlements --json`) and signs with
+  exactly that key set: Apple Silicon qualifies the narrow
+  `allow-jit` exception under Hardened Runtime (verified by a local
+  matrix plus hardened CI re-sign and launch/RVT1 gates on both
+  architectures), Intel keeps `allow-unsigned-executable-memory` until an
+  Intel probe qualifies `allow-jit`, and the Mac App Store / iOS channels
+  fail closed with no qualified policy. `raco rivet verify --production`
+  rejects any production bundle that is not hardened-runtime signed with
+  effective entitlements equal to the declared manifest (issue #358).
+
 - `raco rivet doctor` now identifies a targeted source-owned WinUI
   `SetIcon(exe_path)` mistake, with a native helper remediation and
   a false-positive guard for borderless windows (#379).
