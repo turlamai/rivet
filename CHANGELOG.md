@@ -77,6 +77,10 @@
 
 ### Fixed
 
+- Branded macOS DMG creation now detaches by stable mounted device and
+  tolerates a disappearing mount. The bounded Finder/Spotlight retry path
+  is preserved for `resource busy` and already-detached races.
+
 - `raco rivet doctor` now points full-distribution users with missing CS boot
   files or static libraries to the minimal source-built embedding runtime and
   the four `RIVET_RACKET_*` overrides instead of recommending another full
