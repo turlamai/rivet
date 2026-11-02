@@ -2,11 +2,12 @@
 
 ## Unreleased
 
-- Windows MSI Finish-dialog Launch now works for fresh installs and
-  same-version repair/reinstall, while suppressing launch on uninstall.
-  The previous `NOT Installed` condition made the visible checkbox inert
-  for installed products. Installed-path launch/normal-close acceptance now
-  runs before the existing upgrade lifecycle smoke.
+- Windows MSI CI now starts the real installed executable from `Program Files`
+  after first installation. It requires a native main window, a normal close,
+  and process exit before the existing upgrade and uninstall tests, catching
+  installed-only startup failures. This tests actual launch behavior, not
+  interactive clicks in the Finish dialog.
+
 
 - Linux install-kind detection now queries actual dpkg/rpm ownership instead
   of treating every executable under `/opt` or `/usr` as package-managed.

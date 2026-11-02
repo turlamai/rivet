@@ -128,20 +128,17 @@
  plain-source
  "the launch action must come from the architecture-appropriate Util CA")
 (check-regexp-match
- #rx"<Publish Dialog=\"ExitDialog\" Control=\"Finish\" Event=\"DoAction\" Value=\"LaunchApplication\" Condition=\"WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT [(]REMOVE = &quot;ALL&quot;[)]\" Order=\"2\" />"
+ #rx"<Publish Dialog=\"ExitDialog\" Control=\"Finish\" Event=\"DoAction\" Value=\"LaunchApplication\" Condition=\"WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1\" Order=\"2\" />"
  plain-source
- "the checkbox must launch only on a fresh install")
-;; The Finish page shows Launch on maintenance/repair too: do not silently
-;; suppress a checked launch just because the product was already installed.
-;; Uninstall must not start the executable being removed.
-(check-false (regexp-match? #rx"and NOT Installed" plain-source)
-             "a visible Launch checkbox must not be inert on reinstall")
-
+ "the checkbox must honor explicit user intent on repair/reinstall too")
 (check-regexp-match #rx"<WixVariable Id=\"WixUILicenseRtf\" Value=\"[^\"]+license[.]rtf\" />"
                     plain-source
                     "the license page always resolves to an RTF")
 (check-false (regexp-match? #rx"WixUIBannerBmp|WixUIDialogBmp" plain-source)
              "wizard bitmaps stay unauthored unless the project configures them")
+
+(check-false (regexp-match? #rx"NOT Installed" plain-source)
+             "same-version reinstall/repair must not drop a checked Launch action")
 
 ;; A repository LICENSE renders into the wizard RTF, ASCII-safe with RTF
 ;; paragraph breaks and unicode escapes.

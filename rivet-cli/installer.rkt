@@ -181,6 +181,9 @@
   ;; The standard install-dir wizard sequence (welcome, license, directory,
   ;; progress, exit) plus the launch checkbox on the finish page. Stock UI
   ;; sets are consumed through the UI extension's namespace element; the
+  ;; The user's explicit checkbox selection must be honored on same-version
+  ;; repair/reinstall too. NOT Installed silently skipped LaunchApplication
+  ;; when Windows Installer marked the product already installed.
   ;; launch action is the Util extension's WixShellExec with an
   ;; architecture-specific CA binary.
   (define installer-ui-xml
@@ -193,7 +196,7 @@
              "    <CustomAction Id=\"LaunchApplication\" BinaryRef=\"Wix4UtilCA_~a\" DllEntry=\"WixShellExec\" Impersonate=\"yes\" />\n"
              "    <ui:WixUI Id=\"WixUI_InstallDir\" />\n"
              "    <UI>\n"
-             "      <Publish Dialog=\"ExitDialog\" Control=\"Finish\" Event=\"DoAction\" Value=\"LaunchApplication\" Condition=\"WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT (REMOVE = &quot;ALL&quot;)\" Order=\"2\" />\n"
+             "      <Publish Dialog=\"ExitDialog\" Control=\"Finish\" Event=\"DoAction\" Value=\"LaunchApplication\" Condition=\"WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1\" Order=\"2\" />\n"
              "    </UI>\n")
             (xml-escape (path->string license-path))
             (or (bitmap-variable "WixUIBannerBmp" 'banner) "")
