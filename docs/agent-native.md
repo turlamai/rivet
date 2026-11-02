@@ -122,6 +122,31 @@ checks, and shutdown order. Ship the required library for every supported
 platform/architecture or document a system dependency, then make package
 verification prove that no undeclared developer-machine library leaked in.
 
+#### Embedded Racket CS: original-thread FFI loading (#363)
+
+In a native embedded host, first-time `ffi-lib`/`get-ffi-obj` on an ordinary
+Racket background thread can stall while Racket CS waits for service from the
+place's original thread. If that thread is occupied by a WinUI/SwiftUI/GTK
+native message loop without servicing Racket, the call may never complete.
+This was reproduced with `Advapi32.dll` from a WinUI-hosted worker; the same
+call working in a standalone Racket REPL is **not** embedding evidence.
+
+Do not assume that an arbitrary `thread`, a later RPC handler, or
+`kill-thread` makes first-time FFI library loading safe. When the embedding
+lifecycle guarantees it, initialize and resolve foreign libraries on a
+**serviced original Racket place thread** before starting application workers;
+pass only the checked bindings/results to workers. Verify this on the actual
+packaged host, including startup, cancellation, failure and restart. If the
+native host cannot guarantee servicing that thread, keep platform operations
+in its native adapter or a supervised subprocess/sidecar instead of lazily
+loading the library from a background thread. Avoid shell command strings;
+use explicit executable and argument boundaries.
+
+This documents an observed failure mode, not a claim that all worker-thread
+FFI calls necessarily deadlock or that preloading alone repairs every
+embedding configuration. A general runtime scheduling fix remains open under
+[issue #363](https://github.com/turlamai/rivet/issues/363).
+
 ### 4. Use a CLI for coarse-grained isolated work
 
 A mature executable is often the lowest-risk integration for media conversion,
