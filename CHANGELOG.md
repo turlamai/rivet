@@ -50,6 +50,10 @@
   installed-only startup failures. This tests actual launch behavior, not
   interactive clicks in the Finish dialog.
 
+- State changes from an external Racket worker now notify native clients when
+  exactly one Rivet server is active, consistent with `emit-event!`. Ambiguous
+  multi-server routing fails before mutation, and local-only State still works
+  after the server exits. Covered by an RVT1 pipe regression.
 
 - Linux install-kind detection now queries actual dpkg/rpm ownership instead
   of treating every executable under `/opt` or `/usr` as package-managed.
