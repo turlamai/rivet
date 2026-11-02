@@ -84,6 +84,14 @@ Windows App SDK windows in the process. Call from the owning WinUI UI thread.
 The API never forces title bars on borderless overlays and does not alter
 native title-bar decisions on macOS or Linux.
 
+Run `raco rivet doctor --json` to catch a narrow source-owned WinUI
+regression: `invalid-winui-window-icon-path` warns if a
+`Window.xaml.cpp` passes an obvious EXE-path variable such as `exe_path`
+to `SetIcon(...)`. This is **not** a blanket rule that every window must
+show a caption icon; borderless and custom-caption windows may opt out.
+Test both main and Settings/About titled HWNDs in a packaged installation
+with `WM_GETICON` and actual visible icons. Shell/tray icons are independent.
+
 ## Explicit WebView2 environment in an installed WinUI 3 host
 
 An unpackaged WinUI 3 app installed by MSI under `Program Files` must **not**

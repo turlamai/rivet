@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `raco rivet doctor` now identifies a targeted source-owned WinUI
+  `SetIcon(exe_path)` mistake, with a native helper remediation and
+  a false-positive guard for borderless windows (#379).
+
 - The Apple preflight is now available as `raco rivet apple-review
   --channel <developer-id|mac-app-store|ios-app-store> --app <path.app> --json`
   from an installed Rivet package, instead of requiring a source-checkout
