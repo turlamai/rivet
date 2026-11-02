@@ -292,18 +292,22 @@ jobs:
       - name: Exercise embedded runtime under hardened signing (issue #358)
         timeout-minutes: 2
         run: |
-          # Re-sign the integration runner and the embedded framework with
-          # the hardened runtime. The runner gets the dev overlay (declared
-          # channel keys plus the ad-hoc library-validation exemption); the
-          # framework gets no entitlements, exactly like packaged apps. The
-          # full RVT1 exercise then runs under that signature, proving the
-          # declared entitlement set is sufficient under Hardened Runtime.
+          # Re-sign the integration runner and the embedded Racket dylib
+          # with the hardened runtime. The runner gets the dev overlay
+          # (declared channel keys plus the ad-hoc library-validation
+          # exemption). This stage's Racket.framework is hand-assembled
+          # (ditto + symlink repair) rather than a packaged bundle, so
+          # codesign cannot seal the wrapper; the Mach-O dylib signature is
+          # what AMFI validates at load, and the packaged-app hardened gates
+          # in ci.yml/architectures.yml cover the real bundle path. The
+          # full RVT1 exercise then runs under the hardened signature,
+          # proving the declared entitlement set is sufficient under
+          # Hardened Runtime.
           stage="$RIVET_ROUNDTRIP_STAGE"
           raco rivet entitlements --dev-overlay --plist > "$stage/dev-overlay.plist"
           framework="$stage/Frameworks/Racket.framework"
           inner="$(find "$framework/Versions" -name Racket -type f | head -n 1)"
           codesign --force --sign - --options runtime "$inner"
-          codesign --force --sign - --options runtime "$framework"
           codesign --force --sign - --options runtime --entitlements "$stage/dev-overlay.plist" "$stage/RivetIntegration"
           codesign --verify --strict "$stage/RivetIntegration"
           raco rivet entitlements --check-overlay "$stage/RivetIntegration"
