@@ -8,6 +8,11 @@
   `.github` script. Its Python 3 scanner is packaged with `rivet-cli`; CLI
   argument tests and a real packaged macOS CI smoke guard the public entry.
 
+- Taskboard macOS SwiftUI native title editing now has explicit Save/Discard
+  with recoverable validation errors and packaged AX checks (issue #347).
+  Its user-facing language now agrees with the durable Racket task snapshot
+  from #352. Full packaged relaunch and visual/IME review remain outstanding.
+
 - Document embedded Racket CS's original-place-thread FFI loading risk
   (issue #363) in embedding/capability guidance and machine-readable
   `inspect --json`, with a regression assertion. A packaged-host scheduling
@@ -81,6 +86,10 @@
   before.
 
 ### Fixed
+
+- Branded macOS DMG creation now detaches by stable mounted device and
+  tolerates a disappearing mount. The bounded Finder/Spotlight retry path
+  is preserved for `resource busy` and already-detached races.
 
 - `raco rivet doctor` now points full-distribution users with missing CS boot
   files or static libraries to the minimal source-built embedding runtime and
