@@ -110,14 +110,23 @@ original thread and never lets it service Racket, the call can hang even
 though it succeeds in a standalone `racket` process. Killing a thread
 blocked in the foreign call is not a reliable cancellation strategy.
 
-Initialize foreign bindings before workers only where the *actual* embedded
-runtime provides a serviced original place thread; an arbitrary backend
-worker is not equivalent. Otherwise use a native host adapter or supervised
-child process. Verify the packaged host on each supported platform rather
-than inferring correctness from REPL or unit-only behavior. See the
+The supported in-process pattern follows from the boot sequence: the host
+thread boots Racket CS and applies the application entry procedure, so the
+entry module's top level and the entry procedure itself run on the original
+place thread *before* the host takes that thread back for its message loop.
+Force every foreign binding during that window — reference the wrapper
+module from the entry module so its `ffi-lib`/`get-ffi-obj` calls execute at
+instantiation time, or call an explicit preload function at the top of the
+entry procedure. Worker threads then use already-bound objects and never
+trigger first-time loads. Do not treat this as general worker-thread FFI
+safety: only bindings established before the original thread stops servicing
+Racket are covered. When bindings cannot be established in that window, use
+a native host adapter or a supervised child process instead.
+
+Verify the packaged host on each supported platform rather than inferring
+correctness from REPL or unit-only behavior. See the
 [capability-sourcing guidance](agent-native.md#embedded-racket-cs-original-thread-ffi-loading-363)
 and [issue #363](https://github.com/turlamai/rivet/issues/363).
-The issue remains open pending an embedded-host regression test.
 
 ## Runtime files
 
