@@ -1,6 +1,6 @@
 # Desktop closeout and mobile start plan
 
-Status: active, 2026-10-14.
+Status: active. Original decision: 2026-10-14; evidence context refreshed: 2026-11-03.
 
 This document is the durable handoff for finishing Rivet's desktop line and
 starting mobile work. It records decisions, evidence, gates, and validation;
@@ -22,15 +22,21 @@ Rivet is a **conditional go** for mobile development.
   production-ready until the shared 1.0 contract and the applicable platform
   release gates are complete.
 
-## Evidence at the decision point
+## Evidence at the decision point (2026-10-14; historical)
 
-- Rivet `v0.11.0` is the current release and `main` is clean at the release
-  commit.
+The checks, product inventory, and blockers in this section describe the
+**2026-10-14 decision**, not an assertion that every named job, release, or
+product is still green. At that point, Rivet `v0.11.0` was the current release
+and `main` was clean at its release commit. As checked on 2026-11-03, the
+latest published Rivet release is
+[`v0.13.0`](https://github.com/turlamai/rivet/releases/tag/v0.13.0)
+(published 2026-10-23). New release or acceptance claims require evidence from
+the corresponding current artifacts and workflow runs.
 - The full Racket/CLI suite passes; all six portable C++ runtime tests pass;
   the Swift package tests pass when the Racket include directory is supplied
   as CI does.
-- Current Rivet CI, protocol fuzzing, desktop architecture jobs, native UI
-  end-to-end jobs, and the `v0.11.0` release are green.
+- At the decision point, Rivet CI, protocol fuzzing, desktop architecture
+  jobs, native UI end-to-end jobs, and the `v0.11.0` release were green.
 - The closed [0.7 production milestone](https://github.com/turlamai/rivet/milestone/1)
   records real Linux lifecycle evidence, first-party update installation,
   native UI end-to-end gates, and characterization-protected refactoring in
@@ -38,8 +44,8 @@ Rivet is a **conditional go** for mobile development.
   [#183](https://github.com/turlamai/rivet/issues/183),
   [#184](https://github.com/turlamai/rivet/issues/184), and
   [#185](https://github.com/turlamai/rivet/issues/185).
-- Fifteen top-level product repositories and one nested studio project consume
-  Rivet. Their latest product CI runs were green at this review point.
+- Fifteen top-level product repositories and one nested studio project consumed
+  Rivet at this review point. Their then-latest product CI runs were green.
 - The latest PodLens release run is not green: the macOS x64 release build on
   Xcode 16.4 crashes in `swift-frontend` with signal 11.
 - Of the fifteen top-level products, nine have no committed
