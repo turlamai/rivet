@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Windows MSI Finish-dialog Launch now works for fresh installs and
+  same-version repair/reinstall, while suppressing launch on uninstall.
+  The previous `NOT Installed` condition made the visible checkbox inert
+  for installed products. Installed-path launch/normal-close acceptance now
+  runs before the existing upgrade lifecycle smoke.
+
 - Key rotation for update feeds is now a supported, tested dual-trust
   window instead of a prose suggestion. `verify-signed-manifest` accepts
   `#:trusted-keys` (an alist of key id to public key), `fetch-update-manifest`
