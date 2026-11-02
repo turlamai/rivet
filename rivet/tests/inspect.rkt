@@ -83,6 +83,12 @@
    (check-equal? (map (lambda (option) (hash-ref option 'kind)) (hash-ref sourcing 'decision-order))
                  '("racket-library" "native-host" "ffi" "cli" "sidecar" "implement"))
    (check-not-false (member "license and redistribution" (hash-ref sourcing 'required-checks)))
+   (define ffi-guidance
+     (findf (lambda (option) (equal? (hash-ref option 'kind) "ffi"))
+            (hash-ref sourcing 'decision-order)))
+   (check-not-false ffi-guidance)
+   (check-regexp-match #rx"unserviced original place thread"
+                       (hash-ref ffi-guidance 'boundary))
 
    (define interaction (hash-ref report 'interaction-guidance))
    (check-equal? (hash-ref interaction 'version) 1)

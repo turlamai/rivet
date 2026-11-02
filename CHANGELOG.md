@@ -8,6 +8,11 @@
   `.github` script. Its Python 3 scanner is packaged with `rivet-cli`; CLI
   argument tests and a real packaged macOS CI smoke guard the public entry.
 
+- Document embedded Racket CS's original-place-thread FFI loading risk
+  (issue #363) in embedding/capability guidance and machine-readable
+  `inspect --json`, with a regression assertion. A packaged-host scheduling
+  fix and proof remain separate; no general worker-thread FFI safety is claimed.
+
 - Add a read-only, JSON-reporting Apple channel preflight for packaged macOS
   bundles. It detects malformed bundle/privacy metadata, checks effective
   entitlements and code signatures on macOS, flags Store sandbox/unsafe runtime
