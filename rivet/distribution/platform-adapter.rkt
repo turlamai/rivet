@@ -8,6 +8,7 @@
          racket/file
          racket/list
          racket/path
+         racket/port
          racket/string
          racket/system
          "identity.rkt"
@@ -28,29 +29,33 @@
 (define (current-update-platform)
   (platform-symbol))
 
-(define (detect-install-kind platform executable appimage)
+;; Determine actual package ownership, not installation directory. A portable
+;; Rivet application may legitimately live under /opt or /usr/local. Querying
+;; the host package database also supports older deb/rpm packages that did not
+;; carry any Rivet-specific installation marker. No shell is involved and a
+;; missing package database is treated as unowned.
+(define (linux-package-owned? executable)
+  (and (file-exists? executable)
+       (for/or ([tool+flag (in-list '(("dpkg-query" "-S") ("rpm" "-qf")))])
+         (define tool (find-executable-path (first tool+flag)))
+         (and tool
+              (with-handlers ([exn:fail? (lambda (_) #f)])
+                (parameterize ([current-output-port (open-output-nowhere)]
+                               [current-error-port (open-output-nowhere)])
+                  (system* tool (second tool+flag) "--"
+                           (path->string executable)))))))
+
+;; The optional ownership probe is private (test-support only); production
+;; callers still use current-install-kind with the same public signature.
+(define (detect-install-kind platform executable appimage
+                             [package-owned? linux-package-owned?])
   (cond
     [(not (eq? platform 'linux)) 'portable]
     [(and appimage (not (string=? (string-trim appimage) ""))) 'appimage]
     [else
-     (define raw
-       (string-replace (if (path? executable)
-                           (path->string executable)
-                           executable)
-                       "\\" "/"))
      (define normalized
-       (if (string-prefix? raw "/")
-           raw
-           (string-replace
-            (path->string (simplify-path (path->complete-path executable) #f))
-            "\\" "/")))
-     ;; Rivet's deb and rpm both install under /opt. /usr also covers products
-     ;; following the conventional rpm layout. Update ownership matters here,
-     ;; not which package database owns the executable.
-     (if (or (string-prefix? normalized "/opt/")
-             (string-prefix? normalized "/usr/"))
-         'package-manager
-         'portable)]))
+       (simplify-path (path->complete-path executable) #f))
+     (if (package-owned? normalized) 'package-manager 'portable)]))
 
 (define (current-install-kind [executable (find-system-path 'run-file)])
   (detect-install-kind (current-update-platform) executable (getenv "APPIMAGE")))

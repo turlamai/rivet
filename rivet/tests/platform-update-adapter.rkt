@@ -11,16 +11,40 @@
 
 (define platform (current-update-platform))
 
+;; This probe makes ownership deterministic on every CI host. Paths alone
+;; cannot reveal whether dpkg or rpm actually owns an executable.
+(define (owned-by-test-package? executable)
+  (member (path->string executable)
+          '("/opt/Example/RivetHost" "/usr/bin/example")))
+
 (check-equal? (detect-install-kind 'linux "/tmp/App.AppImage"
                                    "/tmp/App.AppImage")
               'appimage)
-(check-equal? (detect-install-kind 'linux "/opt/Example/RivetHost" #f)
+(check-equal? (detect-install-kind 'linux "/opt/Example/RivetHost" #f
+                                   owned-by-test-package?)
               'package-manager)
-(check-equal? (detect-install-kind 'linux "/usr/bin/example" #f)
+(check-equal? (detect-install-kind 'linux "/usr/bin/example" #f
+                                   owned-by-test-package?)
               'package-manager)
-(check-equal? (detect-install-kind 'linux "/home/user/example" #f)
+;; Previously /opt and /usr were always assumed to be package-managed:
+;; a manually placed portable app in either directory was misclassified.
+(check-equal? (detect-install-kind 'linux "/opt/Portable/RivetHost" #f
+                                   owned-by-test-package?)
               'portable)
-(check-equal? (detect-install-kind 'windows "C:\\Example\\RivetHost.exe" #f)
+(check-equal? (detect-install-kind 'linux "/usr/local/bin/RivetHost" #f
+                                   owned-by-test-package?)
+              'portable)
+(check-equal? (detect-install-kind 'linux "/home/user/example" #f
+                                   owned-by-test-package?)
+              'portable)
+;; An AppImage's runtime environment wins even if its extracted executable
+;; happens to be at a package-owned path.
+(check-equal? (detect-install-kind 'linux "/opt/Example/RivetHost"
+                                   "/tmp/Demo.AppImage"
+                                   owned-by-test-package?)
+              'appimage)
+(check-equal? (detect-install-kind 'windows "C:\\\\Example\\\\RivetHost.exe" #f
+                                   owned-by-test-package?)
               'portable)
 
 (define (candidate installer [version "2.0.0"])
