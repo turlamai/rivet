@@ -8,6 +8,7 @@
          racket/file
          racket/list
          racket/path
+         racket/port
          racket/string
          racket/system
          "identity.rkt"
@@ -28,29 +29,57 @@
 (define (current-update-platform)
   (platform-symbol))
 
-(define (detect-install-kind platform executable appimage)
+;; Query actual package ownership rather than guessing from /opt or /usr.
+;; Exit status 1 means "not owned"; absence of a package database, a failed
+;; query, or an inaccessible executable is an unknown result. Keep that third
+;; state so an unavailable database cannot authorize an unsafe self-update.
+(define (linux-package-ownership executable)
+  (if (not (file-exists? executable))
+      'unknown
+      (let ([results
+             (for/list ([query (in-list '(("dpkg-query" "-S") ("rpm" "-qf")))]
+                        #:when (find-executable-path (first query)))
+               (define program (find-executable-path (first query)))
+               (with-handlers ([exn:fail? (lambda (_) 'unknown)])
+                 (define exit-status
+                   (parameterize ([current-output-port (open-output-nowhere)]
+                                  [current-error-port (open-output-nowhere)])
+                     (system*/exit-code program (second query) "--"
+                                        (path->string executable))))
+                 (cond
+                   [(zero? exit-status) 'owned]
+                   [(= exit-status 1) 'unowned]
+                   [else 'unknown])))])
+        (cond
+          [(memq 'owned results) 'owned]
+          [(or (null? results) (memq 'unknown results)) 'unknown]
+          [else 'unowned]))))
+
+(define (system-install-prefix? executable)
+  (define value (string-replace (path->string executable) "\\" "/"))
+  (or (string-prefix? value "/opt/")
+      (string-prefix? value "/usr/")))
+
+;; The optional ownership probe is private (test-support only); production
+;; callers still use current-install-kind with the same public signature.
+(define (detect-install-kind platform executable appimage
+                             [ownership linux-package-ownership])
   (cond
     [(not (eq? platform 'linux)) 'portable]
     [(and appimage (not (string=? (string-trim appimage) ""))) 'appimage]
     [else
-     (define raw
-       (string-replace (if (path? executable)
-                           (path->string executable)
-                           executable)
-                       "\\" "/"))
-     (define normalized
-       (if (string-prefix? raw "/")
-           raw
-           (string-replace
-            (path->string (simplify-path (path->complete-path executable) #f))
-            "\\" "/")))
-     ;; Rivet's deb and rpm both install under /opt. /usr also covers products
-     ;; following the conventional rpm layout. Update ownership matters here,
-     ;; not which package database owns the executable.
-     (if (or (string-prefix? normalized "/opt/")
-             (string-prefix? normalized "/usr/"))
-         'package-manager
-         'portable)]))
+     (define normalized (simplify-path (path->complete-path executable) #f))
+     (case (ownership normalized)
+       [(owned) 'package-manager]
+       [(unowned) 'portable]
+       [(unknown)
+        ;; Fail closed for system prefixes when the package database cannot
+        ;; prove ownership. This retains the previous conservative behavior
+        ;; instead of bypassing package-manager elevation or transactions.
+        (if (system-install-prefix? normalized) 'package-manager 'portable)]
+       [else
+        (raise-arguments-error 'detect-install-kind
+                               "unrecognized Linux package ownership result")])]))
 
 (define (current-install-kind [executable (find-system-path 'run-file)])
   (detect-install-kind (current-update-platform) executable (getenv "APPIMAGE")))
