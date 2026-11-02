@@ -102,7 +102,7 @@ service. Permission denial, a missing Linux session bus, or another unavailable
 notification service is intentionally non-fatal: the domain mutation has
 already succeeded and remains visible in the task list.
 
-## Title editing and local persistence (Windows preview)
+## Title editing and local persistence (Windows and macOS previews)
 
 The WinUI 3 reference exposes **Edit title → Save / Discard draft**, with
 `edit-task-title`, `save-task` and `cancel-task-edit` automation IDs.
@@ -131,8 +131,18 @@ the indicated directory; keep a backup before attempting manual recovery.
 There is no automatic backup, migration from a future format, cloud sync or
 concurrent multi-process writer coordination in this reference.
 
+### macOS native title editor
+
+The SwiftUI reference now offers **Edit title → Save / Discard draft**.
+A separate draft, stable `edit-task-title`, `save-task`, and
+`cancel-task-edit` identifiers, explicit Save (not Return), Escape discard,
+and preserved input after a failed Racket RPC are exercised by the packaged
+macOS accessibility driver. As on Windows, the Racket backend saves the
+snapshot before reporting success. Packaged app close/relaunch and error-path
+acceptance, real keyboard/IME/focus and human visual review remain #347 gates.
+
 **Issue [#347](https://github.com/turlamai/rivet/issues/347) remains
-open.** macOS and GTK4 still need an equivalent native title editor and
+open.** GTK4 still needs an equivalent native title editor and
 packaged-app relaunch acceptance. Windows close-while-dirty, real keyboard/IME
 and focus traces, scaling/accessibility and human visual review also require
 evidence. A successful Racket storage test is not a production UX certificate.
