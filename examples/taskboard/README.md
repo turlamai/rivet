@@ -102,7 +102,7 @@ service. Permission denial, a missing Linux session bus, or another unavailable
 notification service is intentionally non-fatal: the domain mutation has
 already succeeded and remains visible in the task list.
 
-## Title editing and local persistence (Windows preview)
+## Title editing and local persistence (Windows and Linux previews)
 
 The WinUI 3 reference exposes **Edit title → Save / Discard draft**, with
 `edit-task-title`, `save-task` and `cancel-task-edit` automation IDs.
@@ -131,8 +131,19 @@ the indicated directory; keep a backup before attempting manual recovery.
 There is no automatic backup, migration from a future format, cloud sync or
 concurrent multi-process writer coordination in this reference.
 
+### Linux native title editor
+
+The GTK4 reference now offers **Edit title → Save / Discard draft**.
+The native GtkEntry retains the draft independently of committed State.
+Return does not save (IME-safe); Escape cancels; failed RPC validation keeps
+the draft for retry. Accessible identifiers include `edit-task`,
+`edit-task-title`, `save-task`, `cancel-task-edit`, and
+`task-edit-error`. Packaged Wayland AT-SPI checks exercise these interactions.
+The shared Racket backend stores a durable snapshot before returning success;
+packaged relaunch/recovery, keyboard/IME and visual review remain #347 gates.
+
 **Issue [#347](https://github.com/turlamai/rivet/issues/347) remains
-open.** macOS and GTK4 still need an equivalent native title editor and
+open.** macOS still needs an equivalent native title editor and
 packaged-app relaunch acceptance. Windows close-while-dirty, real keyboard/IME
 and focus traces, scaling/accessibility and human visual review also require
 evidence. A successful Racket storage test is not a production UX certificate.

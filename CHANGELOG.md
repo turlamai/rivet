@@ -8,6 +8,11 @@
   `.github` script. Its Python 3 scanner is packaged with `rivet-cli`; CLI
   argument tests and a real packaged macOS CI smoke guard the public entry.
 
+- Taskboard Linux GTK4 native title editing now has explicit Save/Discard,
+  recoverable validation errors, and packaged Wayland AT-SPI checks (#347).
+  Its labels reflect the persisted Racket snapshot from #352; packaged
+  relaunch/recovery and complete human visual/IME review remain pending.
+
 - Add a read-only, JSON-reporting Apple channel preflight for packaged macOS
   bundles. It detects malformed bundle/privacy metadata, checks effective
   entitlements and code signatures on macOS, flags Store sandbox/unsafe runtime
