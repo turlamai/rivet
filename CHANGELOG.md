@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Key rotation for update feeds is now a supported, tested dual-trust
+  window instead of a prose suggestion. `verify-signed-manifest` accepts
+  `#:trusted-keys` (an alist of key id to public key), `fetch-update-manifest`
+  and `make-updater` thread it through, and RivetUpdate on macOS takes
+  `additionalTrustedKeys`. A wrapper key id is verified against its own
+  paired public key; a trusted id whose signature does not verify fails
+  closed, and feeds signed with retired keys stay rejected. Windows CI now
+  also installs two MSI versions of the smoke app, upgrades in place,
+  refuses the downgrade, and uninstalls cleanly — installed-package
+  upgrade acceptance beyond portable packaging (issue #370).
+
 - The Apple preflight is now available as `raco rivet apple-review
   --channel <developer-id|mac-app-store|ios-app-store> --app <path.app> --json`
   from an installed Rivet package, instead of requiring a source-checkout

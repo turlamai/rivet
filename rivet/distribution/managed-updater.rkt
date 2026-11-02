@@ -27,7 +27,8 @@
 
 (struct updater
   (application-id current-version channel platform architecture install-kind
-                  public-key resolved-key key-id manifest-url data-directory
+                  public-key resolved-key key-id trusted-keys manifest-url
+                  data-directory
                   rollout-bucket maximum-manifest-bytes maximum-download-bytes
                   check-timeout stall-timeout total-timeout
                   fetch-manifest download
@@ -94,6 +95,7 @@
                       #:install-kind [install-kind #f]
                       #:public-key public-key
                       #:key-id key-id
+                      #:trusted-keys [trusted-keys '()]
                       #:manifest-url manifest-url
                       #:data-directory data-directory
                       #:rollout-bucket rollout-bucket
@@ -124,6 +126,19 @@
      install-kind))
   (unless (and (string? key-id) (not (string=? key-id "")))
     (raise-argument-error 'make-updater "non-empty string?" key-id))
+  ;; Key-rotation dual-trust window (issue #370): additional
+  ;; (key-id . public-key-bytes) pairs accepted while a publisher signs
+  ;; with the next key. Every id is a non-empty string; every key is bytes.
+  (unless (and (list? trusted-keys)
+               (andmap (lambda (pair)
+                         (and (pair? pair)
+                              (string? (car pair))
+                              (not (string=? (car pair) ""))
+                              (bytes? (cdr pair))))
+                       trusted-keys))
+    (raise-argument-error 'make-updater
+                          "(listof (cons/c non-empty-string? bytes?))"
+                          trusted-keys))
   (unless (and (string? manifest-url)
                (regexp-match? #px"^https://" manifest-url))
     (raise-argument-error 'make-updater "HTTPS URL string" manifest-url))
@@ -151,6 +166,7 @@
                public-key)
            #f
            (string->immutable-string key-id)
+           trusted-keys
            (string->immutable-string manifest-url)
            (path->complete-path data-directory) rollout-bucket
            maximum-manifest-bytes maximum-download-bytes check-timeout
@@ -279,6 +295,7 @@
           (updater-manifest-url instance)
           key
           #:key-id (updater-key-id instance)
+          #:trusted-keys (updater-trusted-keys instance)
           #:maximum-bytes (updater-maximum-manifest-bytes instance)))))
     (define config (updater-config-for instance key))
     (define candidate

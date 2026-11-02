@@ -39,6 +39,13 @@ public struct RivetUpdateConfiguration: Sendable {
     /// this one.
     public let keyID: String
 
+    /// Additional key identities (key ID → base64 public key) trusted
+    /// during a rotation window: while the feed is already signed with the
+    /// next key, clients that still primary-trust the old key accept it by
+    /// verifying against the paired public key here. Outside a rotation
+    /// this stays empty, and a foreign key id is rejected outright.
+    public let additionalTrustedKeys: [String: String]
+
     /// Installed bundle file name, for example `"Taskly.app"`.
     public let bundleName: String
 
@@ -52,11 +59,13 @@ public struct RivetUpdateConfiguration: Sendable {
                 publicKeyBase64: String,
                 keyID: String,
                 bundleName: String,
+                additionalTrustedKeys: [String: String] = [:],
                 requestTimeout: TimeInterval = 60,
                 resourceTimeout: TimeInterval = 600) {
         self.feedURL = feedURL
         self.publicKeyBase64 = publicKeyBase64
         self.keyID = keyID
+        self.additionalTrustedKeys = additionalTrustedKeys
         self.bundleName = bundleName
         self.requestTimeout = requestTimeout
         self.resourceTimeout = resourceTimeout
@@ -163,6 +172,16 @@ public final class RivetUpdateService: Sendable {
         guard configuration.keyID.isEmpty == false else {
             throw RivetUpdateError.invalidConfiguration("key id must not be empty")
         }
+        for (trustedID, trustedKey) in configuration.additionalTrustedKeys {
+            guard trustedID.isEmpty == false, trustedID != configuration.keyID else {
+                throw RivetUpdateError.invalidConfiguration(
+                    "additional trusted key ids must be non-empty and distinct from the primary key id")
+            }
+            guard trustedKey.isEmpty == false else {
+                throw RivetUpdateError.invalidConfiguration(
+                    "additional trusted key \(trustedID) has an empty public key")
+            }
+        }
         guard configuration.bundleName.hasSuffix(".app"),
               configuration.bundleName.contains("/") == false,
               configuration.bundleName.count > ".app".count else {
@@ -243,7 +262,9 @@ public final class RivetUpdateService: Sendable {
         }
         return try Self.verifyManifest(data,
                                        keyBase64: configuration.publicKeyBase64,
-                                       keyID: configuration.keyID)
+                                       keyID: configuration.keyID,
+                                       additionalTrustedKeys:
+                                           configuration.additionalTrustedKeys)
     }
 
     // MARK: - Pure steps (unit-tested)
@@ -251,10 +272,14 @@ public final class RivetUpdateService: Sendable {
     /// Verifies the signed wrapper (schema, key id, Ed25519 over the exact
     /// payload bytes) and decodes the inner manifest. The payload stays
     /// opaque until the signature check succeeds — unauthenticated input
-    /// never reaches the JSON decoder.
+    /// never reaches the JSON decoder. During a rotation window the wrapper
+    /// may carry a trusted additional key id, verified against that key's
+    /// own public half; any other key id is rejected.
     public static func verifyManifest(_ wrapperBytes: Data,
                                       keyBase64: String,
-                                      keyID: String) throws -> RivetUpdateManifest {
+                                      keyID: String,
+                                      additionalTrustedKeys: [String: String] = [:])
+        throws -> RivetUpdateManifest {
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         let wrapper: SignedWrapper
@@ -264,8 +289,16 @@ public final class RivetUpdateService: Sendable {
             throw RivetUpdateError.manifestMissing
         }
         guard wrapper.schema == 1 else { throw RivetUpdateError.manifestMissing }
-        guard wrapper.signature.algorithm == "ed25519",
-              wrapper.signature.keyId == keyID else {
+        guard wrapper.signature.algorithm == "ed25519" else {
+            throw RivetUpdateError.signatureInvalid
+        }
+        let verifyingKeyBase64: String
+        if wrapper.signature.keyId == keyID {
+            verifyingKeyBase64 = keyBase64
+        } else if let alternate = additionalTrustedKeys[wrapper.signature.keyId],
+                  alternate.isEmpty == false {
+            verifyingKeyBase64 = alternate
+        } else {
             throw RivetUpdateError.signatureInvalid
         }
         guard let payload = Data(base64Encoded: wrapper.payload),
@@ -273,7 +306,7 @@ public final class RivetUpdateService: Sendable {
             throw RivetUpdateError.signatureInvalid
         }
         guard signature.count == 64 else { throw RivetUpdateError.signatureInvalid }
-        guard let keyData = Data(base64Encoded: keyBase64),
+        guard let keyData = Data(base64Encoded: verifyingKeyBase64),
               let publicKey = try? Curve25519.Signing.PublicKey(rawRepresentation: keyData) else {
             throw RivetUpdateError.badPublicKey
         }

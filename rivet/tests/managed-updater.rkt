@@ -21,6 +21,7 @@
 
 (define (fake-fetch _url _key
                     #:key-id [_key-id #f]
+                    #:trusted-keys [_trusted-keys #f]
                     #:maximum-bytes [_maximum-bytes (* 1024 1024)])
   manifest)
 
@@ -151,6 +152,7 @@
     ;; help when a server stalls before selection begins.
     (define (blocking-fetch _url _key
                             #:key-id [_key-id #f]
+                    #:trusted-keys [_trusted-keys #f]
                             #:maximum-bytes [_maximum-bytes (* 1024 1024)])
       (sync never-evt))
     (define check-bounded
@@ -168,6 +170,7 @@
     (define fetch-stopped (make-semaphore 0))
     (define (interruptible-fetch _url _key
                                  #:key-id [_key-id #f]
+                    #:trusted-keys [_trusted-keys #f]
                                  #:maximum-bytes [_maximum-bytes (* 1024 1024)])
       (dynamic-wind
         (lambda () (semaphore-post fetch-started))

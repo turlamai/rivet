@@ -412,6 +412,52 @@ jobs:
           if (-not (Test-Path 'app\backend.rkt')) {
             throw 'raco rivet clean removed application source'
           }
+      - name: MSI install, upgrade, downgrade rejection, and uninstall smoke
+        shell: pwsh
+        run: |
+          # Issue #370: installed-package upgrade acceptance, not only
+          # portable packaging. Two development releases of the same Smoke
+          # app produce two MSIs with the same UpgradeCode; install, upgrade
+          # in place, refuse the downgrade, then uninstall cleanly.
+          dotnet tool install --global wix --version 5.*
+          $env:PATH = "$env:USERPROFILE\.dotnet\tools;$env:PATH"
+          $root = Join-Path $env:RUNNER_TEMP 'rivet-msi-smoke'
+          New-Item -ItemType Directory -Force -Path $root | Out-Null
+          Set-Location $root
+          raco rivet new Smoke
+          Set-Location (Join-Path $root 'Smoke')
+          Copy-Item (Join-Path $env:GITHUB_WORKSPACE 'rivet\tests\fixtures\schema-matrix-backend.rkt') 'app\backend.rkt' -Force
+          New-Item -ItemType Directory -Force -Path 'assets\nested' | Out-Null
+          Set-Content -Path 'assets\nested\product.txt' -Value 'msi-v1' -NoNewline
+          $config = Get-Content 'rivet.rktd' -Raw
+          if ($config -notmatch '0\.1\.0') { throw 'expected scaffold version 0.1.0' }
+          raco rivet release --development --without-updates
+          $v1 = Get-ChildItem 'dist\*-0.1.0-windows-*.msi' | Select-Object -First 1
+          if (-not $v1) { throw 'development release did not produce the 0.1.0 MSI' }
+          $installRoot = 'C:\Program Files\Smoke'
+          $installedResource = Join-Path $installRoot 'app\assets\nested\product.txt'
+          $p = Start-Process msiexec -ArgumentList "/i", "`"$($v1.FullName)`"", "/qn", "/norestart", "/L*v", "$root\install-v1.log" -Wait -PassThru
+          if ($p.ExitCode -notin 0, 3010) { Get-Content "$root\install-v1.log" -Tail 40; throw "MSI v1 install failed with $($p.ExitCode)" }
+          if ((Get-Content $installedResource -Raw) -ne 'msi-v1') { throw 'installed payload does not carry the v1 marker' }
+          # Upgrade in place: same UpgradeCode, higher product version.
+          Set-Content -Path 'assets\nested\product.txt' -Value 'msi-v2' -NoNewline
+          $config = Get-Content 'rivet.rktd' -Raw
+          $updated = $config.Replace('(version . "0.1.0")', '(version . "0.2.0")')
+          if ($updated -eq $config) { throw 'failed to bump the scaffold version' }
+          Set-Content -Path 'rivet.rktd' -Value $updated -NoNewline
+          raco rivet release --development --without-updates
+          $v2 = Get-ChildItem 'dist\*-0.2.0-windows-*.msi' | Select-Object -First 1
+          if (-not $v2) { throw 'development release did not produce the 0.2.0 MSI' }
+          $p = Start-Process msiexec -ArgumentList "/i", "`"$($v2.FullName)`"", "/qn", "/norestart", "/L*v", "$root\upgrade.log" -Wait -PassThru
+          if ($p.ExitCode -notin 0, 3010) { Get-Content "$root\upgrade.log" -Tail 40; throw "MSI v2 upgrade failed with $($p.ExitCode)" }
+          if ((Get-Content $installedResource -Raw) -ne 'msi-v2') { throw 'upgrade did not replace the installed payload' }
+          # The downgrade must be refused and leave v2 intact.
+          $p = Start-Process msiexec -ArgumentList "/i", "`"$($v1.FullName)`"", "/qn", "/norestart", "/L*v", "$root\downgrade.log" -Wait -PassThru
+          if ($p.ExitCode -eq 0) { throw 'downgrade install unexpectedly succeeded' }
+          if ((Get-Content $installedResource -Raw) -ne 'msi-v2') { throw 'the refused downgrade mutated the installed payload' }
+          $p = Start-Process msiexec -ArgumentList "/x", "`"$($v2.FullName)`"", "/qn", "/norestart", "/L*v", "$root\uninstall.log" -Wait -PassThru
+          if ($p.ExitCode -notin 0, 3010) { Get-Content "$root\uninstall.log" -Tail 40; throw "MSI uninstall failed with $($p.ExitCode)" }
+          if (Test-Path $installRoot) { throw 'uninstall left the installation directory behind' }
       - name: Build and verify the maintained WinUI reference app
         shell: pwsh
         run: |
