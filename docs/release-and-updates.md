@@ -23,6 +23,35 @@ Applications that deliberately ship without an online update channel can run `ra
 
 WiX Toolset v4 or later is required to build the Windows MSI. macOS uses the system `hdiutil`. Rivet signs the final MSI/DMG as well as the contained application. On Linux the final tarball is signed and, because the archive is deterministic, `raco rivet verify --production` re-derives it from the package and checks the detached signature.
 
+## Release modes (cross-product standard, issue #371)
+
+These named modes are the reusable standard for every Rivet-based product.
+A release job declares its mode per platform; it can never silently fall
+back from a promised signed mode to an unsigned one, because each signed
+mode fails closed when its credentials are absent.
+
+| Platform | No-paid-credentials default | Opt-in signed mode |
+| --- | --- | --- |
+| macOS | `macos=adhoc` — `raco rivet package` / `release --development`, ad-hoc signed, labeled unsigned | `macos=developer-id+notarized` — `release` with `RIVET_MACOS_SIGN_IDENTITY` + `RIVET_MACOS_NOTARY_PROFILE`; Developer ID signing, hardened runtime, notarization, stapling |
+| Windows | `windows=unsigned` — installable MSI + portable zip, candid SmartScreen instructions in product support pages | `windows=authenticode` — `release` with `RIVET_WINDOWS_SIGN_CERT_SHA1` (or PFX) + `RIVET_WINDOWS_TIMESTAMP_URL`; RFC 3161 timestamped |
+| Linux | `linux=unsigned-package+signed-update` — deb/rpm/AppImage/tar.gz without a publisher account; the update feed is still Ed25519-signed | same as default; Linux never requires a paid publisher certificate |
+
+Invariants that hold in every mode:
+
+- OS executable signing and update-manifest Ed25519 verification are
+  independent. Every online-update feed is Ed25519-signed and rejects
+  invalid, replayed, downgraded, or hash-mismatched content regardless of
+  whether the platform executables carry a paid signature.
+- Production release stages fail closed on missing credentials
+  (`rivet-cli/signing-options.rkt`); `raco rivet verify --production`
+  re-checks trust on the final artifact; `raco rivet
+  verify-release-assets` closes the manifest/asset parity gate. No path
+  claims notarization or publisher trust that the artifacts do not carry.
+- `release --development` exists to rehearse flows before credentials
+  exist and must never gate a published production channel; product
+  release workflows that promise a signed mode must run the production
+  command so the credential check is the gate.
+
 ## Multi-platform release matrices
 
 Every installer format builds natively on its platform, so a family
