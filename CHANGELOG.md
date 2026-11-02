@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- The Apple preflight is now available as `raco rivet apple-review
+  --channel <developer-id|mac-app-store|ios-app-store> --app <path.app> --json`
+  from an installed Rivet package, instead of requiring a source-checkout
+  `.github` script. Its Python 3 scanner is packaged with `rivet-cli`; CLI
+  argument tests and a real packaged macOS CI smoke guard the public entry.
+
 - Taskboard macOS SwiftUI native title editing now has explicit Save/Discard
   with recoverable validation errors and packaged AX checks (issue #347).
   Its user-facing language now agrees with the durable Racket task snapshot
