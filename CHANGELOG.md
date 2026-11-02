@@ -8,6 +8,11 @@
   `.github` script. Its Python 3 scanner is packaged with `rivet-cli`; CLI
   argument tests and a real packaged macOS CI smoke guard the public entry.
 
+- Taskboard macOS SwiftUI native title editing now has explicit Save/Discard
+  with recoverable validation errors and packaged AX checks (issue #347).
+  Its user-facing language now agrees with the durable Racket task snapshot
+  from #352. Full packaged relaunch and visual/IME review remain outstanding.
+
 - Add a read-only, JSON-reporting Apple channel preflight for packaged macOS
   bundles. It detects malformed bundle/privacy metadata, checks effective
   entitlements and code signatures on macOS, flags Store sandbox/unsafe runtime
