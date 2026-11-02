@@ -128,7 +128,7 @@
  plain-source
  "the launch action must come from the architecture-appropriate Util CA")
 (check-regexp-match
- #rx"<Publish Dialog=\"ExitDialog\" Control=\"Finish\" Event=\"DoAction\" Value=\"LaunchApplication\" Condition=\"WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT \(REMOVE = &quot;ALL&quot;\)\" Order=\"2\" />"
+ #rx"<Publish Dialog=\"ExitDialog\" Control=\"Finish\" Event=\"DoAction\" Value=\"LaunchApplication\" Condition=\"WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT [(]REMOVE = &quot;ALL&quot;[)]\" Order=\"2\" />"
  plain-source
  "the checkbox must launch only on a fresh install")
 ;; The Finish page shows Launch on maintenance/repair too: do not silently
