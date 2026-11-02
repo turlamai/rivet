@@ -58,6 +58,19 @@
                                    (lambda (_) 'unknown))
               'portable)
 
+;; Exercise the real host package database on Linux runners, in addition to
+;; deterministic injected-ownership tests above. This catches CLI invocation
+;; changes (including the argument separator) that a fake probe cannot.
+;; Racket-core CI runs this file on Ubuntu; other platforms retain the
+;; portable deterministic tests without requiring dpkg or rpm.
+(when (and (eq? platform 'linux)
+           (not (getenv "APPIMAGE"))
+           (file-exists? "/usr/bin/dpkg-query")
+           (find-executable-path "dpkg-query"))
+  (check-equal? (current-install-kind "/usr/bin/dpkg-query")
+                'package-manager
+                "a real dpkg-owned executable must not use portable updates"))
+
 (define (candidate installer [version "2.0.0"])
   (define artifact
     (update-artifact platform 'x64 "https://updates.example/application.zip"
