@@ -143,6 +143,62 @@
     (check-exn #rx"non-empty publisher string"
                (lambda () (load-project temp-root)))
 
+
+    ;; Installation identity is a path component across MSI/DMG/Linux formats.
+    ;; Reject traversal, absolute paths, embedded separators, spaces/control
+    ;; characters and switch-like names before any installer is generated.
+    (for ([bad-name (in-list (list "../escape" "/tmp/escape" "a/b"
+                                   "a\\\\b" "My App" "bad\nname"
+                                   ".hidden" "-switch"))])
+      (write-config
+       (hasheq 'name bad-name
+               'backend "app/backend.rkt"
+               'module "backend"
+               'entry "start"
+               'protocol 1))
+      (check-exn #rx"installer-safe ASCII slug"
+                 (lambda () (load-project temp-root))))
+    ;; Product display names can be localized but cannot inject new metadata
+    ;; lines into .desktop, DEB/RPM, or Windows installer fields.
+    (for ([key (in-list '(display-name publisher))])
+      (for ([bad-value (in-list (list "bad\nExec=/bin/false" "bad\rname"
+                                      "bad\tname" "bad\u2028name" "bad\u2029name"))])
+        (write-config
+         (hash-set (hasheq 'name "demo"
+                           'backend "app/backend.rkt"
+                           'module "backend"
+                           'entry "start"
+                           'protocol 1)
+                   key bad-value))
+        (check-exn #rx"non-empty single-line"
+                   (lambda () (load-project temp-root)))))
+    (write-config
+     (hasheq 'name "demo"
+             'display-name "示例应用 ✓"
+             'publisher "测试发布者"
+             'backend "app/backend.rkt"
+             'module "backend"
+             'entry "start"
+             'protocol 1))
+    (define international (load-project temp-root))
+    (check-equal? (project-display-name international) "示例应用 ✓")
+    (check-equal? (project-publisher international) "测试发布者")
+    ;; Even direct constructors (without load-project) must reject unsafe
+    ;; release identities when the installer accesses those fields.
+    (define direct-root (hasheq 'name "../outside"))
+    (check-exn #rx"unsafe installer project slug"
+               (lambda () (project-name (rivet-project temp-root direct-root))))
+    (check-exn #rx"unsafe installer display name"
+               (lambda ()
+                 (project-display-name
+                  (rivet-project temp-root
+                                 (hasheq 'name "demo" 'display-name "bad\nline")))))
+    (check-exn #rx"unsafe installer publisher"
+               (lambda ()
+                 (project-publisher
+                  (rivet-project temp-root
+                                 (hasheq 'name "demo" 'publisher "bad\rline")))))
+
     (write-config
      (hasheq 'name "demo"
              'identifier "bad identifier"

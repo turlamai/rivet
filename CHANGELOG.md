@@ -32,6 +32,10 @@
   refers to the undedicated `rivet/distribution/identity` leaf module as plain
   text, so the Scribble build is warning-clean.
 
+- Project installation identity now rejects unsafe name/path components and
+  multiline display/publisher fields before packaging. Direct project object
+  access enforces the same rule; Unicode single-line labels remain supported.
+
 - Windows MSI Launch on the Finish dialog remains available for initial
   install and maintenance/repair but is explicitly suppressed on full
   uninstall (`REMOVE="ALL"`), when the target executable has been removed.
