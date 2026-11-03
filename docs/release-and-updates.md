@@ -31,6 +31,14 @@ Downgrade and uninstall checks remain. These gates do not simulate clicking
 WiX Finish or prove every downstream product's single-instance or first-run
 business behavior.
 
+The Windows MSI native CI also performs a real closed-app `msiexec /fa`
+repair after initial installed-app launch; it requires exit code 0 without
+reboot deferral, intact installed payload, and unchanged disposable user data
+outside the install directory. It repeats the user-data check across a
+running-app upgrade and final full uninstall. These are generic framework
+installer gates and do not replace each product's profile/data migration
+acceptance.
+
 The MSI Finish-page Launch checkbox is honored on first install and
 repair/reinstall; Rivet suppresses its launch action for full uninstall
 (`REMOVE="ALL"`) so a removed executable is never started. This is a WiX

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Windows MSI lifecycle CI now performs real maintenance repair after the
+  first installed-app launch and verifies the installed payload stays intact.
+  Repair, running-app upgrade and full uninstall must preserve disposable
+  profile data outside the installation directory.
+
 - Windows MSI Launch on the Finish dialog remains available for initial
   install and maintenance/repair but is explicitly suppressed on full
   uninstall (`REMOVE="ALL"`), when the target executable has been removed.
