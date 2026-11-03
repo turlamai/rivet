@@ -347,10 +347,10 @@ RKT
              (command . ("racket" "-e" "(void)"))))))
 RKT
       )
-     (define no-path (environment-variables-copy (current-environment-variables)))
-     (environment-variables-set! no-path #"PATH" #"")
-     (parameterize ([current-environment-variables no-path])
-       (check-equal? (run-acceptance-command project '("--dry-run" "--json")) 0)))
+     (let ([no-path (environment-variables-copy (current-environment-variables))])
+       (environment-variables-set! no-path #"PATH" #"")
+       (parameterize ([current-environment-variables no-path])
+         (check-equal? (run-acceptance-command project '("--dry-run" "--json")) 0))))
 
    ;; A missing executable is a dry-run failure before any child starts.
    (write-manifest
