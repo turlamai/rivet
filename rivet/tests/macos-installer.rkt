@@ -45,6 +45,41 @@
 (check-equal? attached-device "/dev/disk7s2")
 (check-equal? attached-path "/Volumes/Smoke App")
 
+(check-equal? (whole-image-device attached-device) "/dev/disk7")
+(check-equal? (whole-image-device "/dev/disk7") "/dev/disk7")
+(check-true
+ (disk-image-device-listed?
+  (string-append "/dev/disk7\tGUID_partition_scheme\t\n"
+                 "/dev/disk7s2\tApple_HFS\t/Volumes/Smoke App\n"
+                 "image-path      : /tmp/smoke.dmg\n")
+  "/dev/disk7"))
+(check-false
+ (disk-image-device-listed? "/dev/disk70\tGUID_partition_scheme\t\n"
+                            "/dev/disk7")
+ "the whole-device identity must not match similarly numbered devices")
+
+;; Regression: Finder removed the mountpoint, but the disk image device
+;; remains attached. Do not falsely report a successful detach.
+(let ([mounted? #f]
+      [attached? #t]
+      [calls '()])
+  (define (fake-detach _who _hdiutil . args)
+    (set! calls (cons args calls))
+    (when (equal? args '("detach" "-force" "/dev/disk7"))
+      (set! attached? #f)))
+  (detach-mounted-image! "hdiutil" "/dev/disk7" attached-path
+                         #:run! fake-detach
+                         #:mounted? (lambda () mounted?)
+                         #:attached? (lambda () attached?)
+                         #:retries 1
+                         #:pause (lambda (_) (void)))
+  (check-equal? (reverse calls)
+                '(("detach" "/dev/disk7")
+                  ("detach" "-force" "/dev/disk7"))
+                "an unmounted but attached image must be force-detached"))
+
+
+
 (let ([calls '()]
       [mounted? #t])
   (define (fake-run _who _hdiutil . arguments)
@@ -108,6 +143,51 @@
                                         #:pause (lambda (_) (void))
                                         #:attempts 3)))
   (check-equal? calls 3 "permanent errors must fail after the bounded retries"))
+
+;; A backing image lock may persist even after hdiutil reports the disk
+;; detached. Conversion must recover with a private copy and clean that copy.
+(let ([root (make-temporary-file "rivet-dmg-convert-~a" 'directory)])
+  (dynamic-wind
+    void
+    (lambda ()
+      (define source (build-path root "locked.dmg"))
+      (define output (build-path root "finished.dmg"))
+      (call-with-output-file source (lambda (out) (display "branded-image" out)))
+      (define seen '())
+      (define copied-path #f)
+      (convert-released-dmg!
+       "hdiutil" source output
+       #:attempts 2
+       #:pause (lambda (_) (void))
+       #:run!
+       (lambda (_who _exe . args)
+         (define input (string->path (cadr args)))
+         (set! seen (cons input seen))
+         (when (equal? input source)
+           (error 'hdiutil "original file still locked"))
+         (set! copied-path input)
+         (check-equal? (file->string input) "branded-image")
+         (call-with-output-file output #:exists 'truncate/replace
+           (lambda (out) (display "compressed" out)))))
+      (check-equal? (length seen) 3)
+      (check-equal? (file->string output) "compressed")
+      (check-false (file-exists? copied-path)
+                   "the private conversion copy must be cleaned on success")
+      (delete-file output)
+      (check-exn
+       #rx"persistent conversion failure"
+       (lambda ()
+         (convert-released-dmg!
+          "hdiutil" source output
+          #:attempts 2
+          #:pause (lambda (_) (void))
+          #:run! (lambda (_who _exe . _args)
+                   (error 'hdiutil "persistent conversion failure")))))
+      (check-false (file-exists? output)
+                   "a failed conversion cannot leave a distributable image")
+      (check-equal? (length (directory-list root)) 1
+                    "failed conversion must clean its temporary copy"))
+    (lambda () (delete-directory/files root #:must-exist? #f))))
 
 ;; Staged background normalization (macOS: raster-pixel-size shells to sips)
 

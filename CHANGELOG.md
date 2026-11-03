@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Branded macOS DMG packaging now verifies the backing image device has
+  actually detached before conversion, even when Finder removes its mountpoint.
+  It can convert an isolated copy if diskimages-helper retains the original
+  image lock, while cleaning copies and failing closed on persistent errors.
+
 - Windows MSI lifecycle CI now performs real maintenance repair after the
   first installed-app launch and verifies the installed payload stays intact.
   Repair, running-app upgrade and full uninstall must preserve disposable
