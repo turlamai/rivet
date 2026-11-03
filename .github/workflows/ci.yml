@@ -412,7 +412,7 @@ jobs:
           if (-not (Test-Path 'app\backend.rkt')) {
             throw 'raco rivet clean removed application source'
           }
-      - name: MSI install, upgrade, downgrade rejection, and uninstall smoke
+      - name: MSI first launch, running-app upgrade, downgrade rejection, and uninstall smoke
         shell: pwsh
         run: |
           # Issue #370: installed-package upgrade acceptance, not only
@@ -491,9 +491,54 @@ jobs:
           raco rivet release --development --without-updates
           $v2 = Get-ChildItem 'dist\*-0.2.0-windows-*.msi' | Select-Object -First 1
           if (-not $v2) { throw 'development release did not produce the 0.2.0 MSI' }
-          $p = Start-Process msiexec -ArgumentList "/i", "`"$($v2.FullName)`"", "/qn", "/norestart", "/L*v", "$root\upgrade.log" -Wait -PassThru
-          if ($p.ExitCode -notin 0, 3010) { Get-Content "$root\upgrade.log" -Tail 40; throw "MSI v2 upgrade failed with $($p.ExitCode)" }
-          if ((Get-Content $installedResource -Raw) -ne 'msi-v2') { throw 'upgrade did not replace the installed payload' }
+          # Running-process upgrade: do not pre-close v1. Silent MSI's
+          # Restart Manager must release the installed files without a reboot.
+          $runningV1 = Start-Process -FilePath $installedExe -WorkingDirectory $installRoot -PassThru
+          $upgradeProcess = $null
+          try {
+            $windowSeen = $false
+            for ($i = 0; $i -lt 60; $i++) {
+              Start-Sleep -Milliseconds 500
+              $runningV1.Refresh()
+              if ($runningV1.HasExited) {
+                throw "v1 exited before running-app upgrade: $($runningV1.ExitCode)"
+              }
+              if ($runningV1.MainWindowHandle -ne [IntPtr]::Zero) {
+                $windowSeen = $true
+                break
+              }
+            }
+            if (-not $windowSeen) { throw 'installed v1 never showed a native window' }
+            $upgradeLog = "$root\upgrade-running.log"
+            $upgradeProcess = Start-Process msiexec -ArgumentList "/i", "`"$($v2.FullName)`"", "/qn", "/norestart", "/L*v", $upgradeLog -PassThru
+            if (-not $upgradeProcess.WaitForExit(120000)) {
+              if (Test-Path $upgradeLog) { Get-Content $upgradeLog -Tail 100 }
+              throw 'MSI v2 upgrade stalled while installed v1 was still running'
+            }
+            if ($upgradeProcess.ExitCode -ne 0) {
+              if (Test-Path $upgradeLog) { Get-Content $upgradeLog -Tail 100 }
+              throw "running-app upgrade failed or deferred until reboot: $($upgradeProcess.ExitCode)"
+            }
+            if (-not $runningV1.WaitForExit(15000)) {
+              throw 'MSI upgrade left the old installed v1 process running'
+            }
+            if ((Get-Content $installedResource -Raw) -ne 'msi-v2') {
+              throw 'running-app upgrade did not install the v2 payload'
+            }
+          } finally {
+            # Kill only as test cleanup on failure, never before the installer.
+            if ($upgradeProcess) {
+              $upgradeProcess.Refresh()
+              if (-not $upgradeProcess.HasExited) {
+                Stop-Process -Id $upgradeProcess.Id -Force -ErrorAction SilentlyContinue
+              }
+            }
+            $runningV1.Refresh()
+            if (-not $runningV1.HasExited) {
+              Stop-Process -Id $runningV1.Id -Force -ErrorAction SilentlyContinue
+              $runningV1.WaitForExit(5000) | Out-Null
+            }
+          }
           # The downgrade must be refused and leave v2 intact.
           $p = Start-Process msiexec -ArgumentList "/i", "`"$($v1.FullName)`"", "/qn", "/norestart", "/L*v", "$root\downgrade.log" -Wait -PassThru
           if ($p.ExitCode -eq 0) { throw 'downgrade install unexpectedly succeeded' }

@@ -7,6 +7,13 @@
   archive swap. Staging rejects malformed, escaping and ambiguous containers
   before moving the old installation; package-manager artifacts remain delegated.
 
+- Windows MSI lifecycle CI now upgrades a real installed v1 while its native
+  window/process are still live, using Installer Restart Manager rather than
+  preemptively closing the application. It requires the upgrade to finish
+  without reboot deferral, the old process to exit, and installed v2 to replace
+  v1, exposing the running-process reinstall failure that closed-app smoke
+  tests could not catch.
+
 - Windows MSI CI now starts the real installed executable from `Program Files`
   after first installation. It requires a native main window, a normal close,
   and process exit before the existing upgrade and uninstall tests, catching
