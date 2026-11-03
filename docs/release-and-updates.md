@@ -36,6 +36,14 @@ repair/reinstall; Rivet suppresses its launch action for full uninstall
 (`REMOVE="ALL"`) so a removed executable is never started. This is a WiX
 installer contract, distinct from CI's separate installed-program launch gate.
 
+All macOS DMGs place the app bundle and a genuine `/Applications` link at
+the volume root, including when a product does not configure `dmg-background`.
+The plain image uses native Finder copying without AppleScript automation;
+both plain and branded images copy the signed app with `ditto` to preserve
+Racket.framework symlinks. Native macOS tests mount the plain image and inspect
+the link and nested framework layout. This is first-install packaging evidence,
+not proof of every product's first-run, data migration, or update/rollback.
+
 WiX Toolset v4 or later is required to build the Windows MSI. macOS uses the system `hdiutil`. Rivet signs the final MSI/DMG as well as the contained application. On Linux the final tarball is signed and, because the archive is deterministic, `raco rivet verify --production` re-derives it from the package and checks the detached signature.
 
 ## Unsigned distribution constraints

@@ -96,6 +96,73 @@
       (delete-file probe))))
 
 ;; ---------------------------------------------------------------------------
+;; ---------------------------------------------------------------------------
+;; Native default-DMG smoke: no custom background or Finder automation needed.
+;; hdiutil must preserve the standard /Applications link and signed-bundle layout.
+
+(module+ test
+  (when (equal? 'macosx (system-type 'os))
+    (define hdiutil (find-executable-path "hdiutil"))
+    (when hdiutil
+      (define root (make-temporary-file "rivet-plain-dmg-~a" 'directory))
+      (define mount-path (build-path root "mounted"))
+      (define attached? #f)
+      (dynamic-wind
+        void
+        (lambda ()
+          (define app (build-path root "Smoke.app"))
+          (define framework (build-path app "Contents" "Frameworks" "Racket.framework"))
+          (define project
+            (rivet-project root
+                           (hasheq 'name "Smoke"
+                                   'display-name "Smoke App"
+                                   'version "0.1.0")))
+          (make-directory* (build-path framework "Versions" "9.3_CS"))
+          (call-with-output-file (build-path app "Contents" "Info.plist")
+            (lambda (out) (display "<plist/>" out)))
+          (call-with-output-file (build-path framework "Versions" "9.3_CS" "Racket")
+            (lambda (out) (display "fake-mach-o" out)))
+          (make-file-or-directory-link "9.3_CS"
+                                       (build-path framework "Versions" "Current"))
+          (make-file-or-directory-link "Versions/Current/Racket"
+                                       (build-path framework "Racket"))
+          (let ([dmg (create-macos-installer! project app #f)])
+            (check-true (file-exists? dmg) "plain DMG must be produced")
+            (check-false
+             (directory-exists?
+              (build-path root ".rivet" "installer" "plain-dmg-staging"))
+             "plain staging must be removed after image creation")
+            (make-directory* mount-path)
+            (let ([exit-code
+                   (system*/exit-code hdiutil "attach" dmg
+                                      "-mountpoint" (path->string mount-path)
+                                      "-nobrowse" "-readonly")])
+              (set! attached? (zero? exit-code))
+              (check-equal? exit-code 0 "plain DMG must attach cleanly")
+              (when attached?
+                (check-true
+                 (file-exists? (build-path mount-path "Smoke.app" "Contents" "Info.plist"))
+                 "the app must be at the volume root")
+                (check-equal?
+                 (file-or-directory-type (build-path mount-path "Applications") #f)
+                 'link "plain DMG must link to Applications")
+                (check-equal?
+                 (file-or-directory-type
+                  (build-path mount-path "Smoke.app" "Contents" "Frameworks"
+                              "Racket.framework" "Versions" "Current") #f)
+                 'link "versioned framework symlink must survive")
+                (check-equal?
+                 (file-or-directory-type
+                  (build-path mount-path "Smoke.app" "Contents" "Frameworks"
+                              "Racket.framework" "Racket") #f)
+                 'link "framework executable symlink must survive")))))
+        (lambda ()
+          (when attached?
+            (unless (zero? (system*/exit-code hdiutil "detach"
+                                             (path->string mount-path)))
+              (system* hdiutil "detach" "-force" (path->string mount-path))))
+          (delete-directory/files root #:must-exist? #f))))))
+
 ;; Live branded DMG build (macOS hosts with Finder automation)
 
 (module+ test

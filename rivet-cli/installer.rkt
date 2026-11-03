@@ -298,6 +298,29 @@
     (sign-windows-production! output (load-windows-production-signing)))
   output)
 
+;; Default DMGs need the same drag-to-Applications affordance as branded ones.
+;; Use ditto: Racket's recursive copy dereferences nested framework symlinks,
+;; damaging the code-signature layout of an already signed app bundle.
+(define (create-plain-macos-dmg! project app output hdiutil)
+  (define ditto (find-executable-path "ditto"))
+  (unless ditto
+    (error 'create-installer! "ditto is required to preserve signed macOS app bundles"))
+  (define staging (project-path project ".rivet" "installer" "plain-dmg-staging"))
+  (delete-directory/files staging #:must-exist? #f)
+  (make-directory* staging)
+  (dynamic-wind
+    void
+    (lambda ()
+      (run! 'create-installer! ditto (path->string app)
+            (path->string (build-path staging (file-name-from-path app))))
+      (make-file-or-directory-link "/Applications"
+                                   (build-path staging "Applications"))
+      (run! 'create-installer! hdiutil "create" "-fs" "HFS+"
+            "-format" "UDZO" "-volname" (project-display-name project)
+            "-srcfolder" (path->string staging) (path->string output)))
+    (lambda ()
+      (delete-directory/files staging #:must-exist? #f))))
+
 (define (create-macos-installer! project app production?)
   (define hdiutil (find-executable-path "hdiutil"))
   (unless hdiutil (error 'create-installer! "hdiutil was not found"))
@@ -310,10 +333,7 @@
   (when (file-exists? output) (delete-file output))
   (if (project-dmg-background project)
       (create-branded-macos-dmg! project app output hdiutil)
-      (run! 'create-installer! hdiutil "create" "-fs" "HFS+" "-format" "UDZO"
-            "-volname" (project-display-name project)
-            "-srcfolder" (path->string app)
-            (path->string output)))
+      (create-plain-macos-dmg! project app output hdiutil))
   (when production?
     (define settings (load-macos-production-signing))
     (run! 'create-installer! (find-executable-path "codesign")

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Default macOS DMGs now include an Applications drag-to-install shortcut
+  without requiring branded background art. The app is copied with ditto so
+  nested Racket.framework symlinks remain intact, with native DMG mount tests.
+
 - Windows MSI Launch on the Finish dialog remains available for initial
   install and maintenance/repair but is explicitly suppressed on full
   uninstall (`REMOVE="ALL"`), when the target executable has been removed.
