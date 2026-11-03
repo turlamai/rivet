@@ -161,7 +161,7 @@
        #:pause (lambda (_) (void))
        #:run!
        (lambda (_who _exe . args)
-         (define input (string->path (second args)))
+         (define input (string->path (cadr args)))
          (set! seen (cons input seen))
          (when (equal? input source)
            (error 'hdiutil "original file still locked"))
