@@ -2,11 +2,6 @@
 
 ## Unreleased
 
-- Windows MSI Launch on the Finish dialog remains available for initial
-  install and maintenance/repair but is explicitly suppressed on full
-  uninstall (`REMOVE="ALL"`), when the target executable has been removed.
-  The generated WiX source and its Racket regression test enforce the guard.
-
 - Portable installation consumes a bounded private copy reverified against
   the signed asset size and SHA-256, so a changed download is rejected before
   extraction or replacement. Pending backup/marker/journal state is refused
@@ -19,6 +14,17 @@
   journal, restart/health and rollback transaction instead of a product-owned
   archive swap. Staging rejects malformed, escaping and ambiguous containers
   before moving the old installation; package-manager artifacts remain delegated.
+
+- Default macOS DMGs now include an Applications drag-to-install shortcut
+  without requiring branded background art. The app is copied with ditto so
+  nested Racket.framework symlinks remain intact, with native DMG mount tests.
+  Branded DMG conversion also retries bounded transient disk-image busy errors
+  after Finder detach, while persistent failures still fail packaging.
+
+- Windows MSI Launch on the Finish dialog remains available for initial
+  install and maintenance/repair but is explicitly suppressed on full
+  uninstall (`REMOVE="ALL"`), when the target executable has been removed.
+  The generated WiX source and its Racket regression test enforce the guard.
 
 - Windows MSI lifecycle CI now upgrades a real installed v1 while its native
   window/process are still live, using Installer Restart Manager rather than
