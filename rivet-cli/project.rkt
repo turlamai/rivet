@@ -60,7 +60,9 @@
 ;; The internal slug is ASCII and contains no separators or shell/metacharacter
 ;; ambiguity; human-facing labels may use Unicode but not control/newline chars.
 (define (installer-safe-slug? value)
-  (and (string? value)
+  ;; An end-of-line regex anchor can accept a terminal newline: reject all
+  ;; control/line separators as well as enforcing the ASCII slug shape.
+  (and (single-line-package-label? value)
        (regexp-match? #px"^[A-Za-z0-9][A-Za-z0-9._-]*$" value)))
 
 (define (single-line-package-label? value)
@@ -70,7 +72,7 @@
          (define code (char->integer ch))
          (and (>= code 32)
               (not (= code 127))
-              (not (member code '(#x2028 #x2029)))))))
+              (not (member code '(#x85 #x2028 #x2029)))))))
 
 (define (macos-version-string? value)
   (and (string? value)

@@ -148,7 +148,7 @@
     ;; Reject traversal, absolute paths, embedded separators, spaces/control
     ;; characters and switch-like names before any installer is generated.
     (for ([bad-name (in-list (list "../escape" "/tmp/escape" "a/b"
-                                   "a\\\\b" "My App" "bad\nname"
+                                   "a\\\\b" "My App" "bad\nname" "bad\n" "bad\r"
                                    ".hidden" "-switch"))])
       (write-config
        (hasheq 'name bad-name
@@ -162,7 +162,7 @@
     ;; lines into .desktop, DEB/RPM, or Windows installer fields.
     (for ([key (in-list '(display-name publisher))])
       (for ([bad-value (in-list (list "bad\nExec=/bin/false" "bad\rname"
-                                      "bad\tname" "bad\u2028name" "bad\u2029name"))])
+                                      "bad\tname" "bad\u0085name" "bad\u2028name" "bad\u2029name"))])
         (write-config
          (hash-set (hasheq 'name "demo"
                            'backend "app/backend.rkt"
