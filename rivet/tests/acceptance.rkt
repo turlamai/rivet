@@ -2,6 +2,7 @@
 
 (require racket/file
          racket/list
+         racket/path
          rackunit
          "../../rivet-cli/acceptance.rkt"
          "../../rivet-cli/project.rkt"
