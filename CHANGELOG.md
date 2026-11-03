@@ -8,6 +8,15 @@
   Branded DMG conversion also retries bounded transient disk-image busy errors
   after Finder detach, while persistent failures still fail packaging.
 
+- Align the public documentation with the shipped CLI and manual. The
+  copy-paste CI workflow no longer claims to pin 0.11.0 while its YAML pins
+  v0.13.0; the prose now describes the pinning rule without a version that
+  can rot. The README CLI tables (English and Chinese) list the commands that
+  `raco rivet help` actually exposes. The manual documents
+  `silent-check-interval-seconds` (previously an undefined reference) and
+  refers to the undedicated `rivet/distribution/identity` leaf module as plain
+  text, so the Scribble build is warning-clean.
+
 - Windows MSI Launch on the Finish dialog remains available for initial
   install and maintenance/repair but is explicitly suppressed on full
   uninstall (`REMOVE="ALL"`), when the target executable has been removed.
