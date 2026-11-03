@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Portable ZIP update staging now rejects a signed archive with a lone
+  regular-file or symlink root rather than replacing an installed application
+  directory with a non-app file. A complete ZIP SHA-256 is deliberately
+  valid in the negative regression; the old installation stays intact.
+
 - Windows MSI lifecycle CI now upgrades a real installed v1 while its native
   window/process are still live, using Installer Restart Manager rather than
   preemptively closing the application. It requires the upgrade to finish
