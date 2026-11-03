@@ -128,9 +128,9 @@
  plain-source
  "the launch action must come from the architecture-appropriate Util CA")
 (check-regexp-match
- #rx"<Publish Dialog=\"ExitDialog\" Control=\"Finish\" Event=\"DoAction\" Value=\"LaunchApplication\" Condition=\"WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1\" Order=\"2\" />"
+ #rx"<Publish Dialog=\"ExitDialog\" Control=\"Finish\" Event=\"DoAction\" Value=\"LaunchApplication\" Condition=\"WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT [(]REMOVE = &quot;ALL&quot;[)]\" Order=\"2\" />"
  plain-source
- "the checkbox must honor explicit user intent on repair/reinstall too")
+ "the checkbox must launch after install/repair but never after full uninstall")
 (check-regexp-match #rx"<WixVariable Id=\"WixUILicenseRtf\" Value=\"[^\"]+license[.]rtf\" />"
                     plain-source
                     "the license page always resolves to an RTF")
@@ -139,6 +139,8 @@
 
 (check-false (regexp-match? #rx"NOT Installed" plain-source)
              "same-version reinstall/repair must not drop a checked Launch action")
+(check-regexp-match #rx"NOT [(]REMOVE = &quot;ALL&quot;[)]" plain-source
+                    "full uninstall must not try launching a removed executable")
 
 ;; A repository LICENSE renders into the wizard RTF, ASCII-safe with RTF
 ;; paragraph breaks and unicode escapes.
