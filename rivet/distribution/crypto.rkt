@@ -1,6 +1,7 @@
 #lang racket/base
 
 (require crypto
+         (only-in racket/base [sha256-bytes racket-sha256-bytes])
          (only-in crypto/libcrypto libcrypto-factory)
          net/base64
          racket/file
@@ -50,13 +51,16 @@
                                             "value" value))])
     (base64-decode (string->bytes/utf-8 value))))
 
+;; SHA-256 is implemented by Racket's core library and must not depend on
+;; native crypto providers. This matters on the official package builder,
+;; which may compile Rivet without a usable OpenSSL 3 Ed25519 provider.
+;; Ed25519 signing/verification still fails closed when its native provider
+;; cannot be loaded; the hashing fallback does not change that policy.
 (define (sha256-bytes input)
-  (digest 'sha256 input))
+  (racket-sha256-bytes input))
 
 (define (sha256-file path)
-  (call-with-input-file path
-    (lambda (in) (digest 'sha256 in))
-    #:mode 'binary))
+  (call-with-input-file path racket-sha256-bytes #:mode 'binary))
 
 (define (sha256-file/hex path)
   (bytes->hex-string (sha256-file path)))
