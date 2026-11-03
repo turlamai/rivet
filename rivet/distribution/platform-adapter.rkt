@@ -4,7 +4,9 @@
 ;; updates. This module deliberately stays outside RVT1 and the embedded
 ;; runtime: an update is a distribution transaction, not an application RPC.
 
-(require file/unzip
+(require file/gunzip
+         file/untar
+         file/unzip
          racket/file
          racket/list
          racket/path
@@ -102,7 +104,7 @@
        [else 'unsupported])]
     [(linux)
      (case installer
-       [(zip appimage) 'portable]
+       [(zip targz appimage) 'portable]
        [(deb rpm) 'package-manager]
        [else 'unsupported])]
     [else 'unsupported]))
@@ -234,6 +236,47 @@
   (file-or-directory-permissions staged #o755)
   staged)
 
+;; Linux products ship tar.gz portable payloads as well as ZIP/AppImage.
+;; Decompress synchronously so gzip failures propagate to the transaction;
+;; extraction uses Racket's non-permissive path and link checks, never a shell.
+;; Keep the temporary tar outside the extracted entries, on the target volume.
+(define (stage-targz! downloaded staging-root)
+  (make-directory staging-root)
+  (define tar-path (build-path staging-root "archive.tar"))
+  (define contents (build-path staging-root "contents"))
+  (with-handlers ([exn?
+                   (lambda (error)
+                     (with-handlers ([exn:fail? void])
+                       (delete-directory/files staging-root))
+                     (raise error))])
+    (make-directory contents)
+    (dynamic-wind
+      void
+      (lambda ()
+        (call-with-input-file downloaded
+          (lambda (in)
+            (call-with-output-file tar-path
+              #:exists 'error
+              (lambda (out) (gunzip-through-ports in out)))))
+        (untar tar-path #:dest contents #:permissive? #f
+               #:filter
+               (lambda (_entry _destination type _size _link _time _mode)
+                 (unless (memq type '(file dir link extended-header
+                                          extended-header-for-next
+                                          gnu-long-name gnu-long-link))
+                   (raise-arguments-error 'prepare-platform-installation
+                                          "unsupported portable tar entry"
+                                          "type" type))
+                 #t))
+        (define entries (directory-list contents #:build? #t))
+        (unless (and (= (length entries) 1)
+                     (directory-exists? (car entries))
+                     (not (link-exists? (car entries))))
+          (raise-arguments-error 'prepare-platform-installation
+                                 "portable tar archive must contain exactly one payload directory"))
+        (car entries))
+      (lambda () (when (file-exists? tar-path) (delete-file tar-path))))))
+
 (define (prepare-platform-installation
          candidate downloaded-path
          #:target target-path
@@ -317,6 +360,7 @@
     (define staged-payload
       (case installer
         [(zip) (stage-zip! downloaded staging-root)]
+        [(targz) (stage-targz! downloaded staging-root)]
         [(appimage) (stage-appimage! downloaded staging-root)]))
     (verifier staged-payload)
     (if (path-present? target)
@@ -387,4 +431,5 @@
 
 (module+ test-support
   (provide detect-install-kind
+           stage-targz!
            call-with-platform-installation-lock))

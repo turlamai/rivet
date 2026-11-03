@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Linux portable `targz` updates can use the shared platform installation,
+  journal, restart/health and rollback transaction instead of a product-owned
+  archive swap. Staging rejects malformed, escaping and ambiguous containers
+  before moving the old installation; package-manager artifacts remain delegated.
+
 - Windows MSI CI now starts the real installed executable from `Program Files`
   after first installation. It requires a native main window, a normal close,
   and process exit before the existing upgrade and uninstall tests, catching

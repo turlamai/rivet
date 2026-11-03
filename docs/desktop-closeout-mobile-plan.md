@@ -238,6 +238,28 @@ changed.
 
 ## Next implementation handoff
 
+**Owner priority override, 2026-11-03:** unify all active product online-update
+mechanisms on Rivet before first-install, commercial or unrelated feature work.
+[Portfolio tracking](https://github.com/turlamai/turlamai.github.io/issues/14)
+owns the product/platform/install-shape migration matrix;
+[Rivet #397](https://github.com/turlamai/rivet/issues/397) owns shared capability
+gaps. Product consent, publisher/channel policy, data migrations and readiness
+remain product callbacks; shared download/staging/transaction/handoff/recovery
+mechanisms converge here. Package-manager/store/plugin-host ownership is an
+explicit adapter path, not permission to self-overwrite their installations.
+
+First bounded slice: Linux portable `targz` staging now feeds the existing
+platform transaction and recovery APIs. Tests cover malformed/multiple-root,
+escaping path/link containers and native-Linux healthy/failed-health swaps.
+Current local evidence is macOS parsing/regression only; latest-head Linux CI
+and real product migration/restart/rollback remain required. GPTP Studio's
+flat tarball and MoveBit's duplicate apply helpers establish the consumer need;
+neither product is migrated by this framework-only change. Preserve active
+Windows MSI work in #395/#396 and State work in #393.
+
+中文：最高优先级已改为所有产品的在线更新统一与逐项验收；首次安装、商业化及无关功能暂缓。
+本切片只补 Linux tar.gz 共用事务入口，不代表产品迁移或真实升级已完成；下面的设备路线保留为后续待办。
+
 M3 has started. Its first slice is complete in the portable C++ runtime:
 `runtime/include/rivet/device_session.hpp` implements the RVD1 v1 records,
 the authentication-proof and pairing-code transcripts, and the full
