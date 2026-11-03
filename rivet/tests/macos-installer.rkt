@@ -78,6 +78,37 @@
                 "a failed detach is successful once its mount disappeared"))
 
 ;; ---------------------------------------------------------------------------
+;; A detached image can remain briefly busy while Finder/Spotlight release it.
+;; Retry conversion, not the entire build. A persistent failure must still fail.
+(let ([calls 0]
+      [pauses '()])
+  (define (transient-convert _who _exe . args)
+    (set! calls (add1 calls))
+    (check-equal? args '("convert" "input.dmg" "-format" "UDZO"
+                        "-ov" "-o" "output.dmg"))
+    (when (< calls 3)
+      (error 'hdiutil "Resource temporarily unavailable")))
+  (convert-detached-dmg! "hdiutil" (string->path "input.dmg")
+                         (string->path "output.dmg")
+                         #:run! transient-convert
+                         #:pause (lambda (seconds) (set! pauses (cons seconds pauses)))
+                         #:attempts 4)
+  (check-equal? calls 3 "two transient conversion failures must be retried")
+  (check-equal? pauses '(2 2) "conversion retries must pause between attempts"))
+
+(let ([calls 0])
+  (define (permanent-convert _who _exe . _args)
+    (set! calls (add1 calls))
+    (error 'hdiutil "persistent conversion failure"))
+  (check-exn #rx"persistent conversion failure"
+             (lambda ()
+               (convert-detached-dmg! "hdiutil" (string->path "input.dmg")
+                                        (string->path "output.dmg")
+                                        #:run! permanent-convert
+                                        #:pause (lambda (_) (void))
+                                        #:attempts 3)))
+  (check-equal? calls 3 "permanent errors must fail after the bounded retries"))
+
 ;; Staged background normalization (macOS: raster-pixel-size shells to sips)
 
 (module+ test

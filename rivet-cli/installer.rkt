@@ -465,6 +465,24 @@
 ;; let Finder size the window and place both icons, then convert to the
 ;; compressed output. Projects without a declared background keep the plain
 ;; single-folder image instead.
+;; Finder and Spotlight can briefly retain the just-unmounted read/write
+;; image. A successful hdiutil detach is not a promise that a following
+;; convert can immediately reopen the image exclusively. Keep conversion
+;; strictly bounded: persistent errors still fail the installer build.
+(define (convert-detached-dmg! hdiutil source output
+                               #:run! [runner run!]
+                               #:pause [pause sleep]
+                               #:attempts [attempts 6])
+  (let retry ([remaining attempts])
+    (with-handlers ([exn:fail?
+                     (lambda (e)
+                       (if (> remaining 1)
+                           (begin (pause 2)
+                                  (retry (sub1 remaining)))
+                           (raise e)))])
+      (runner 'create-installer! hdiutil "convert" (path->string source)
+              "-format" "UDZO" "-ov" "-o" (path->string output)))))
+
 (define (create-branded-macos-dmg! project app output hdiutil)
   (define background (project-path project (project-dmg-background project)))
   (unless (file-exists? background)
@@ -551,8 +569,7 @@
     (when (find-executable-path "sync")
       (run! 'create-installer! (find-executable-path "sync")))
     (detach!))
-  (run! 'create-installer! hdiutil "convert" (path->string rw-image)
-        "-format" "UDZO" "-ov" "-o" (path->string output))
+  (convert-detached-dmg! hdiutil rw-image output)
   (delete-optional! rw-image)
   (delete-directory/files staging)
   output)
@@ -607,4 +624,5 @@
            text->rtf
            dmg-style-applescript
            raster-pixel-size
-           create-macos-installer!))
+           create-macos-installer!
+           convert-detached-dmg!))
