@@ -326,6 +326,32 @@ RKT
               (lambda ()
                 (run-acceptance-command project '("--dry-run"))))
 
+   ;; A package-builder may launch /path/to/racket with no `racket` in
+   ;; PATH. Dry-run validation should resolve that actual runtime, while
+   ;; still rejecting genuinely missing external commands below.
+   (define running-racket (find-system-path 'exec-file))
+   (when (and (path? running-racket)
+              (file-name-from-path running-racket)
+              (regexp-match? #px"(?i:^racket(?:\\.exe)?$)"
+                             (path->string (file-name-from-path running-racket))))
+     (write-manifest
+      root
+      #<<RKT
+#hasheq(
+ (version . 1)
+ (requirements . (#hasheq((kind . contract) (platforms . (windows macos linux)))))
+ (suites
+  . (#hasheq((id . current-racket)
+             (kind . contract)
+             (platforms . (windows macos linux))
+             (command . ("racket" "-e" "(void)"))))))
+RKT
+      )
+     (define no-path (environment-variables-copy (current-environment-variables)))
+     (environment-variables-set! no-path #"PATH" #"")
+     (parameterize ([current-environment-variables no-path])
+       (check-equal? (run-acceptance-command project '("--dry-run" "--json")) 0)))
+
    ;; A missing executable is a dry-run failure before any child starts.
    (write-manifest
     root
