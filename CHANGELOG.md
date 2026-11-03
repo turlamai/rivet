@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Branded macOS DMG packaging now verifies the backing image device has
+  actually detached before conversion, even when Finder removes its mountpoint.
+  It can convert an isolated copy if diskimages-helper retains the original
+  image lock, while cleaning copies and failing closed on persistent errors.
+
 - Default macOS DMGs now include an Applications drag-to-install shortcut
   without requiring branded background art. The app is copied with ditto so
   nested Racket.framework symlinks remain intact, with native DMG mount tests.

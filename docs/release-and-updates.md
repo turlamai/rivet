@@ -36,6 +36,13 @@ repair/reinstall; Rivet suppresses its launch action for full uninstall
 (`REMOVE="ALL"`) so a removed executable is never started. This is a WiX
 installer contract, distinct from CI's separate installed-program launch gate.
 
+Branded DMG packaging checks the whole backing device with \`hdiutil info\`
+before converting a read/write image. A removed Finder mountpoint alone is
+not successful detachment. If the old image path remains briefly locked after
+detach, the packager converts a same-directory private copy and deletes it
+on both success and failure. Native tests still mount and inspect the resulting
+DMG; a detached-device or conversion failure does not qualify an installer.
+
 All macOS DMGs place the app bundle and a genuine `/Applications` link at
 the volume root, including when a product does not configure `dmg-background`.
 The plain image uses native Finder copying without AppleScript automation;
