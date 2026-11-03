@@ -298,6 +298,29 @@
     (sign-windows-production! output (load-windows-production-signing)))
   output)
 
+;; Default DMGs need the same drag-to-Applications affordance as branded ones.
+;; Use ditto: Racket's recursive copy dereferences nested framework symlinks,
+;; damaging the code-signature layout of an already signed app bundle.
+(define (create-plain-macos-dmg! project app output hdiutil)
+  (define ditto (find-executable-path "ditto"))
+  (unless ditto
+    (error 'create-installer! "ditto is required to preserve signed macOS app bundles"))
+  (define staging (project-path project ".rivet" "installer" "plain-dmg-staging"))
+  (delete-directory/files staging #:must-exist? #f)
+  (make-directory* staging)
+  (dynamic-wind
+    void
+    (lambda ()
+      (run! 'create-installer! ditto (path->string app)
+            (path->string (build-path staging (file-name-from-path app))))
+      (make-file-or-directory-link "/Applications"
+                                   (build-path staging "Applications"))
+      (run! 'create-installer! hdiutil "create" "-fs" "HFS+"
+            "-format" "UDZO" "-volname" (project-display-name project)
+            "-srcfolder" (path->string staging) (path->string output)))
+    (lambda ()
+      (delete-directory/files staging #:must-exist? #f))))
+
 (define (create-macos-installer! project app production?)
   (define hdiutil (find-executable-path "hdiutil"))
   (unless hdiutil (error 'create-installer! "hdiutil was not found"))
@@ -310,10 +333,7 @@
   (when (file-exists? output) (delete-file output))
   (if (project-dmg-background project)
       (create-branded-macos-dmg! project app output hdiutil)
-      (run! 'create-installer! hdiutil "create" "-fs" "HFS+" "-format" "UDZO"
-            "-volname" (project-display-name project)
-            "-srcfolder" (path->string app)
-            (path->string output)))
+      (create-plain-macos-dmg! project app output hdiutil))
   (when production?
     (define settings (load-macos-production-signing))
     (run! 'create-installer! (find-executable-path "codesign")
@@ -445,6 +465,24 @@
 ;; let Finder size the window and place both icons, then convert to the
 ;; compressed output. Projects without a declared background keep the plain
 ;; single-folder image instead.
+;; Finder and Spotlight can briefly retain the just-unmounted read/write
+;; image. A successful hdiutil detach is not a promise that a following
+;; convert can immediately reopen the image exclusively. Keep conversion
+;; strictly bounded: persistent errors still fail the installer build.
+(define (convert-detached-dmg! hdiutil source output
+                               #:run! [runner run!]
+                               #:pause [pause sleep]
+                               #:attempts [attempts 6])
+  (let retry ([remaining attempts])
+    (with-handlers ([exn:fail?
+                     (lambda (e)
+                       (if (> remaining 1)
+                           (begin (pause 2)
+                                  (retry (sub1 remaining)))
+                           (raise e)))])
+      (runner 'create-installer! hdiutil "convert" (path->string source)
+              "-format" "UDZO" "-ov" "-o" (path->string output)))))
+
 (define (create-branded-macos-dmg! project app output hdiutil)
   (define background (project-path project (project-dmg-background project)))
   (unless (file-exists? background)
@@ -531,8 +569,7 @@
     (when (find-executable-path "sync")
       (run! 'create-installer! (find-executable-path "sync")))
     (detach!))
-  (run! 'create-installer! hdiutil "convert" (path->string rw-image)
-        "-format" "UDZO" "-ov" "-o" (path->string output))
+  (convert-detached-dmg! hdiutil rw-image output)
   (delete-optional! rw-image)
   (delete-directory/files staging)
   output)
@@ -587,4 +624,5 @@
            text->rtf
            dmg-style-applescript
            raster-pixel-size
-           create-macos-installer!))
+           create-macos-installer!
+           convert-detached-dmg!))

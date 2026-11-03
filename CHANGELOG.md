@@ -7,6 +7,12 @@
   Repair, running-app upgrade and full uninstall must preserve disposable
   profile data outside the installation directory.
 
+- Default macOS DMGs now include an Applications drag-to-install shortcut
+  without requiring branded background art. The app is copied with ditto so
+  nested Racket.framework symlinks remain intact, with native DMG mount tests.
+  Branded DMG conversion also retries bounded transient disk-image busy errors
+  after Finder detach, while persistent failures still fail packaging.
+
 - Windows MSI Launch on the Finish dialog remains available for initial
   install and maintenance/repair but is explicitly suppressed on full
   uninstall (`REMOVE="ALL"`), when the target executable has been removed.
