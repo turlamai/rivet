@@ -77,6 +77,35 @@
   (check-equal? calls 1
                 "a failed detach is successful once its mount disappeared"))
 
+;; hdiutil convert can race the device's asynchronous teardown after
+;; detach succeeded. Retry its exact args; never treat exhausted retries as
+;; successful publication.
+(let ([calls 0] [pauses '()])
+  (convert-macos-dmg-with-retries!
+   "hdiutil" "input.dmg" "output.dmg"
+   #:runner (lambda (_who _executable . args)
+              (check-equal? args
+                            '("convert" "input.dmg" "-format" "UDZO"
+                              "-ov" "-o" "output.dmg"))
+              (set! calls (add1 calls))
+              (when (< calls 3) (error 'fake-convert "resource temporarily unavailable")))
+   #:pause (lambda (delay) (set! pauses (append pauses (list delay)))))
+  (check-equal? calls 3)
+  (check-equal? pauses '(2 4)))
+
+(let ([calls 0])
+  (check-exn
+   exn:fail?
+   (lambda ()
+     (convert-macos-dmg-with-retries!
+      "hdiutil" "input.dmg" "output.dmg"
+      #:attempts 3
+      #:runner (lambda (_who _executable . _args)
+                 (set! calls (add1 calls))
+                 (error 'fake-convert "persistent conversion failure"))
+      #:pause (lambda (_) (void)))))
+  (check-equal? calls 3))
+
 ;; ---------------------------------------------------------------------------
 ;; Staged background normalization (macOS: raster-pixel-size shells to sips)
 
