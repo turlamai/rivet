@@ -277,6 +277,37 @@
                (lambda () (execute-platform-installation! first-install)))
     (check-false (directory-exists? first-target))
 
+    ;; Even an archive with a correct signed digest may have the wrong shape.
+    ;; A lone file is not a runnable application directory. Reject before
+    ;; renaming the old installation and never call restart/health hooks.
+    (define single-file-root (build-path root "single-file-zip"))
+    (make-directory single-file-root)
+    (write-text (build-path single-file-root "payload.txt") "not-an-app")
+    (define single-file-archive (build-path single-file-root "signed.zip"))
+    (parameterize ([current-directory single-file-root])
+      (zip single-file-archive "payload.txt"))
+    (define preserved-target (build-path single-file-root "installed"))
+    (write-text (build-path preserved-target "version.txt") "previous-working-app")
+    (define restarted-single-file? #f)
+    (define malformed-but-authenticated
+      (prepare-platform-installation
+       (candidate 'zip "2.0.6" #:archive single-file-archive)
+       single-file-archive
+       #:target preserved-target
+       #:restart (lambda () (set! restarted-single-file? #t))
+       #:health-check (lambda () (error 'test "must not probe malformed app"))
+       #:verify-staged void))
+    (check-exn #rx"exactly one real payload directory"
+               (lambda ()
+                 (execute-platform-installation! malformed-but-authenticated)))
+    (check-false restarted-single-file?)
+    (check-equal? (read-text (build-path preserved-target "version.txt"))
+                  "previous-working-app")
+    (check-false
+     (directory-exists?
+      (string->path
+       (string-append (path->string preserved-target) ".rivet-backup"))))
+
     ;; Managed installers cannot be smuggled through the portable path.
     (define managed-installer
       (case platform
