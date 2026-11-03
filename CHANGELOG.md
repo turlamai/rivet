@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Branded macOS DMG conversion now retries the same `hdiutil convert` with
+  bounded backoff when the just-detached source image remains temporarily busy
+  on macOS Intel runners. Exhausted attempts still fail the installer; a
+  deterministic regression checks retries and the persistent-failure path.
+
 - Windows MSI Launch on the Finish dialog remains available for initial
   install and maintenance/repair but is explicitly suppressed on full
   uninstall (`REMOVE="ALL"`), when the target executable has been removed.
