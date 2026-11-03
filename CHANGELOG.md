@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Windows MSI Launch on the Finish dialog remains available for initial
+  install and maintenance/repair but is explicitly suppressed on full
+  uninstall (`REMOVE="ALL"`), when the target executable has been removed.
+  The generated WiX source and its Racket regression test enforce the guard.
+
 - Linux portable `targz` updates can use the shared platform installation,
   journal, restart/health and rollback transaction instead of a product-owned
   archive swap. Staging rejects malformed, escaping and ambiguous containers
