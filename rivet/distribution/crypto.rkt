@@ -35,8 +35,21 @@
 ;; would not start).
 (crypto-factories (list libcrypto-factory))
 
-(define ed25519-factories
-  (list libcrypto-factory))
+;; Keep native provider imports lazy. Full desktop distributions already ship
+;; OpenSSL 3; importing additional FFI providers during app startup can break
+;; otherwise self-contained packaged applications. The official Racket 9.3
+;; natipkg builder instead carries OpenSSL 1.1, so when the primary factory
+;; cannot implement EdDSA, try the separately RFC 8032-validated Nettle
+;; implementation. There is no alternative signature algorithm and no mock.
+(define (ed25519-factories)
+  (if (get-pk 'eddsa libcrypto-factory)
+      (list libcrypto-factory)
+      (let ([nettle
+             (with-handlers ([exn:fail? (lambda (_) #f)])
+               (dynamic-require 'crypto/nettle 'nettle-factory))])
+        (if (and nettle (get-pk 'eddsa nettle))
+            (list libcrypto-factory nettle)
+            (list libcrypto-factory)))))
 
 (define (bytes->base64-string value)
   (bytes->string/utf-8 (base64-encode value #"")))
@@ -68,7 +81,7 @@
 (define (decode-key who raw formats #:origin [origin #f])
   (or (for/or ([format (in-list formats)])
         (with-handlers ([exn:fail? (lambda (_) #f)])
-          (datum->pk-key raw format ed25519-factories)))
+          (datum->pk-key raw format (ed25519-factories))))
       (apply raise-arguments-error who
              "could not decode Ed25519 key"
              (append (list "accepted formats" formats)
@@ -117,7 +130,7 @@
   (define safe-key
     (datum->pk-key (pk-key->datum checked 'rkt-private)
                    'rkt-private
-                   ed25519-factories))
+                   (ed25519-factories)))
   (pk-sign safe-key message))
 
 (define (ed25519-verify public-key message signature)
@@ -125,6 +138,6 @@
   (define safe-key
     (datum->pk-key (pk-key->datum checked 'rkt-public)
                    'rkt-public
-                   ed25519-factories))
+                   (ed25519-factories)))
   (and (= (bytes-length signature) 64)
        (pk-verify safe-key message signature)))
