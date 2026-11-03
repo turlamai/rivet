@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Windows MSI Launch on the Finish dialog remains available for initial
+  install and maintenance/repair but is explicitly suppressed on full
+  uninstall (`REMOVE="ALL"`), when the target executable has been removed.
+  The generated WiX source and its Racket regression test enforce the guard.
+
 - Portable installation consumes a bounded private copy reverified against
   the signed asset size and SHA-256, so a changed download is rejected before
   extraction or replacement. Pending backup/marker/journal state is refused
