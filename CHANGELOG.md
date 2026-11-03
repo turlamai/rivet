@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Windows MSI Launch on the Finish dialog remains available for initial
+  install and maintenance/repair but is explicitly suppressed on full
+  uninstall (`REMOVE="ALL"`), when the target executable has been removed.
+  The generated WiX source and its Racket regression test enforce the guard.
+
 - Windows MSI CI now starts the real installed executable from `Program Files`
   after first installation. It requires a native main window, a normal close,
   and process exit before the existing upgrade and uninstall tests, catching
