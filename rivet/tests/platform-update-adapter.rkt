@@ -71,10 +71,12 @@
                 'package-manager
                 "a real dpkg-owned executable must not use portable updates"))
 
-(define (candidate installer [version "2.0.0"])
+(define (candidate installer [version "2.0.0"] #:archive [archive #f])
   (define artifact
     (update-artifact platform 'x64 "https://updates.example/application.zip"
-                     (make-string 64 #\a) 1 installer '() #f))
+                     (if archive (sha256-file/hex archive) (make-string 64 #\a))
+                     (if archive (file-size archive) 1)
+                     installer '() #f))
   (update-candidate
    (update-manifest "dev.rivet.adapter-test" version 2 'stable
                     "2026-10-10T00:00:00Z" "1.0.0" "1.0.0"
