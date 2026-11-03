@@ -44,6 +44,37 @@
            (lambda () (installer-extension 'unknown)))
 (check-equal? (rfc3339-now 0) "1970-01-01T00:00:00Z")
 
+;; RFC 8032 test vector 1: exact empty-message Ed25519 signature. A
+;; backend that merely imports successfully is not enough; libgcrypt was
+;; rejected for Permit after failing this test. Nettle is a last-resort
+;; provider only when OpenSSL 3 cannot implement Ed25519.
+(define (rfc8032-hex text)
+  (list->bytes
+   (for/list ([index (in-range 0 (string-length text) 2)])
+     (string->number (substring text index (+ index 2)) 16))))
+
+(define rfc8032-seed
+  (rfc8032-hex "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60"))
+(define rfc8032-public
+  (rfc8032-hex "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"))
+(define rfc8032-signature
+  (rfc8032-hex
+   (string-append
+    "e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e06522490155"
+    "5fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b")))
+(define nettle-provider
+  (with-handlers ([exn:fail? (lambda (_) #f)])
+    (dynamic-require 'crypto/nettle 'nettle-factory)))
+(when (and nettle-provider (get-pk 'eddsa nettle-provider))
+  (define private
+    (datum->pk-key
+     (list 'eddsa 'private 'ed25519 rfc8032-public rfc8032-seed)
+     'rkt-private (list nettle-provider)))
+  (define public (pk-key->public-only-key private))
+  (check-equal? (ed25519-sign private #"") rfc8032-signature)
+  (check-true (ed25519-verify public #"" rfc8032-signature))
+  (check-false (ed25519-verify public #"tampered" rfc8032-signature)))
+
 (define ed25519-impl
   (get-pk 'eddsa (list libcrypto-factory sodium-factory decaf-factory)))
 (define private-key
