@@ -22,11 +22,14 @@ On Linux the release additionally builds native system installers: a `.deb` (dpk
 Applications that deliberately ship without an online update channel can run `raco rivet release --without-updates`. The command still builds, packages, platform-signs, verifies, and emits the installer, SBOM, and third-party notices; it skips only the channel manifest and does not read any `RIVET_UPDATE_*` credentials. Combine it with `--development` to exercise the unsigned release flow before publisher credentials exist. Omitting `--without-updates` keeps the fail-closed behavior above: all three update settings are required, and a partial configuration is an error.
 
 Windows MSI CI now launches the executable from its real `Program Files`
-installation after the first MSI install. The gate requires a native main
-window, orderly window close, and process termination before running the
-existing upgrade/downgrade/uninstall checks. It intentionally does not
-simulate clicking the WiX Finish-dialog checkbox or substitute for
-product-owned single-instance and first-run initialization behavior.
+installation after the first MSI install and checks native window readiness,
+orderly close and process termination. A second acceptance launches the
+installed v1 again and upgrades to v2 **while v1 remains running**, exercising
+the real MSI/Restart Manager path. It requires completion without reboot
+deferral, termination of the old executable, and the new installed payload.
+Downgrade and uninstall checks remain. These gates do not simulate clicking
+WiX Finish or prove every downstream product's single-instance or first-run
+business behavior.
 
 The MSI Finish-page Launch checkbox is honored on first install and
 repair/reinstall; Rivet suppresses its launch action for full uninstall
