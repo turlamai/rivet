@@ -150,6 +150,17 @@ openssl genpkey -algorithm Ed25519 -outform DER -out update-private.der
 openssl pkey -inform DER -in update-private.der -pubout -outform DER -out update-public.der
 ```
 
+At installation time the portable adapter creates a private same-volume
+snapshot of the download, copies no more than the signed size plus one
+overflow-detection byte, and verifies that snapshot's exact size and SHA-256
+before ZIP/tar.gz/AppImage staging consumes it. Replacing the caller's download
+after an earlier download verification cannot authorize different install bytes.
+The snapshot is removed on success or error; the caller's downloaded file is
+preserved. Before starting a new transaction or writing its journal, the adapter
+refuses existing backup/first-install markers and existing journals. Recover the
+previous transaction explicitly; refusal must not roll an unrelated backup over
+the current installation or erase its recovery record.
+
 Embed only `update-public.der` (or its bytes) in the native host. Key rotation is explicit through `key_id` and is a supported, tested dual-trust window (issue #370):
 
 1. Ship a client release whose updater carries the **next** key id and public key as an additional trusted key, still primary-trusting the current one — `make-updater` takes `#:trusted-keys` as a list of `(cons key-id public-key-bytes)`; RivetUpdate on macOS takes `additionalTrustedKeys` (`[String: String]`, key id → base64 public key).

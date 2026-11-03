@@ -65,15 +65,16 @@
     (check-false (file-exists? (build-path root "escape.txt")))
 
     (when (eq? (current-update-platform) 'linux)
-      (define artifact
-        (update-artifact 'linux 'x64 "https://updates.example/application.tar.gz"
-                         (make-string 64 #\a) 1 'targz '() #f))
-      (define candidate
+      (define (candidate-for path)
+        (define artifact
+          (update-artifact 'linux 'x64 "https://updates.example/application.tar.gz"
+                           (sha256-file/hex path) (file-size path) 'targz '() #f))
         (update-candidate
          (update-manifest "dev.rivet.tar-test" "2.0.0" 2 'stable
                           "2026-11-03T00:00:00Z" "1.0.0" "1.0.0"
                           #t 100 (list artifact))
          artifact))
+      (define candidate (candidate-for valid))
       (for ([healthy? (in-list '(#t #f))])
         (define target (build-path root (if healthy? "success" "rollback")))
         (write-text (build-path target "version.txt") "old")
@@ -102,7 +103,7 @@
       (write-text (build-path target "version.txt") "untouched")
       (for ([path (in-list (cons malformed rejected))])
         (define installation
-          (prepare-platform-installation candidate path #:target target
+          (prepare-platform-installation (candidate-for path) path #:target target
                                          #:restart (lambda () (error 'test "must not restart"))
                                          #:health-check (lambda () #t)))
         (check-exn exn:fail? (lambda () (execute-platform-installation! installation)))

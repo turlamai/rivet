@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Portable installation consumes a bounded private copy reverified against
+  the signed asset size and SHA-256, so a changed download is rejected before
+  extraction or replacement. Pending backup/marker/journal state is refused
+  before a new transaction starts, preserving the current install and prior
+  recovery evidence instead of rolling back an unrelated backup.
+
 - Linux portable `targz` updates can use the shared platform installation,
   journal, restart/health and rollback transaction instead of a product-owned
   archive swap. Staging rejects malformed, escaping and ambiguous containers

@@ -26,7 +26,7 @@
          execute-platform-installation!
          recover-platform-installation!)
 
-(struct platform-installation (plan health-check commit transaction-lock))
+(struct platform-installation (plan health-check commit transaction-lock preflight))
 
 (define (current-update-platform)
   (platform-symbol))
@@ -217,6 +217,27 @@
     (raise-argument-error who "complete-path?" path))
   (simplify-path path #f))
 
+;; Never unpack a mutable download path after an earlier verification. Copy
+;; at most the signed size plus one detection byte into an owner-created,
+;; same-filesystem snapshot, verify that exact snapshot, then consume it.
+(define (call-with-verified-artifact-snapshot candidate downloaded target consume)
+  (define snapshot
+    (make-temporary-file ".rivet-artifact-~a" #f (path-only target)))
+  (dynamic-wind
+    void
+    (lambda ()
+      (call-with-input-file downloaded
+        (lambda (in)
+          (call-with-output-file snapshot #:exists 'truncate/replace
+            (lambda (out)
+              (copy-port
+               (make-limited-input-port
+                in (add1 (update-artifact-size (update-candidate-artifact candidate))) #f)
+               out)))))
+      (verify-update-artifact! candidate snapshot)
+      (consume snapshot))
+    (lambda () (when (file-exists? snapshot) (delete-file snapshot)))))
+
 (define (stage-zip! downloaded staging-root)
   (make-directory staging-root)
   (unzip downloaded
@@ -339,6 +360,13 @@
     (or verify-staged
         (lambda (payload) (verify-platform-payload! platform payload))))
 
+  (define (preflight)
+    (when (or (path-present? backup) (path-present? no-previous-marker))
+      (raise-arguments-error
+       'platform-update-install
+       "an unfinished installation must be recovered before starting another"
+       "backup" backup)))
+
   (define (install downloaded-input)
     (unless (equal? (normalize-target 'platform-update-install downloaded-input)
                     downloaded)
@@ -350,18 +378,17 @@
       (raise-arguments-error 'platform-update-install
                              "verified update artifact does not exist"
                              "artifact" downloaded))
-    (when (or (path-present? backup) (path-present? no-previous-marker))
-      (raise-arguments-error
-       'platform-update-install
-       "an unfinished installation must be recovered before starting another"
-       "backup" backup))
+    (preflight)
     (when (path-present? staging-root) (remove-path! staging-root))
     (make-parent-directory* target)
     (define staged-payload
-      (case installer
-        [(zip) (stage-zip! downloaded staging-root)]
-        [(targz) (stage-targz! downloaded staging-root)]
-        [(appimage) (stage-appimage! downloaded staging-root)]))
+      (call-with-verified-artifact-snapshot
+       candidate downloaded target
+       (lambda (snapshot)
+         (case installer
+           [(zip) (stage-zip! snapshot staging-root)]
+           [(targz) (stage-targz! snapshot staging-root)]
+           [(appimage) (stage-appimage! snapshot staging-root)]))))
     (verifier staged-payload)
     (if (path-present? target)
         (rename-file-or-directory target backup)
@@ -399,7 +426,8 @@
                       #:rollback rollback)
    health-check
    commit
-   (sibling-path target ".rivet-update.lock")))
+   (sibling-path target ".rivet-update.lock")
+   preflight))
 
 (define (execute-platform-installation! installation
                                         #:journal-path [journal-path #f])
@@ -410,6 +438,14 @@
    'execute-platform-installation!
    installation
    (lambda ()
+     ;; Refuse an existing transaction before the new plan can write its
+     ;; journal or invoke rollback against somebody else's preserved backup.
+     ((platform-installation-preflight installation))
+     (when (and journal-path (path-present? journal-path))
+       (raise-arguments-error
+        'execute-platform-installation!
+        "an unfinished installation journal must be recovered before starting another"
+        "journal" journal-path))
      (execute-install-plan!
       (platform-installation-plan installation)
       #:health-check (platform-installation-health-check installation)

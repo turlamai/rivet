@@ -71,10 +71,11 @@
                 'package-manager
                 "a real dpkg-owned executable must not use portable updates"))
 
-(define (candidate installer [version "2.0.0"])
+(define (candidate installer [version "2.0.0"] #:archive [archive #f])
   (define artifact
     (update-artifact platform 'x64 "https://updates.example/application.zip"
-                     (make-string 64 #\a) 1 installer '() #f))
+                     (if archive (sha256-file/hex archive) (make-string 64 #\a))
+                     (if archive (file-size archive) 1) installer '() #f))
   (update-candidate
    (update-manifest "dev.rivet.adapter-test" version 2 'stable
                     "2026-10-10T00:00:00Z" "1.0.0" "1.0.0"
@@ -127,7 +128,7 @@
     (define restarted? #f)
     (define success
       (prepare-platform-installation
-       (candidate 'zip) success-archive
+       (candidate 'zip #:archive success-archive) success-archive
        #:target success-target
        #:restart (lambda () (set! restarted? #t) 'restarted)
        #:health-check
@@ -137,7 +138,7 @@
        #:verify-staged (test-verifier "new")))
     (define same-target-different-backup
       (prepare-platform-installation
-       (candidate 'zip) success-archive
+       (candidate 'zip #:archive success-archive) success-archive
        #:target success-target
        #:backup-path (build-path success-root "alternate-backup")
        #:restart void
@@ -191,7 +192,7 @@
     (define unhealthy-archive (make-update-archive unhealthy-root "bad-new"))
     (define unhealthy
       (prepare-platform-installation
-       (candidate 'zip "2.0.1") unhealthy-archive
+       (candidate 'zip "2.0.1" #:archive unhealthy-archive) unhealthy-archive
        #:target unhealthy-target
        #:restart void
        #:health-check (lambda () #f)
@@ -209,7 +210,7 @@
     (define rejected-archive (make-update-archive rejected-root "untrusted"))
     (define rejected
       (prepare-platform-installation
-       (candidate 'zip "2.0.2") rejected-archive
+       (candidate 'zip "2.0.2" #:archive rejected-archive) rejected-archive
        #:target rejected-target
        #:restart void
        #:health-check (lambda () #t)
@@ -230,7 +231,7 @@
     (define escape #f)
     (define interrupted
       (prepare-platform-installation
-       (candidate 'zip "2.0.3") recovery-archive
+       (candidate 'zip "2.0.3" #:archive recovery-archive) recovery-archive
        #:target recovery-target
        #:restart (lambda () (escape 'process-stopped))
        #:health-check (lambda () #t)
@@ -249,7 +250,7 @@
      "restarting")
     (define reconstructed
       (prepare-platform-installation
-       (candidate 'zip "2.0.3") recovery-archive
+       (candidate 'zip "2.0.3" #:archive recovery-archive) recovery-archive
        #:target recovery-target
        #:restart void
        #:health-check (lambda () #t)
@@ -268,7 +269,7 @@
     (define first-archive (make-update-archive first-root "first"))
     (define first-install
       (prepare-platform-installation
-       (candidate 'zip "2.0.4") first-archive
+       (candidate 'zip "2.0.4" #:archive first-archive) first-archive
        #:target first-target
        #:restart (lambda () (error 'restart "failed"))
        #:health-check (lambda () #t)
