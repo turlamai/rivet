@@ -84,12 +84,13 @@ class InventoryTests(unittest.TestCase):
             self.verify()
 
     def test_reject_symlink_archive(self):
-        other = self.root / "archive-copy"
-        other.write_bytes(self.archive.read_bytes())
-        self.archive.unlink()
-        self.archive.symlink_to(other)
-        with self.assertRaisesRegex(ValueError, "inventory mismatch"):
-            self.verify()
+        with tempfile.TemporaryDirectory() as other_directory:
+            other = Path(other_directory) / "archive-copy"
+            other.write_bytes(self.archive.read_bytes())
+            self.archive.unlink()
+            self.archive.symlink_to(other)
+            with self.assertRaisesRegex(ValueError, "nonempty regular"):
+                self.verify()
 
 
 if __name__ == "__main__":
