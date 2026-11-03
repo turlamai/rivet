@@ -421,6 +421,28 @@
                            "device" device
                            "mount-path" mount-path)))
 
+;; macOS hdiutil can report successful detach before its backing image is
+;; fully released. Retrying only the conversion preserves its source, signature
+;; and image layout; exhausting the limit re-raises the actual failure rather
+;; than publishing a missing or partial installer.
+(define (convert-macos-dmg-with-retries! hdiutil image output
+                                        #:runner [runner run!]
+                                        #:pause [pause sleep]
+                                        #:attempts [attempts 4])
+  (let loop ([attempt 1])
+    (with-handlers
+        ([exn:fail?
+          (lambda (e)
+            (if (>= attempt attempts)
+                (raise e)
+                (begin
+                  (eprintf "hdiutil convert failed (attempt ~a/~a); retrying after detach settles\\n"
+                           attempt attempts)
+                  (pause (* attempt 2))
+                  (loop (add1 attempt)))))])
+      (runner 'create-installer! hdiutil "convert" image
+              "-format" "UDZO" "-ov" "-o" output))))
+
 ;; `sips -g` answers one "  pixelWidth: 1320" style line per requested
 ;; property; the dimensions decide whether the staged backdrop needs
 ;; resampling and verify the result afterwards.
@@ -531,8 +553,11 @@
     (when (find-executable-path "sync")
       (run! 'create-installer! (find-executable-path "sync")))
     (detach!))
-  (run! 'create-installer! hdiutil "convert" (path->string rw-image)
-        "-format" "UDZO" "-ov" "-o" (path->string output))
+  ;; hdiutil may unmount the Finder volume yet still hold the source image
+  ;; busy for several seconds. A transient convert failure must not discard
+  ;; the staged image; retry the *same* conversion a bounded number of times.
+  (convert-macos-dmg-with-retries! hdiutil (path->string rw-image)
+                                  (path->string output))
   (delete-optional! rw-image)
   (delete-directory/files staging)
   output)
@@ -587,4 +612,5 @@
            text->rtf
            dmg-style-applescript
            raster-pixel-size
+           convert-macos-dmg-with-retries!
            create-macos-installer!))
