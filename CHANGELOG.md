@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Windows MSI CI now starts the real installed executable from `Program Files`
+  after first installation. It requires a native main window, a normal close,
+  and process exit before the existing upgrade and uninstall tests, catching
+  installed-only startup failures. This tests actual launch behavior, not
+  interactive clicks in the Finish dialog.
+
+
 - Linux install-kind detection now queries actual dpkg/rpm ownership instead
   of treating every executable under `/opt` or `/usr` as package-managed.
   Portable applications in those directories retain their update path;

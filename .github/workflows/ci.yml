@@ -446,6 +446,42 @@ jobs:
           $p = Start-Process msiexec -ArgumentList "/i", "`"$($v1.FullName)`"", "/qn", "/norestart", "/L*v", "$root\install-v1.log" -Wait -PassThru
           if ($p.ExitCode -notin 0, 3010) { Get-Content "$root\install-v1.log" -Tail 40; throw "MSI v1 install failed with $($p.ExitCode)" }
           if ((Get-Content $installedResource -Raw) -ne 'msi-v1') { throw 'installed payload does not carry the v1 marker' }
+          # First-install launch acceptance must use the *installed* executable,
+          # not a build-tree or unpacked portable smoke. A process that exists
+          # without a native top-level window does not satisfy Launch.
+          $installedExe = Join-Path $installRoot 'RivetHost.exe'
+          if (-not (Test-Path $installedExe)) { throw 'MSI did not install the native executable' }
+          $launched = Start-Process -FilePath $installedExe -WorkingDirectory $installRoot -PassThru
+          try {
+            $windowSeen = $false
+            for ($i = 0; $i -lt 60; $i++) {
+              Start-Sleep -Milliseconds 500
+              $launched.Refresh()
+              if ($launched.HasExited) {
+                throw "first installed launch exited before showing a window: $($launched.ExitCode)"
+              }
+              if ($launched.MainWindowHandle -ne [IntPtr]::Zero) {
+                $windowSeen = $true
+                break
+              }
+            }
+            if (-not $windowSeen) { throw 'installed app remained in background without a main window' }
+            # A normal window close must release the executable before upgrade.
+            if (-not $launched.CloseMainWindow()) {
+              throw 'installed app window did not accept a normal close request'
+            }
+            if (-not $launched.WaitForExit(10000)) {
+              throw 'installed app left its process running after window close'
+            }
+          } finally {
+            # Do not let a failing smoke strand a process that would corrupt
+            # subsequent MSI upgrade assertions or the next CI attempt.
+            $launched.Refresh()
+            if (-not $launched.HasExited) {
+              Stop-Process -Id $launched.Id -Force -ErrorAction SilentlyContinue
+              $launched.WaitForExit(5000) | Out-Null
+            }
+          }
           # Upgrade in place: same UpgradeCode, higher product version.
           Set-Content -Path 'assets\nested\product.txt' -Value 'msi-v2' -NoNewline
           $config = Get-Content 'rivet.rktd' -Raw

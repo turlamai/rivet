@@ -21,6 +21,13 @@ On Linux the release additionally builds native system installers: a `.deb` (dpk
 
 Applications that deliberately ship without an online update channel can run `raco rivet release --without-updates`. The command still builds, packages, platform-signs, verifies, and emits the installer, SBOM, and third-party notices; it skips only the channel manifest and does not read any `RIVET_UPDATE_*` credentials. Combine it with `--development` to exercise the unsigned release flow before publisher credentials exist. Omitting `--without-updates` keeps the fail-closed behavior above: all three update settings are required, and a partial configuration is an error.
 
+Windows MSI CI now launches the executable from its real `Program Files`
+installation after the first MSI install. The gate requires a native main
+window, orderly window close, and process termination before running the
+existing upgrade/downgrade/uninstall checks. It intentionally does not
+simulate clicking the WiX Finish-dialog checkbox or substitute for
+product-owned single-instance and first-run initialization behavior.
+
 WiX Toolset v4 or later is required to build the Windows MSI. macOS uses the system `hdiutil`. Rivet signs the final MSI/DMG as well as the contained application. On Linux the final tarball is signed and, because the archive is deterministic, `raco rivet verify --production` re-derives it from the package and checks the detached signature.
 
 ## Unsigned distribution constraints
