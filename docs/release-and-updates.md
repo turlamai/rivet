@@ -28,6 +28,11 @@ existing upgrade/downgrade/uninstall checks. It intentionally does not
 simulate clicking the WiX Finish-dialog checkbox or substitute for
 product-owned single-instance and first-run initialization behavior.
 
+The MSI Finish-page Launch checkbox is honored on first install and
+repair/reinstall; Rivet suppresses its launch action for full uninstall
+(`REMOVE="ALL"`) so a removed executable is never started. This is a WiX
+installer contract, distinct from CI's separate installed-program launch gate.
+
 WiX Toolset v4 or later is required to build the Windows MSI. macOS uses the system `hdiutil`. Rivet signs the final MSI/DMG as well as the contained application. On Linux the final tarball is signed and, because the archive is deterministic, `raco rivet verify --production` re-derives it from the package and checks the detached signature.
 
 ## Unsigned distribution constraints
