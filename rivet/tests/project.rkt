@@ -140,7 +140,7 @@
              'module "backend"
              'entry "start"
              'protocol 1))
-    (check-exn #rx"non-empty publisher string"
+    (check-exn #rx"non-empty single-line publisher string"
                (lambda () (load-project temp-root)))
 
 
