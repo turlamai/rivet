@@ -91,7 +91,7 @@ jobs:
           if [[ "$archive" != "$destination" ]]; then
             mv "$archive" "$destination"
           fi
-          sha256sum "$destination" > "${destination}.sha256"
+          (cd dist && sha256sum "rivet-${RIVET_VERSION}.zip" > SHA256SUMS)
           awk -v version="$RIVET_VERSION" '
             $0 == "## " version { capture = 1; next }
             capture && /^## / { exit }
@@ -106,13 +106,21 @@ jobs:
           bash .github/scripts/smoke-source-package.sh \
             "dist/rivet-${RIVET_VERSION}.zip"
 
+      - name: Verify final staged source-release inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/verify-release-source-inventory.py \
+            dist "$RIVET_VERSION"
+          (cd dist && sha256sum --check SHA256SUMS)
+
       - name: Upload release package artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: rivet-${{ env.RIVET_VERSION }}
           path: |
             dist/rivet-${{ env.RIVET_VERSION }}.zip
-            dist/rivet-${{ env.RIVET_VERSION }}.zip.sha256
+            dist/SHA256SUMS
           if-no-files-found: error
 
       - name: Publish GitHub Release
@@ -123,7 +131,7 @@ jobs:
           set -euo pipefail
           gh release create "$GITHUB_REF_NAME" \
             "dist/rivet-${RIVET_VERSION}.zip" \
-            "dist/rivet-${RIVET_VERSION}.zip.sha256" \
+            "dist/SHA256SUMS" \
             --verify-tag \
             --title "Rivet ${RIVET_VERSION}" \
             --notes-file dist/release-notes.md
