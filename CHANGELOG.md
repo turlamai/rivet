@@ -32,6 +32,10 @@
   refers to the undedicated `rivet/distribution/identity` leaf module as plain
   text, so the Scribble build is warning-clean.
 
+- DEB and RPM native lifecycle acceptance now protects both XDG data and
+  configuration sentinels across initial installation, failed package update,
+  successful upgrade, downgrade/rollback and uninstall.
+
 - Windows MSI Launch on the Finish dialog remains available for initial
   install and maintenance/repair but is explicitly suppressed on full
   uninstall (`REMOVE="ALL"`), when the target executable has been removed.
