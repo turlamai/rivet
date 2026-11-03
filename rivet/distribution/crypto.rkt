@@ -24,10 +24,10 @@
 ;; provider that lacks it fails closed instead of falling back to another
 ;; signature scheme.
 ;;
-;; Rivet's manifest crypto is exactly SHA-256 digests and Ed25519
-;; sign/verify, so the provider set is pinned to libcrypto alone: the
-;; official Racket distributions bundle OpenSSL on every desktop target.
-;; Requiring crypto/all (or instantiating more factories) would drag in
+;; Rivet's manifest crypto is SHA-256 and Ed25519. The normal runtime
+;; provider is libcrypto (OpenSSL 3); a lazy Nettle Ed25519 fallback is used
+;; only when that implementation is unavailable on minimal package builders.
+;; Requiring crypto/all (or instantiating every factory) would drag in
 ;; factory modules whose FFI loads run at module-import time — the gmp
 ;; factory kills the process there on hosts without libgmp, and every
 ;; embedded app that merely verifies a manifest shipped that landmine
