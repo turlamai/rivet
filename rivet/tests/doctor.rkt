@@ -217,7 +217,11 @@ RKT
           out))))
 
     (define green (release-doctor-report project))
-    (check-equal? (hash-ref green 'failed) 0)
+    (check-equal? (hash-ref green 'failed) 0
+                  (format "failed release checks: ~s"
+                          (for/list ([entry (in-list (hash-ref green 'checks))]
+                                     #:when (equal? (hash-ref entry 'status) "fail"))
+                            entry)))
     (release-check-passed? green "generated clients are fresh")
     (release-check-passed? green "schema baseline exists and is compatible")
     (release-check-passed?
