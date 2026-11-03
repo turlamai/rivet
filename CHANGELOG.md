@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Windows MSI Launch on the Finish dialog remains available for initial
+  install and maintenance/repair but is explicitly suppressed on full
+  uninstall (`REMOVE="ALL"`), when the target executable has been removed.
+  The generated WiX source and its Racket regression test enforce the guard.
+
 - Windows MSI lifecycle CI now upgrades a real installed v1 while its native
   window/process are still live, using Installer Restart Manager rather than
   preemptively closing the application. It requires the upgrade to finish
