@@ -14,7 +14,7 @@
 ;; This probe makes ownership deterministic on every CI host. Paths alone
 ;; cannot reveal whether dpkg or rpm actually owns an executable.
 (define (ownership-in-fixture executable)
-  (if (member (path->string executable)
+  (if (member (bytes->string/locale (path->bytes executable))
               '("/opt/Example/RivetHost" "/usr/bin/example"))
       'owned
       'unowned))
@@ -26,6 +26,9 @@
                                    ownership-in-fixture)
               'package-manager)
 (check-equal? (detect-install-kind 'linux "/usr/bin/example" #f
+                                   ownership-in-fixture)
+              'package-manager)
+(check-equal? (detect-install-kind 'linux "/opt/bin/../Example/RivetHost" #f
                                    ownership-in-fixture)
               'package-manager)
 ;; Previously /opt and /usr were always assumed to be package-managed:

@@ -58,7 +58,7 @@
           [else 'unowned]))))
 
 (define (system-install-prefix? executable)
-  (define value (string-replace (path->string executable) "\\" "/"))
+  (define value (bytes->string/locale (path->bytes executable)))
   (or (string-prefix? value "/opt/")
       (string-prefix? value "/usr/")))
 
@@ -70,7 +70,19 @@
     [(not (eq? platform 'linux)) 'portable]
     [(and appimage (not (string=? (string-trim appimage) ""))) 'appimage]
     [else
-     (define normalized (simplify-path (path->complete-path executable) #f))
+     ;; Interpret Linux paths with Linux semantics even when the private
+     ;; policy probe runs on a Windows CI host. In particular, /opt must not
+     ;; acquire the host's drive letter before ownership/prefix checks.
+     (define linux-path
+       (bytes->path (if (path-for-some-system? executable)
+                        (path->bytes executable)
+                        (string->bytes/locale executable))
+                    'unix))
+     (define normalized
+       (simplify-path (if (complete-path? linux-path)
+                          linux-path
+                          (path->complete-path linux-path))
+                      #f))
      (case (ownership normalized)
        [(owned) 'package-manager]
        [(unowned) 'portable]

@@ -7,6 +7,8 @@
   extraction or replacement. Pending backup/marker/journal state is refused
   before a new transaction starts, preserving the current install and prior
   recovery evidence instead of rolling back an unrelated backup.
+  Linux ownership-policy probes also preserve Unix path semantics on Windows
+  hosts, so system-prefix fallback cannot lose `/opt` or `/usr` to a drive.
 
 - Linux portable `targz` updates can use the shared platform installation,
   journal, restart/health and rollback transaction instead of a product-owned

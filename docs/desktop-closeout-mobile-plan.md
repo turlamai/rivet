@@ -264,6 +264,9 @@ Regressions reproduced same-size substituted ZIP installation and unrelated
 backup restoration during a refused new install; focused tests now pass.
 Require this slice's own full native matrix before integration, and do not use
 #398's prior green as evidence for it. Consumer migration remains pending.
+The new Windows ARM64 gate caught Linux paths acquiring a Windows drive;
+Linux ownership probes now preserve Unix path semantics on every host.
+Keep all host/architecture assertions enabled when verifying this follow-up.
 
 中文：最高优先级已改为所有产品的在线更新统一与逐项验收；首次安装、商业化及无关功能暂缓。
 本切片只补 Linux tar.gz 共用事务入口，不代表产品迁移或真实升级已完成；下面的设备路线保留为后续待办。
