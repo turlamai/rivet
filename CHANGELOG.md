@@ -7,6 +7,12 @@
   directory with a non-app file. A complete ZIP SHA-256 is deliberately
   valid in the negative regression; the old installation stays intact.
 
+- Rivet release-doctor now reads the installed package's SemVer from its
+  own module-relative top-level metadata, with collection lookup as a
+  fallback. This fixes official multi-collection package builders that could
+  install Rivet but could not discover its release version; empty collection
+  search paths are covered by a regression without bypassing the release gate.
+
 - Branded macOS DMG packaging now verifies the backing image device has
   actually detached before conversion, even when Finder removes its mountpoint.
   It can convert an isolated copy if diskimages-helper retains the original
