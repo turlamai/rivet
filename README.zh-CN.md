@@ -306,6 +306,7 @@ raco rivet verify                  重新验证当前发布物
 raco rivet verify --production     验证生产签名/公证信任状态
 raco rivet verify --skip-launch-smoke  验证但不启动 GUI 产物
 raco rivet help                    显示帮助
+raco rivet --version               打印已安装的 Rivet 发布版本（别名 version、-V）
 ```
 
 ## 项目结构

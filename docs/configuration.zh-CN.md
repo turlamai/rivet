@@ -42,7 +42,7 @@ Rivet 应用由项目根目录的 `rivet.rktd` 文件配置。
 - `backend` — Racket 后端模块的相对路径。
 - `module` — 嵌入运行时使用的后端模块名。
 - `entry` — 导出的后端入口函数。
-- `protocol` — Rivet 项目协议版本。Rivet 0.2 支持协议 `1`。
+- `protocol` — Rivet 项目协议版本。当前 Rivet 支持协议 `1`。
 
 ## 发布元数据
 
@@ -95,6 +95,15 @@ Rivet 应用由项目根目录的 `rivet.rktd` 文件配置。
 - `windows-icon` — 可选的项目相对 `.ico` 文件，编译进新生成的 Windows 宿主。缺少该项时构建会警告：exe 将不带嵌入图标发布。
 - `macos-icon` — 可选的项目相对 `.icns` 文件，复制进 app bundle 并通过 `CFBundleIconFile` 声明。缺少该项时打包会警告：bundle 将不带 Dock/Finder 图标发布。
 - `linux-icon` — 可选的项目相对 `.png` 文件，安装为桌面图标（`/usr/share/pixmaps`，由生成的 `.desktop` 条目引用），并作为 AppImage 顶层图标。AppImage 打包缺少它会失败关闭；deb 和 rpm 会警告并在没有桌面图标的情况下安装。
+- `linux-desktop-id` — 可选的已安装 `.desktop` 文件反向域名 basename，例如
+  `org.example.MyApp`。为兼容早期安装器，默认使用项目名。在 Wayland 下该 basename
+  就是 portal 身份，因此当应用使用 GNOME `GlobalShortcuts` 或其他对身份敏感的
+  portal 时应显式设置。必须匹配
+  `^[A-Za-z][A-Za-z0-9_-]*(\.[A-Za-z][A-Za-z0-9_-]*)+$`。
+- `linux-binary-name` — 可选的已安装可执行文件名，例如 `fulcrum`。默认
+  `RivetHost`，使既有项目构建结果不变；必须匹配
+  `^[A-Za-z0-9][A-Za-z0-9._-]*$`。该值会贯穿 build、package、verify、启动
+  冒烟测试和生成的 `.desktop` 条目。
 - `linux-formats` — 可选子集 `("deb" "rpm" "appimage")`，选择 `raco rivet release` 构建哪些原生 Linux 安装格式。默认三种都构建；签名的 tar.gz 更新负载无论如何都会生成。
 - `macos-resource-files` — 唯一项目相对文件的列表，会在签名前原样复制到 macOS bundle 的 `Contents/Resources` 根目录。典型消费者是 `InternetAccessPolicy.plist`：Little Snitch 类防火墙会从资源根读取它，并向用户展示按主机的用途和拒绝后果。名称与 rivet 管理的 bundle 文件（打包的图标）冲突时会失败关闭。
 - `dmg-background` — 可选的项目相对 `.png`，用作 DMG 窗口背景。声明后 `raco rivet release` 会切换到品牌化拖拽安装布局：卷内有 `/Applications` 符号链接，DMG 窗口固定为 660x400 几何尺寸并放置两个图标。PNG 应按 1320x800（窗口的 2 倍）渲染以在 Retina 上保持清晰；宽高比必须与窗口一致，打包器会把暂存副本降采样到 660x400，因为 Finder 按原生像素绘制背景而不缩放（否则会裁切布局）。保留底部约 28pt 空白（窗口边界包含标题栏），并让图标标签区域保持空闲。不声明该项时 DMG 保持普通单文件夹镜像。

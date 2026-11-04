@@ -32,6 +32,13 @@
       define-record define-rpc define-state emit-event! enum-case enum-schema
       event-schema record-ref record-schema rpc-schema serve serve-fds
       state-ref state-schema state-set! state?))
+    (rivet/chart
+     (chart-batch-decode chart-batch-encode chart-batch-first-index
+      chart-batch-magic chart-batch-sample-count chart-series-append!
+      chart-series-appended chart-series-capacity chart-series-count
+      chart-series-drain-batch! chart-series-dropped chart-series-id
+      chart-series-latest chart-series-reset! chart-series-window
+      chart-series? make-chart-series))
     (rivet/keel
      (backend-schema->app-schema current-backend-app-schema))
     (rivet/protocol

@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+- Add `docs/readiness.md`, a living commercial-readiness contract for the
+  desktop framework. It records the verified 2026-11-04 gaps instead of
+  implying parity: activation delivery, single-instance wiring, menus,
+  window-state restore, notification actions, crash capture, printing,
+  drag-and-drop, fonts, support bundles, generated CI/updater wiring and
+  the remaining Chinese journeys, with evidence and an ordered slice list.
+
+- Document `linux-desktop-id` and `linux-binary-name` in the project
+  configuration guide and its Chinese counterpart, including defaults and
+  validation, and correct the stale "Rivet 0.2 supports protocol 1" wording.
+
+- Protect `rivet/chart` with the public-API snapshot and the API-stability
+  policy, and state that Rivet supports Racket CS 9.0+ with an explicit
+  deprecation/replacement window after 1.0.
+
+- Document the `version` and `-V` aliases of `raco rivet --version` in both
+  README languages and in the CLI help.
+
 - Add a complete Simplified Chinese counterpart for the project configuration
   guide, including every accepted `rivet.rktd` key, resource-layout rule,
   data-directory convention, i18n contract and deployment target. The docs

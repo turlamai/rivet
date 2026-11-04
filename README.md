@@ -317,7 +317,7 @@ raco rivet verify                  Re-verify the current packaged artifact
 raco rivet verify --production     Verify production trust/notarization requirements
 raco rivet verify --skip-launch-smoke  Verify without starting the GUI artifact
 raco rivet help                    Show CLI help
-raco rivet --version               Print the installed Rivet release version
+raco rivet --version               Print the installed Rivet release version (alias: version, -V)
 ```
 
 ## Project Structure

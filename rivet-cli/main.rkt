@@ -104,7 +104,7 @@
     "  raco rivet verify --production     verify production trust/notarization requirements\n"
     "  raco rivet verify --skip-launch-smoke  verify without starting the GUI artifact\n"
     "  raco rivet help                    show this help\n"
-    "  raco rivet --version               print the installed Rivet release version\n")))
+    "  raco rivet --version               print the installed Rivet release version (version, -V)\n")))
 
 (define (main)
   (define args (vector->list (current-command-line-arguments)))

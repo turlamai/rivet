@@ -54,6 +54,7 @@ and architecture references stay English as the single normative definition.
 - [Release and updates](release-and-updates.md)
 - [Cross-product adoption inventory](adoption.md) — which products run which release/update contract parts
 - [Releasing the Rivet framework](releasing.md)
+- [Commercial desktop readiness](readiness.md) — capability, documentation, operations and open slices
 - [Native UI end-to-end testing](native-ui-testing.md)
 - [Protocol fuzzing](fuzzing.md) and [performance benchmarks](benchmarks.md)
 - [Desktop closeout and mobile start plan](desktop-closeout-mobile-plan.md)
