@@ -742,6 +742,16 @@ Returns the canonical filename extension for @racket['zip], @racket['targz],
 @racket['msi], @racket['msix], @racket['exe], @racket['dmg], @racket['pkg],
 @racket['deb], @racket['rpm], or @racket['appimage].}
 
+@defproc[(installer-symbol? [value any/c]) boolean?]{
+Returns true when @racket[value] is any release-asset installer kind accepted by
+@racket[installer-extension].}
+
+@defproc[(feed-installer-symbol? [value any/c]) boolean?]{
+Returns true when @racket[value] is a kind a signed update feed may carry:
+@racket['zip], @racket['targz], @racket['msi], @racket['deb], @racket['rpm],
+or @racket['appimage]. It returns false for formats Rivet does not self-update,
+such as @racket['msix] and @racket['dmg].}
+
 @defproc[(rfc3339-now [seconds real? (current-seconds)]) string?]{
 Formats @racket[seconds] in UTC at second precision, using the RFC 3339 form
 stored in a manifest's @racket[published-at] field.}

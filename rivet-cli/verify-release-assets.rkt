@@ -158,7 +158,7 @@
   (unless (and (memq (length parts) '(3 4))
                (memq (first parts) '(windows macos linux))
                (memq (second parts) '(x64 arm64))
-               (memq (third parts) '(zip targz msi msix exe dmg pkg deb rpm appimage))
+               (installer-symbol? (third parts))
                (or (= (length parts) 3)
                    (memq (fourth parts) '(app cli tool))))
     (raise-arguments-error 'verify-release-assets

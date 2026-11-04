@@ -61,7 +61,6 @@ and architecture references stay English as the single normative definition.
 - [Production signing](production-signing.md) · [中文](production-signing.zh-CN.md)
 - [Apple release readiness](apple-release-readiness.md) · [中文](apple-release-readiness.zh-CN.md) — channel-specific bundle preflight and App Store evidence boundaries
 - [Release and updates](release-and-updates.md) · [中文](release-and-updates.zh-CN.md)
-- [Cross-product adoption inventory](adoption.md) — which products run which release/update contract parts
 - [Releasing the Rivet framework](releasing.md)
 - [Commercial desktop readiness](readiness.md) — capability, documentation, operations and open slices
 - [Native UI end-to-end testing](native-ui-testing.md) · [中文](native-ui-testing.zh-CN.md)

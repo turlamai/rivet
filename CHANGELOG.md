@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Slim the release tooling instead of adding another copy: one installer
+  vocabulary in `rivet/distribution/identity.rkt` (feed vs all release
+  assets) and one sidecar implementation in `rivet-cli/artifact-file.rkt`.
+  `sign-manifest`, `release`, `appimage` and `verify-release-assets` now
+  share them, which also fixes `sign-manifest --sidecars` producing
+  `app_zip.sha256` instead of `app.zip.sha256`. Delete four unreferenced
+  definitions (`->symbol`, `relative-files`, `lookup-record-info`,
+  `lookup-enum-info`) and the stale cross-product adoption snapshot that
+  duplicated the central portfolio and product repositories.
+
 - Add the Chinese native-UI testing guide: the behavioral contract, native
   accessibility identifiers, packaged-macOS launch/reap rules, the startup-
   wedge sample, keyboard/IME/focus realities and snapshot hygiene. Commands,

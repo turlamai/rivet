@@ -104,9 +104,12 @@
 (check-equal? (update-artifact-size entry) 2048)
 (check-equal? (update-artifact-sha256 entry) (sha256-file/hex artifact))
 
-;; Sidecars landed next to the artifact in bsdtar's conventional format.
-(define sidecar (path-add-extension artifact #".sha256"))
+;; Sidecars append `.sha256` (the release convention), never replace the final
+;; extension with path-add-extension's underscore form.
+(define sidecar
+  (string->path (string-append (path->string artifact) ".sha256")))
 (check-true (file-exists? sidecar))
+(check-false (file-exists? (path-add-extension artifact #".sha256")))
 (check-regexp-match
  #px"^[0-9a-f]{64}  App-1\\.2\\.3-macos-arm64\\.zip"
  (file->string sidecar))

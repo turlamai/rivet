@@ -10,7 +10,21 @@
 (provide platform-symbol
          architecture-symbol
          installer-extension
+         installer-symbol?
+         feed-installer-symbol?
          rfc3339-now)
+
+;; What a release pipeline may put in a signed update feed.
+(define feed-installer-symbols '(zip targz msi deb rpm appimage))
+;; What a release asset may be, including formats Rivet does not self-update.
+(define all-installer-symbols
+  '(zip targz msi msix exe dmg pkg deb rpm appimage))
+
+(define (installer-symbol? value)
+  (and (memq value all-installer-symbols) #t))
+
+(define (feed-installer-symbol? value)
+  (and (memq value feed-installer-symbols) #t))
 
 (define (platform-symbol [os (system-type 'os)])
   (case os

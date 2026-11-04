@@ -77,7 +77,8 @@
       make-updater-runtime mark-silent-checked!
       install-plan-backup-path install-plan-candidate
       install-plan-downloaded-path install-plan-install install-plan-restart
-      install-plan-rollback install-plan? installer-extension make-install-plan
+      feed-installer-symbol? install-plan-rollback install-plan?
+      installer-extension installer-symbol? make-install-plan
       manifest->payload-bytes manifest-schema-version payload-bytes->manifest
       make-updater platform-installation? platform-installer-policy
       platform-symbol prepare-platform-installation read-ed25519-private-key
@@ -120,7 +121,8 @@
       verify-update-artifact! version-compare version<=? version<? version=?
       version>=? version>? version? write-signed-manifest))
     (rivet/distribution/identity
-     (architecture-symbol installer-extension platform-symbol rfc3339-now))
+     (architecture-symbol feed-installer-symbol? installer-extension
+      installer-symbol? platform-symbol rfc3339-now))
     (rivet/testing
      (ephemeral-http-listener fake-request fake-request-body
       fake-request-headers fake-request-method fake-request-path fake-request?
