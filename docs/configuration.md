@@ -245,6 +245,33 @@ The project configuration is the application-level source of truth:
 
 Do not edit deployment targets directly in generated `Package.swift` or `RivetHost.vcxproj` files. Change `rivet.rktd` so build, package, verification, CI, and future tooling all observe the same value.
 
+## Validation rules
+
+`rivet.rktd` is validated when the project loads; a bad value is an error, not a
+silent default. The non-obvious constraints are:
+
+- `name`, `module`, `entry`, `display-name`, `publisher` and `version` are
+  non-empty strings; `protocol` must be the integer `1`.
+- `identifier` matches `^[A-Za-z0-9][A-Za-z0-9.-]*$`; use it for the
+  reverse-DNS bundle/application ID, not for the human publisher.
+- `build` is a positive signed 64-bit integer.
+- `url-schemes` are RFC 3986 scheme names (`^[A-Za-z][A-Za-z0-9+.-]*$`).
+- `file-associations` entries need an `extension` matching
+  `^\.[A-Za-z0-9][A-Za-z0-9._-]*$`.
+- `resources` and `macos-resource-files` are unique project-relative paths;
+  `resources` rejects `.git`, `.rivet`, `build`, `dist` and symbolic links, and
+  `macos-resource-files` rejects `..` segments.
+- `device-rpcs` are unique symbols using `[A-Za-z0-9._-]`, at most 124 UTF-8
+  bytes per name.
+- `macos-localizations` is a non-empty, duplicate-free BCP 47 list such as
+  `"zh-Hans"` and `"en"`.
+- `windows-installer-bitmaps` accepts only the `banner` and `dialog` keys, each
+  a project-relative `.bmp`.
+- `linux-desktop-id` is reverse-DNS; `linux-binary-name` uses
+  `[A-Za-z0-9._-]` and cannot be empty.
+- Icon and installer-art keys enforce their extensions (`.ico`, `.icns`,
+  `.png`, `.rtf`, `.bmp`) and are project-relative.
+
 ## Compatibility
 
 All release/deployment metadata above is optional when loading an older project. Rivet preserves the 0.1 behavior through centralized defaults, so upgrading the Rivet package does not require an immediate configuration migration.

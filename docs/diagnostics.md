@@ -4,6 +4,21 @@
 
 Rivet's CLI exposes both human-readable and machine-readable toolchain diagnostics. The goal is to make native build failures inspectable without guessing which Racket runtime or platform tool was selected.
 
+## Exit status
+
+Rivet uses a small, stable exit-code vocabulary:
+
+| Code | Meaning |
+| --- | --- |
+| `0` | The command completed successfully. |
+| `1` | The command failed: usage error, invalid project, missing toolchain, failed build/package/verify, failed acceptance suite, failed matrix, or an incompatible schema baseline. |
+| `2` | `raco rivet apple-review` only: required platform evidence is missing (as opposed to an observed blocker, which exits 1). |
+
+`doctor` exits 0 when the toolchain is usable and 1 otherwise. `acceptance`
+exits nonzero if any required suite fails, times out, or misses evidence.
+Unknown commands print usage and exit 1. A command's own report is the
+authoritative detail; the code is for branching, not for guessing the failure.
+
 ## `raco rivet doctor`
 
 The normal doctor output reports the current operating system and architecture, the exact `racket` and `raco` executables, and the active Racket CS runtime artifacts selected by Rivet.

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Document the `rivet.rktd` validation rules (identifier, resources,
+  device-rpcs, localizations, Linux naming and icon/installer extensions) in
+  both configuration guides, the 0/1/2 exit-status vocabulary in both
+  diagnostics guides, and the `make-chart-series` 2^24 capacity bound in the
+  manual. Withdraw the audit claim that the chart decoder can return a
+  negative first index: it reads that field as unsigned.
+
 - Add `make-crash-file-reporter` to `rivet/system`: a bounded JSONL reporter
   for uncaught Racket exceptions, reusing the rotating log sink and adding
   the exception message. It is the documented one-line default for

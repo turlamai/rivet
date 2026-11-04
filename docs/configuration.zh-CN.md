@@ -168,6 +168,29 @@ let dataURL = root!.appendingPathComponent("app/locales/en.json")
 
 不要在生成的 `Package.swift` 或 `RivetHost.vcxproj` 中直接修改部署目标。修改 `rivet.rktd`，让 build、package、verify、CI 和未来工具都观察到同一个值。
 
+## 校验规则
+
+项目加载时会校验 `rivet.rktd`；错误值会报错，而不是静默回退默认值。不明显的约束包括：
+
+- `name`、`module`、`entry`、`display-name`、`publisher` 和 `version` 是非空字符串；
+  `protocol` 必须是整数 `1`。
+- `identifier` 匹配 `^[A-Za-z0-9][A-Za-z0-9.-]*$`；它用于反向域名的
+  bundle/应用 ID，不是人类可读的发布者名。
+- `build` 是正的有符号 64 位整数。
+- `url-schemes` 是 RFC 3986 scheme 名（`^[A-Za-z][A-Za-z0-9+.-]*$`）。
+- `file-associations` 条目的 `extension` 匹配
+  `^\.[A-Za-z0-9][A-Za-z0-9._-]*$`。
+- `resources` 与 `macos-resource-files` 是唯一的项目相对路径；`resources` 拒绝
+  `.git`、`.rivet`、`build`、`dist` 和符号链接，`macos-resource-files` 拒绝 `..`
+  段。
+- `device-rpcs` 是唯一 symbol，字符集 `[A-Za-z0-9._-]`，每个名称最多 124 个 UTF-8
+  字节。
+- `macos-localizations` 是非空、无重复的 BCP 47 列表，例如 `"zh-Hans"` 和 `"en"`。
+- `windows-installer-bitmaps` 只接受 `banner` 和 `dialog` 键，值都是项目相对 `.bmp`。
+- `linux-desktop-id` 是反向域名；`linux-binary-name` 使用 `[A-Za-z0-9._-]` 且不能为空。
+- 图标和安装器图稿键强制扩展名（`.ico`、`.icns`、`.png`、`.rtf`、`.bmp`）且必须是
+  项目相对路径。
+
 ## 兼容性
 
 加载旧项目时，上述所有发布/部署元数据都是可选的。Rivet 通过集中默认值保留 0.1 行为，因此升级 Rivet 包不要求立即迁移配置。

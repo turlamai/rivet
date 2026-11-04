@@ -101,7 +101,7 @@ Shipped.
 | Generated project release workflow | **Missing** | Only CI is generated; signing/update secrets remain a documented operator step | Add a comment-only release template after the update scaffold exists |
 | Generated project updater wiring | **Missing** | Scaffold emits no `rivet/distribution` integration | Generate a backend updater module plus native handoff calls |
 | Generated project tests | Shipped (2026-11-04) | `tests/smoke.rkt` plus the `starter-smoke` unit suite; scaffold test asserts both | Products still replace the scenario with real behavior |
-| CLI exit-code contract | **Missing** | Only `apple-review` documents codes; most failures collapse to 1 | Numeric table per subcommand and distinct parse/policy failures |
+| CLI exit-code contract | **Partial** | Documented 0/1/2 vocabulary in both diagnostics guides | Parse vs policy failures still collapse to 1; add stable error codes |
 | Upgrade/migration guide per release | **Partial** | `docs/USING.md`, `CHANGELOG` | Migration section for public-contract changes |
 | API stability and deprecation | **Partial** | `docs/api-stability.md` (pre-1.0) | State Racket 9.0+ explicitly; define deprecation markers/window and a support matrix |
 
@@ -153,8 +153,9 @@ agents and products copy the reference.
   snapshot but described as internal; doctor/inspect warning codes and the
   `rivet-schema.json` baseline format are unspecified; `message:hello`
   direction and `serve`/`serve-fds` port-closing and error behavior contradict
-  the protocol/runtime docs; `make-chart-series`'s 2^24 capacity cap and the
-  chart decoder's first-index validation are undocumented gaps.
+  the protocol/runtime docs. The chart capacity cap is documented; the
+  decoder reads the first index as unsigned, so a negative value is not
+  representable and the earlier audit item was withdrawn.
 
 ## Repository and release operations
 

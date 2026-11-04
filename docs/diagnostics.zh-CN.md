@@ -5,6 +5,20 @@
 Rivet CLI 同时提供人类可读和机器可读的工具链诊断。目标是让原生构建失败可检查，
 而不必猜测实际选中了哪个 Racket 运行时或平台工具。
 
+## 退出状态
+
+Rivet 使用一小套稳定的退出码：
+
+| 码 | 含义 |
+| --- | --- |
+| `0` | 命令成功完成。 |
+| `1` | 命令失败：用法错误、非法项目、缺少工具链、build/package/verify 失败、acceptance suite 失败、matrix 失败，或 schema baseline 不兼容。 |
+| `2` | 仅 `raco rivet apple-review`：缺少必需平台证据（观察到阻塞项仍退出 1）。 |
+
+`doctor` 在工具链可用时退出 0，否则 1。`acceptance` 在任何 required suite 失败、超时或
+缺少证据时非零退出。未知命令打印用法并退出 1。命令自己的报告才是权威细节；退出码用于
+分支，不用于猜测失败原因。
+
 ## `raco rivet doctor`
 
 常规 doctor 输出会报告当前操作系统与架构、实际使用的 `racket` 和 `raco`

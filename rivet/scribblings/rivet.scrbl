@@ -348,12 +348,12 @@ in RivetUI; the three implementations are pinned by shared golden bytes in
 their test suites. @secref["top"] links the full convention guide.
 
 @defproc[(make-chart-series [id string?]
-                            [#:capacity capacity exact-positive-integer? 16384])
+                            [#:capacity capacity (integer-in 1 16777216) 16384])
          chart-series?]{
-Creates a series ring buffer. Capacity is the retained sample count; when
-the ring overflows, the oldest samples are evicted and the drop is reported
-through @racket[chart-series-dropped] and through the next batch's absolute
-first index.}
+Creates a series ring buffer. Capacity is the retained sample count, from 1
+through 2^24 (16,777,216); when the ring overflows, the oldest samples are
+evicted and the drop is reported through @racket[chart-series-dropped] and
+through the next batch's absolute first index.}
 
 @defproc[(chart-series? [value any/c]) boolean?]{
 Predicate for chart series values.}
