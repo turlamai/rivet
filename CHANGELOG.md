@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Add `raco rivet new --with-updates`: generates `app/update.rkt` (managed
+  check/download around `make-updater`, persistent rollout bucket, shared
+  settings file) and `shared/update.rktd`, registered as an application
+  resource. It fails closed until the feed URL, Ed25519 public key and key id
+  are filled in, and deliberately stops at a verified download; native
+  installation/restart/consent remain product work. Covered by
+  `rivet/tests/scaffold-updates.rkt`, with both languages documented.
+
 - Add `--json` to `raco rivet measure size|startup` and to
   `raco rivet generate --check`, so CI branches on one structured object
   instead of scraping human lines. The size report includes structured

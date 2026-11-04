@@ -23,7 +23,8 @@
   (string-append
    "Rivet — build native desktop apps with Racket\n\n"
    "Usage:\n"
-   "  raco rivet new <name>              create a new Rivet application\n"
+   "  raco rivet new <name> [--with-updates]  create a new Rivet application\n"
+   "                                      (--with-updates adds the check/download scaffold)\n"
    "  raco rivet doctor                  inspect the local native toolchain\n"
    "  raco rivet doctor --json           emit machine-readable toolchain diagnostics\n"
    "  raco rivet doctor --release        run the release gate: generated-file freshness,\n"

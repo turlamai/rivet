@@ -222,6 +222,11 @@ raco rivet verify --production
 
 生产模式使用应用发布者自己的签名凭据。在 CI 中配置证书/Apple 凭据之前，请先阅读 [生产签名](production-signing.md)。
 
+`raco rivet new --with-updates` 还会生成 `app/update.rkt` 和
+`shared/update.rktd`：一个围绕托管 updater 的失败关闭检查/下载客户端，并把配置文件注册为
+应用资源。填入 feed URL、Ed25519 公钥和 key id 后它才能检查。它有意停在“已验证下载”；
+安装、重启、同意和回滚仍由原生宿主负责。
+
 完整产品发布还需要单独配置 Ed25519 更新签名密钥并执行 `raco rivet release`。它会继续生成安装包（MSI、DMG 或 Ed25519 签名的 Linux tarball）、签名 channel manifest、SBOM 和第三方许可声明。明确不提供在线更新通道的产品可使用 `raco rivet release --without-updates`；安装包签名与合规产物仍会生成。详见[发布与更新](release-and-updates.md)。
 
 ## 9. 日常真正需要记住的命令

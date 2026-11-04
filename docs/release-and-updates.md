@@ -214,6 +214,13 @@ stops at a verified downloaded artifact: installation consent, elevation,
 restart, and health policy remain with the native host and the platform
 installation APIs below.
 
+`raco rivet new --with-updates` generates a starter version of this surface:
+`app/update.rkt` wraps `make-updater` with the app identity, a persistent
+rollout bucket, and `shared/update.rktd`; it fails closed until the feed URL,
+Ed25519 public key and key id are filled in. The generated module deliberately
+stops at a verified download. Installation, restart, consent and rollback still
+belong to the native host adapters below.
+
 Persist one rollout bucket from 0 through 99 per installation and pass it to
 `make-updater`; generating a fresh value for every check would make staged
 rollouts unstable. The managed API accepts only Rivet's supported Windows,

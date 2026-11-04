@@ -224,6 +224,13 @@ raco rivet verify --production
 
 Production mode uses application-owned signing credentials. See [production signing](production-signing.md) before configuring secrets in CI.
 
+`raco rivet new --with-updates` additionally writes `app/update.rkt` and
+`shared/update.rktd`: a fail-closed check/download client around the managed
+updater, with the config file registered as an application resource. Fill in
+the feed URL, Ed25519 public key and key id before it can check. It stops at a
+verified download on purpose; installation, restart, consent and rollback stay
+in the native host.
+
 For a complete product release, configure a separate Ed25519 update key and run `raco rivet release`. It adds installer creation (MSI, DMG, or the Ed25519-signed Linux tarball), the signed channel manifest, SBOM, and third-party notices. A product that intentionally has no update channel uses `raco rivet release --without-updates`; installer signing and compliance artifacts are still produced. See [release and updates](release-and-updates.md).
 
 ## 9. The normal Rivet workflow

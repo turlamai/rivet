@@ -212,6 +212,11 @@ payload，deb/rpm 安装返回 `package-manager` 且不消费 AppImage feed。
 无进度和总时限，在取消或超时时清理部分文件，并拒绝并发的 check/download 操作。它有意停在
 已验证的下载产物：安装同意、提权、重启和健康策略仍属于原生宿主和下文平台安装 API。
 
+`raco rivet new --with-updates` 会生成这套表面的起步版本：`app/update.rkt` 用应用身份、
+持久 rollout 桶和 `shared/update.rktd` 包装 `make-updater`；在填入 feed URL、Ed25519 公钥和
+key id 之前失败关闭。生成模块有意停在“已验证下载”；安装、重启、同意和回滚仍属于下文原生
+宿主适配器。
+
 每个安装持久化一个 0 到 99 的 rollout 桶并传给 `make-updater`；每次检查都生成新值会让
 分阶段发布不稳定。托管 API 只接受 Rivet 支持的 Windows、macOS 和 Linux x64/ARM64 目标，
 未知架构失败关闭。其轮询阶段词汇稳定：`idle`、`checking`、`available`、`up-to-date`、

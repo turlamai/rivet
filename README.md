@@ -274,7 +274,7 @@ When `rivet-schema.json` exists at the project root, `raco rivet build` and ever
 ## CLI
 
 ```text
-raco rivet new <name>              Create a Rivet application
+raco rivet new <name> [--with-updates]  Create a Rivet application
 raco rivet doctor                  Inspect Racket and native toolchains
 raco rivet doctor --json           Emit machine-readable diagnostics
 raco rivet doctor --release        Run the release gate (freshness, schema, pins)

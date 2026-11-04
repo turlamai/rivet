@@ -263,7 +263,7 @@ raco rivet schema check rivet-schema.json --json
 ## CLI
 
 ```text
-raco rivet new <name>              创建新的 Rivet 应用
+raco rivet new <name> [--with-updates]  创建新的 Rivet 应用
 raco rivet doctor                  检查 Racket 与 native 工具链
 raco rivet doctor --json           输出机器可读诊断
 raco rivet doctor --release        运行发布门禁（生成物新鲜度、schema、pin）

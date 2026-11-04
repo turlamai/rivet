@@ -99,7 +99,7 @@ Shipped.
 | CLI help/README parity | Shipped (2026-11-04) | `rivet-cli/usage.rkt`, `rivet/tests/cli-help.rkt`; missing automation flags added | Per-command help and `--json` coverage remain |
 | Generated project CI workflow | Shipped (2026-11-04) | `rivet-cli/scaffold.rkt` writes `.github/workflows/native.yml`; `rivet/tests/scaffold-ci.rkt` | Release template still manual |
 | Generated project release workflow | **Missing** | Only CI is generated; signing/update secrets remain a documented operator step | Add a comment-only release template after the update scaffold exists |
-| Generated project updater wiring | **Missing** | Scaffold emits no `rivet/distribution` integration | Generate a backend updater module plus native handoff calls |
+| Generated project updater wiring | **Partial** | `raco rivet new --with-updates` writes `app/update.rkt` + `shared/update.rktd` (check/download, fail-closed) | Native handoff, update UI and consent remain product work |
 | Generated project tests | Shipped (2026-11-04) | `tests/smoke.rkt` plus the `starter-smoke` unit suite; scaffold test asserts both | Products still replace the scenario with real behavior |
 | CLI exit-code contract | **Partial** | Documented 0/1/2 vocabulary in both diagnostics guides | Parse vs policy failures still collapse to 1; add stable error codes |
 | Upgrade/migration guide per release | **Partial** | `docs/USING.md`, `CHANGELOG` | Migration section for public-contract changes |

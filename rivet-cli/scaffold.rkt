@@ -400,7 +400,144 @@ YAML
 SMOKE
   )
 
-(define (create-project! name [parent (current-directory)])
+(define starter-update-config
+  #<<UPDATE-CONFIG
+;; Generated update feed configuration. Fill in all three values before the
+;; module can check for updates. The public key is the raw 32-byte Ed25519 key,
+;; base64-encoded, matching the key used to sign the release feed.
+;; Optional: add (install-kind . msi) or (install-kind . appimage) when the
+;; detected portable shape is wrong for your installer.
+#hasheq((feed-url . "")
+        (public-key-base64 . "")
+        (key-id . "")
+        (channel . stable))
+UPDATE-CONFIG
+  )
+
+(define starter-update-module
+  #<<UPDATE-MODULE
+#lang racket/base
+
+;; Generated update check/download surface. Installation, restart, health and
+;; consent remain in the native host; see README.md and Rivet's release guide.
+
+(require json
+         racket/file
+         racket/path
+         racket/string
+         rivet/app-info
+         rivet/distribution
+         rivet/resources
+         rivet/system)
+
+(provide update-configured?
+         check-for-updates!
+         download-update!
+         cancel-update!
+         update-state
+         current-update-data-directory)
+
+(define current-update-data-directory (make-parameter #f))
+
+(define (read-config)
+  (call-with-input-file (resource-path "shared" "update.rktd") read))
+
+(define (config-ref config key default)
+  (hash-ref config key default))
+
+(define (decoded-public-key config)
+  (define encoded (config-ref config 'public-key-base64 ""))
+  (and (string? encoded)
+       (with-handlers ([exn:fail? (lambda (_) #f)])
+         (base64-string->bytes encoded))))
+
+(define (update-configured?)
+  (with-handlers ([exn:fail? (lambda (_) #f)])
+    (define config (read-config))
+    (define key (decoded-public-key config))
+    (define feed (config-ref config 'feed-url ""))
+    (define key-id (config-ref config 'key-id ""))
+    (and (string? feed) (not (string=? (string-trim feed) ""))
+         (string? key-id) (not (string=? (string-trim key-id) ""))
+         (bytes? key) (= 32 (bytes-length key)))))
+
+(define updater (box #f))
+
+(define (current-updater)
+  (cond
+    [(unbox updater) (unbox updater)]
+    [else
+     (unless (update-configured?)
+       (error 'update
+              "update feed is not configured; fill in shared/update.rktd"))
+     (define config (read-config))
+     (define data-directory
+       (or (current-update-data-directory)
+           (build-path (find-system-path 'pref-dir)
+                       (app-identifier)
+                       "updates")))
+     (make-directory* data-directory)
+     (define settings
+       (make-settings-store (build-path data-directory "settings.json")))
+     (define adapter
+       (updater-settings-adapter
+        (lambda (key) (settings-ref settings key #f))
+        (lambda (key value) (settings-set! settings key value))))
+     (define configured-kind (config-ref config 'install-kind #f))
+     (define created
+       (make-updater
+        #:application-id (app-identifier)
+        #:current-version (app-version)
+        #:channel (string->symbol
+                   (format "~a" (config-ref config 'channel 'stable)))
+        #:install-kind
+        (if configured-kind
+            (string->symbol (format "~a" configured-kind))
+            (current-install-kind))
+        #:public-key (decoded-public-key config)
+        #:key-id (config-ref config 'key-id "")
+        #:manifest-url (config-ref config 'feed-url "")
+        #:data-directory data-directory
+        #:rollout-bucket (resolve-rollout-bucket! adapter)))
+     (set-box! updater created)
+     created]))
+
+(define (check-for-updates!)
+  (updater-check! (current-updater)))
+
+(define (download-update!)
+  (updater-download! (current-updater)))
+
+(define (cancel-update!)
+  (when (unbox updater)
+    (updater-cancel! (unbox updater))))
+
+(define (update-state)
+  (if (unbox updater)
+      (updater-state (unbox updater))
+      (hasheq 'phase "idle"
+              'percent 0
+              'message #f
+              'downloadedPath #f
+              'availableVersion #f
+              'currentVersion "")))
+UPDATE-MODULE
+  )
+
+(define starter-updates-readme
+  (string-append
+   "\n## Online updates (generated)\n\n"
+   "`app/update.rkt` checks and downloads a signed update into the shared\n"
+   "`shared/update.rktd` feed before any native installation. Fill in\n"
+   "`feed-url`, `public-key-base64` and `key-id`; until then the module fails\n"
+   "closed with a clear message.\n\n"
+   "The generated module stops at a verified download. Installation, restart,\n"
+   "consent and rollback stay in each native host: use MsiHandoff on Windows,\n"
+   "AppImageHandoff on Linux, and RivetUpdate on macOS. See\n"
+   "https://github.com/turlamai/rivet/blob/main/docs/release-and-updates.md.\n"))
+
+(define (create-project! name [parent (current-directory)]
+                            #:with-updates? [with-updates? #f])
   (unless (safe-project-name? name)
     (raise-arguments-error 'rivet-new
                            "invalid project name; use letters, digits, '-' or '_'"
@@ -411,18 +548,21 @@ SMOKE
     (raise-arguments-error 'rivet-new "destination already exists" "path" root))
 
   (make-directory* root)
-  (write-text (build-path root "README.md") (starter-readme name))
+  (write-text (build-path root "README.md")
+              (string-append (starter-readme name)
+                             (if with-updates? starter-updates-readme "")))
   (write-text (build-path root "AGENTS.md") starter-agents)
   (write-text
    (build-path root "rivet.rktd")
    (format
-    "#hasheq((name . ~s) (display-name . ~s) (publisher . ~s) (version . ~s) (build . ~s) (identifier . ~s) (release-channel . stable) (url-schemes . ()) (file-associations . ()) (resources . ()) (device-rpcs . ()) (macos-min-version . ~s) (windows-min-version . ~s) (backend . \"app/backend.rkt\") (module . \"backend\") (entry . \"start\") (protocol . 1))\n"
+    "#hasheq((name . ~s) (display-name . ~s) (publisher . ~s) (version . ~s) (build . ~s) (identifier . ~s) (release-channel . stable) (url-schemes . ()) (file-associations . ()) (resources . ~s) (device-rpcs . ()) (macos-min-version . ~s) (windows-min-version . ~s) (backend . \"app/backend.rkt\") (module . \"backend\") (entry . \"start\") (protocol . 1))\n"
     name
     name
     name
     default-project-version
     default-project-build
     (default-project-identifier name)
+    (if with-updates? '("shared") '())
     default-macos-min-version
     default-windows-min-version))
   (write-text (build-path root "rivet-acceptance.rktd") acceptance-template)
@@ -431,6 +571,10 @@ SMOKE
   (write-text (build-path root "app" "backend.rkt") backend-template)
   (write-text (build-path root "tests" "smoke.rkt")
               starter-smoke-test)
+  (when with-updates?
+    (write-text (build-path root "app" "update.rkt") starter-update-module)
+    (write-text (build-path root "shared" "update.rktd")
+                starter-update-config))
   (write-text
    (build-path root ".gitignore")
    (string-append

@@ -31,6 +31,20 @@
 (define (usage)
   (displayln (usage-text)))
 
+(define (create-and-report! name with-updates?)
+  (define create-project! (command "scaffold" 'create-project!))
+  (define root (create-project! name #:with-updates? with-updates?))
+  (say "created ~a" root)
+  (displayln "")
+  (displayln "Next:")
+  (displayln (format "  cd ~a" name))
+  (displayln "  raco rivet doctor")
+  (displayln "  raco rivet dev")
+  (displayln "")
+  (displayln "The generated README.md points to the backend and native UI files to edit.")
+  (displayln "Guide: https://github.com/turlamai/rivet/blob/main/docs/getting-started.md")
+  (displayln "中文教程: https://github.com/turlamai/rivet/blob/main/docs/getting-started.zh-CN.md"))
+
 (define (main)
   (define args (vector->list (current-command-line-arguments)))
   (match args
@@ -38,19 +52,8 @@
      (usage)]
     [(or (list "version") (list "--version") (list "-V"))
      (displayln (rivet-version-line))]
-    [(list "new" name)
-     (define create-project! (command "scaffold" 'create-project!))
-     (define root (create-project! name))
-     (say "created ~a" root)
-     (displayln "")
-     (displayln "Next:")
-     (displayln (format "  cd ~a" name))
-     (displayln "  raco rivet doctor")
-     (displayln "  raco rivet dev")
-     (displayln "")
-     (displayln "The generated README.md points to the backend and native UI files to edit.")
-     (displayln "Guide: https://github.com/turlamai/rivet/blob/main/docs/getting-started.md")
-     (displayln "中文教程: https://github.com/turlamai/rivet/blob/main/docs/getting-started.zh-CN.md")]
+    [(list "new" name) (create-and-report! name #f)]
+    [(list "new" name "--with-updates") (create-and-report! name #t)]
     [(list "doctor")
      (define run-doctor (command "doctor" 'run-doctor))
      (exit (run-doctor))]
