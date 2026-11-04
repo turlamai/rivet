@@ -423,6 +423,12 @@
               message:hello)
 (check-exn #rx"multiple Rivet servers are active"
            (lambda () (emit-event! 'progress 100)))
+;; State is also required to reject ambiguous routing *before* changing the
+;; committed value; otherwise neither native client could trust its State.
+(define before-ambiguous-state (state-ref counter))
+(check-exn #rx"multiple Rivet servers are active"
+           (lambda () (state-set! counter (add1 before-ambiguous-state))))
+(check-equal? (state-ref counter) before-ambiguous-state)
 
 ;; Once the second server is gone the surviving unambiguous route still works.
 (write-frame (frame message:shutdown 0 #"") second-client-out)

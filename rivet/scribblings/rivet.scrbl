@@ -151,7 +151,10 @@ opaque State descriptor produced by @racket[define-state].}
 
 @defproc[(state-set! [state state?] [value any/c]) void?]{
 Validates and atomically commits a state value, then admits its native event in
-the same update order.}
+the same update order. A worker created outside the server's parameterization
+also emits to the one active Rivet server. If multiple servers are active and
+no server-owned emitter is selected, an ambiguous update fails before mutation.
+Without an active server, this remains a local State update.}
 
 @racketblock[
 (require rivet)
