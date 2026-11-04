@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- `doctor --json` now reports `rivet-version` (the same release identity as
+  `raco rivet --version`), and the human output prints it. The diagnostics
+  reference also documents `project-readiness`, the warning object shape and
+  the stable warning codes `missing-schema-baseline` and
+  `invalid-winui-window-icon-path`.
+
 - `raco rivet new` now generates `.github/workflows/native.yml`: a pinned
   Windows/macOS/Linux contract that runs `doctor`, the schema gate and
   `acceptance --json`, installs GTK4 and the embeddable Racket CS runtime on

@@ -42,6 +42,8 @@ The command writes a single JSON object to standard output and uses the same suc
 
 - `os`
 - `architecture`
+- `rivet-version` — the installed Rivet release (`null` for an unversioned
+  source checkout; `raco rivet --version` prints the same identity)
 - `supported`
 - `usable`
 - `racket-executable`
@@ -49,9 +51,13 @@ The command writes a single JSON object to standard output and uses the same suc
 - `racket-version`
 - `runtime`
 - `runtime-error`
+- `project-readiness` — `root` and `schema-baseline-configured` when run inside a
+  project
+- `warnings` — stable `code`, `severity`, `message` and `remediation` entries;
+  known codes are `missing-schema-baseline` and `invalid-winui-window-icon-path`
 - `tools`
 
-`runtime` contains the exact runtime artifact paths described above. `tools` contains platform-specific executable paths. Optional production tools such as Windows `signtool` or macOS notarization tools may be absent while normal development packaging remains usable.
+`runtime` contains the exact runtime artifact paths described above. `tools` contains platform-specific executable paths. A warning code is part of the automation contract: consumers may key on it, so do not rename one without a changelog entry and a compatibility note. Optional production tools such as Windows `signtool` or macOS notarization tools may be absent while normal development packaging remains usable.
 
 JSON mode is intentionally data-only: it does not mix the human-readable banner or remediation prose into standard output. Automation should inspect `usable`, `runtime-error`, and `tools` and decide how to present or provision missing dependencies for its own environment.
 

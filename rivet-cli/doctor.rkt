@@ -177,6 +177,7 @@
                 '())))
   (hash 'os (symbol->string os)
         'architecture (format "~a" arch)
+        'rivet-version (installed-rivet-release-version)
         'supported supported?
         'usable usable?
         'ui ui
@@ -331,6 +332,8 @@
      (printf "Rivet doctor\n\n")
      (printf "  OS: ~a\n" (hash-ref report 'os))
      (printf "  architecture: ~a\n" (hash-ref report 'architecture))
+     (printf "  Rivet: ~a\n"
+             (or (hash-ref report 'rivet-version #f) "unreleased source checkout"))
      (printf "  Racket: ~a\n" (hash-ref report 'racket-version))
      (display-path "Racket executable" (hash-ref report 'racket-executable))
      (display-path "raco" (hash-ref report 'raco))

@@ -15,6 +15,7 @@
 (check-true (hash? report))
 (for ([key (in-list '(os
                       architecture
+                      rivet-version
                       supported
                       usable
                       ui
@@ -33,6 +34,8 @@
 (check-true (boolean? (hash-ref report 'supported)))
 (check-true (boolean? (hash-ref report 'usable)))
 (check-true (string? (hash-ref report 'racket-version)))
+(check-true (or (not (hash-ref report 'rivet-version))
+                (string? (hash-ref report 'rivet-version))))
 (check-true (hash? (hash-ref report 'tools)))
 (check-true (list? (hash-ref report 'warnings)))
 (check-true (list? (doctor-remediations report)))
