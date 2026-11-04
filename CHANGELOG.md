@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add a complete Simplified Chinese counterpart for the release-and-updates
+  guide: release modes, platform matrices, asset-parity gate, the update trust
+  chain, key rotation, the managed API, both native host handoffs, and the
+  fail-closed rules. Commands, flags, limits and security semantics are
+  unchanged; the readiness translation table now marks the journey complete.
+
 - Add complete Simplified Chinese counterparts for the diagnostics, runtime
   limits and production-signing guides, with reciprocal language links and
   documentation-map entries. Commands, API names, limits, environment

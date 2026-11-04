@@ -1,5 +1,7 @@
 # Release and updates
 
+**English** · [简体中文](release-and-updates.zh-CN.md)
+
 Rivet keeps distribution services outside RVT1. The application protocol and embedded Racket lifecycle do not know how an installer, update channel, or signing key works. Applications opt into `rivet/distribution`, while `raco rivet release` composes the existing build, package, platform signing, verification, installer, compliance, and update-manifest stages.
 
 ## Release command
