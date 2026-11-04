@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Portable ZIP update staging now rejects a signed archive with a lone
+  regular-file or symlink root rather than replacing an installed application
+  directory with a non-app file. A complete ZIP SHA-256 is deliberately
+  valid in the negative regression; the old installation stays intact.
+
 - Branded macOS DMG packaging now verifies the backing image device has
   actually detached before conversion, even when Finder removes its mountpoint.
   It can convert an isolated copy if diskimages-helper retains the original
