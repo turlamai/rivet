@@ -6,6 +6,9 @@
 ;; globs into component-tagged artifacts.
 
 (require rackunit
+         (only-in file/sha1 bytes->hex-string)
+         (only-in "../../rivet/distribution/crypto.rkt"
+                  sha256-bytes sha256-file sha256-file/hex)
          racket/file
          racket/path
          racket/string
@@ -15,6 +18,24 @@
          (rename-in (submod "../../rivet-cli/release.rkt" test-support)
                     [parse-update-payload-spec parse-update-payload-spec/t]
                     [expand-update-payloads expand-update-payloads/t]))
+
+;; Independent SHA-256 known-answer vector: digesting updates must not need
+;; OpenSSL, while Ed25519 still requires a real supported signing backend.
+(define known-sha256
+  "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
+(check-equal? (bytes->hex-string (sha256-bytes #"abc")) known-sha256)
+(define hash-fixture (make-temporary-file "rivet-sha256-~a"))
+(dynamic-wind
+ void
+ (lambda ()
+   (call-with-output-file hash-fixture
+     #:exists 'truncate/replace
+     #:mode 'binary
+     (lambda (out) (write-bytes #"abc" out)))
+   (check-equal? (bytes->hex-string (sha256-file hash-fixture)) known-sha256)
+   (check-equal? (sha256-file/hex hash-fixture) known-sha256))
+ (lambda ()
+   (when (file-exists? hash-fixture) (delete-file hash-fixture))))
 
 ;; --- legacy shape round-trips without component ----------------------------
 
