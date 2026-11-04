@@ -102,6 +102,16 @@
   (hash 'artifacts (reverse rows)
         'violations (reverse violations)))
 
+;; The CLI report keeps paths for human output; JSON must not leak Racket
+;; path objects or budget pairs that write-json cannot encode.
+(define (size-report->json report)
+  (hash 'artifacts (hash-ref report 'artifacts)
+        'violations
+        (for/list ([violation (in-list (hash-ref report 'violations))])
+          (hash 'name (path->string (file-name-from-path (car violation)))
+                'bytes (car (cdr violation))
+                'budget-bytes (cdr (cdr violation))))))
+
 (define (display-size-report report)
   (for ([row (in-list (hash-ref report 'artifacts))])
     (define budget (hash-ref row 'budget-bytes))
@@ -159,38 +169,51 @@
           (~r (hash-ref report 'survival-seconds) #:precision 2)))
 
 (define (run-measure args)
-  (define find-project
-    (dynamic-require "project.rkt" 'find-project))
+  ;; `find-project` is already required by this module. A relative
+  ;; `dynamic-require` would resolve against the user's project directory and
+  ;; fail exactly where `raco rivet measure` is supposed to run.
   (define project
     (or (find-project)
         (error 'rivet "no rivet.rktd found in this directory or its parents")))
-  (match args
+  (define json? (and (member "--json" args) #t))
+  (define plain-args (remove "--json" args))
+  (match plain-args
     [(list "size")
      (define report (measure-size project))
-     (display-size-report report)
+     (if json?
+         (write-json (size-report->json report))
+         (display-size-report report))
      (unless (null? (hash-ref report 'violations))
-       (error 'measure "size budgets exceeded; see the OVER BUDGET lines above"))]
+       (error 'measure "size budgets exceeded"))]
     [(list "size" "--budget" budget-path)
      (define report (measure-size project #:budget-path budget-path))
-     (display-size-report report)
+     (if json?
+         (write-json (size-report->json report))
+         (display-size-report report))
      (unless (null? (hash-ref report 'violations))
-       (error 'measure "size budgets exceeded; see the OVER BUDGET lines above"))]
+       (error 'measure "size budgets exceeded"))]
     [(list "size" "--artifact" artifact)
-     (display-size-report (measure-size project #:artifact artifact))]
+     (define report (measure-size project #:artifact artifact))
+     (if json?
+         (write-json (size-report->json report))
+         (display-size-report report))]
     [(list "startup")
-     (display-startup-report (measure-startup project))]
+     (define report (measure-startup project))
+     (if json? (write-json report) (display-startup-report report))]
     [(list "startup" "--artifact" artifact)
-     (display-startup-report (measure-startup project #:artifact artifact))]
+     (define report (measure-startup project #:artifact artifact))
+     (if json? (write-json report) (display-startup-report report))]
     [(list "startup" "--seconds" seconds-text)
      (define seconds
        (with-handlers ([exn:fail? (lambda (_) #f)])
          (string->number seconds-text)))
      (unless (and (real? seconds) (positive? seconds))
        (error 'measure "--seconds requires a positive number"))
-     (display-startup-report (measure-startup project #:seconds seconds))]
+     (define report (measure-startup project #:seconds seconds))
+     (if json? (write-json report) (display-startup-report report))]
     [_
      (error 'measure
-            "unknown measurement ~a; use `size [--budget <file>] [--artifact <name>]` or `startup [--artifact <name>] [--seconds N]`"
-            (string-join (if (null? args) '("(none)") args) " "))]))
+            "unknown measurement ~a; use `size [--budget <file>] [--artifact <name>] [--json]` or `startup [--artifact <name>] [--seconds N] [--json]`"
+            (string-join (if (null? plain-args) '("(none)") plain-args) " "))]))
 
 (provide run-measure)

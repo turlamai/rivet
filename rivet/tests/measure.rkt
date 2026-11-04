@@ -54,6 +54,40 @@
       (path->string (car violation)) "measured-0.1.0-macos.dmg"))
     (check-equal? (cdr violation) (cons 3000 2000))
 
+    ;; --json emits one machine-readable object for CI, with no human text.
+    (parameterize ([current-directory project-root])
+      (define output
+        (with-output-to-string
+          (lambda () (run-measure (list "size" "--json")))))
+      (define document (string->jsexpr output))
+      (check-equal? (length (hash-ref document 'artifacts)) 3)
+      (check-equal? (hash-ref document 'violations) '()))
+
+    ;; A violating budget still emits the report (with structured violations)
+    ;; before failing the command.
+    (define tight-budget (build-path temp-root "tight.json"))
+    (call-with-output-file tight-budget
+      (lambda (out)
+        (write-json (hasheq 'rules
+                            (list (hasheq 'glob "*" 'max-bytes 1)))
+                   out)))
+    (parameterize ([current-directory project-root])
+      (define output
+        (with-output-to-string
+          (lambda ()
+            (check-exn exn:fail?
+                       (lambda ()
+                         (run-measure (list "size" "--budget"
+                                            (path->string tight-budget)
+                                            "--json")))))))
+      (define document (string->jsexpr output))
+      (check-equal? (length (hash-ref document 'violations)) 3)
+      (check-true
+       (for/and ([violation (in-list (hash-ref document 'violations))])
+         (and (string? (hash-ref violation 'name))
+              (exact-positive-integer? (hash-ref violation 'bytes))
+              (= (hash-ref violation 'budget-bytes) 1)))))
+
     ;; A tight global budget flags everything; relaxing it clears the gate.
     (call-with-output-file budget-path
       #:exists 'truncate

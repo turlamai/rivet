@@ -293,6 +293,7 @@ raco rivet schema check <file>     Reject breaking changes from a baseline
 raco rivet schema check <file> --json  Emit a machine-readable compatibility report
 raco rivet generate                Regenerate Swift, C++, and Kotlin clients
 raco rivet generate --check        Fail if generated clients differ from the tree
+raco rivet generate --check --json  Machine-readable freshness report
 raco rivet clean                   Remove generated .rivet/build/dist artifacts
 raco rivet support-bundle          Collect a redacted doctor/inspect/log ZIP
 raco rivet build                   Compile backend, generate clients, build native host
@@ -312,6 +313,8 @@ raco rivet verify-release-assets ...  Verify signed release asset parity
 raco rivet i18n                    Verify shared/i18n parity and regenerate tables
 raco rivet measure                 Report packaged artifact sizes and launch survival
 raco rivet measure size --budget <file>  Fail when artifacts exceed budgets
+raco rivet measure size --json      Machine-readable sizes and violations
+raco rivet measure startup --json   Machine-readable launch-survival result
 raco rivet apple-review ...        Inspect an actual Apple artifact
 raco rivet compliance              Generate SBOM/notices and run the license audit
 raco rivet verify                  Re-verify the current packaged artifact

@@ -62,6 +62,11 @@ can gate budgets instead of eyeballing dist listings:
   use) and reports the elapsed window, so the artifact's ability to boot on
   the packaging machine is measured rather than assumed.
 
+Both commands accept `--json`: the size report carries artifact names, exact
+bytes, budgets and structured violations; the startup report carries the
+artifact, required window and elapsed seconds. Human output remains the
+default; `--json` emits one object and keeps the same exit status.
+
 Per-RPC latency stays with the integration benchmarks above: the
 `--benchmark` mode measures the real embedded runtime end to end, which a
 detached CLI cannot reach into a packaged GUI host. A practical release

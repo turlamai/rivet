@@ -13,6 +13,7 @@
 (provide generate-clients!
          client-outputs
          check-generated-clients
+         check-report->json
          schema-snapshot
          write-schema-snapshot!
          check-schema-compatibility!)
@@ -116,6 +117,17 @@
 ;; with the tree. Because the regenerated content always carries the current
 ;; rivet.rktd version/build stamp, a hand-edited version literal or a
 ;; forgotten regeneration after a version bump shows up as a stale file.
+;; JSON report for `generate --check --json`: paths become strings and the
+;; freshness verdict is explicit for CI consumers.
+(define (check-report->json result)
+  (define (strings key)
+    (map path->string (hash-ref result key)))
+  (hash 'fresh (strings 'fresh)
+        'stale (strings 'stale)
+        'missing (strings 'missing)
+        'fresh? (and (null? (hash-ref result 'stale))
+                     (null? (hash-ref result 'missing)))))
+
 (define (check-generated-clients project)
   (define outputs (car (client-outputs project)))
   (define fresh '())

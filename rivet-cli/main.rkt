@@ -154,6 +154,14 @@
      (say (if kotlin?
               "generated Swift, C++, and Kotlin clients"
               "generated Swift and C++ clients (no companion API: no Kotlin client)"))]
+    [(list "generate" "--check" "--json")
+     (define check-generated-clients (command "codegen" 'check-generated-clients))
+     (define check-report->json (command "codegen" 'check-report->json))
+     (define report
+       (check-report->json (check-generated-clients (current-project!))))
+     (write-json report)
+     (newline)
+     (unless (hash-ref report 'fresh?) (exit 1))]
     [(list "generate" "--check")
      ;; CI freshness gate: regenerate in memory and compare with the tree,
      ;; so hand-edited generated files or stale version stamps cannot merge.

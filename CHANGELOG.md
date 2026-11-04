@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Add `--json` to `raco rivet measure size|startup` and to
+  `raco rivet generate --check`, so CI branches on one structured object
+  instead of scraping human lines. The size report includes structured
+  violations and keeps the budget exit status. Fix a real measure bug found
+  while testing it: `run-measure` used a relative `dynamic-require` for
+  `project.rkt`, which resolves against the user's project directory and
+  broke `raco rivet measure` exactly where it is meant to run.
+
 - Document the `rivet.rktd` validation rules (identifier, resources,
   device-rpcs, localizations, Linux naming and icon/installer extensions) in
   both configuration guides, the 0/1/2 exit-status vocabulary in both
