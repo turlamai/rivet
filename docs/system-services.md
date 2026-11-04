@@ -1,5 +1,7 @@
 # System services
 
+**English** · [简体中文](system-services.zh-CN.md)
+
 Commercial desktop features live in `rivet/system` and native platform adapters, not in RVT1. This boundary keeps the embedded transport small and makes UI-thread and lifecycle ownership explicit.
 
 ## Shared API
@@ -22,7 +24,7 @@ Linux reads asynchronously because Wayland transfers clipboard content from the 
 
 Every desktop adapter exposes first-party open, save, and folder-selection dialogs with filename-extension filters and optional open-file multi-selection. Cancellation is a normal empty result; actual platform or transfer failures remain distinguishable. Dialogs belong to the UI thread and may be parented to the native application window.
 
-The adapters return local filesystem paths only. Windows uses the Common Item Dialog (`IFileOpenDialog` / `IFileSaveDialog`), macOS uses asynchronous `NSOpenPanel` / `NSSavePanel`, and Linux uses `GtkFileChooserNative`, which delegates to the desktop portal when available. Linux reports a clear error if a provider returns a non-local resource instead of pretending its URI is a filesystem path.
+The adapters return local filesystem paths only. Windows uses the Common Item Dialog (`IFileOpenDialog` / `IFileSaveDialog`), macOS uses asynchronous `NSOpenPanel` / `NSSavePanel`, and Linux uses the GTK4 `GtkFileDialog` (GTK 4.10+), which delegates to the desktop portal when available. Linux reports a clear error if a provider returns a non-local resource instead of pretending its URI is a filesystem path.
 
 ## Windows
 

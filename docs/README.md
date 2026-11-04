@@ -14,11 +14,13 @@ counterparts exist for the public entry journeys: [README](../README.zh-CN.md),
 [Diagnostics](diagnostics.zh-CN.md), [Runtime limits](runtime-limits.zh-CN.md),
 [Production signing](production-signing.zh-CN.md),
 [Release and updates](release-and-updates.zh-CN.md),
-[Package verification](package-verification.zh-CN.md), and
+[Package verification](package-verification.zh-CN.md),
+[System services](system-services.zh-CN.md),
+[Large payloads](large-payloads.zh-CN.md), and
 [Troubleshooting](troubleshooting.zh-CN.md). Pages without
 a `中文` link are currently English-only; they are not silently bilingual and
-their translation status is tracked as remaining work, starting with large
-payloads, charts, system services, and acceptance guides. Protocol
+their translation status is tracked as remaining work, starting with charts,
+acceptance, and platform-integration guides. Protocol
 and architecture references stay English as the single normative definition.
 
 中文：英文页面是规范性技术来源。公开入门旅程已提供完整中文对照（见上方链接）；
@@ -41,11 +43,11 @@ and architecture references stay English as the single normative definition.
 - [RVT1 protocol](protocol.md) and [runtime limits](runtime-limits.md) · [中文](runtime-limits.zh-CN.md)
 - [Racket CS embedding](embedding.md)
 - [API stability](api-stability.md) · [中文](api-stability.zh-CN.md)
-- [Large payloads, pagination, and progress](large-payloads.md)
+- [Large payloads, pagination, and progress](large-payloads.md) · [中文](large-payloads.zh-CN.md)
 
 ## Native platform integration / 原生平台集成
 
-- [System services](system-services.md)
+- [System services](system-services.md) · [中文](system-services.zh-CN.md)
 - [Windows host integration](windows-native-window.md)
 - [Linux display policy](linux-display.md)
 - [Real-time chart series](chart-series.md)

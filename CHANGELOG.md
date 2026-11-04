@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Add Chinese counterparts for the system-services and large-payload guides.
+  The system-services translation also corrects the Linux file-dialog claim:
+  the adapter uses the GTK4 `GtkFileDialog` (GTK 4.10+), not
+  `GtkFileChooserNative`. The large-payload translation keeps the pagination,
+  tree-windowing, typed progress and deliberate-cancellation-gap conventions
+  unchanged.
+
 - Add a complete Simplified Chinese counterpart for the package-verification
   guide: clean packaging, the five-second launch smoke, per-platform layout
   and dependency checks, production trust checks, and the Linux tarball

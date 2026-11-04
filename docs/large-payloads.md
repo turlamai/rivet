@@ -1,5 +1,7 @@
 # Large payloads, pagination, and progress
 
+**English** · [简体中文](large-payloads.zh-CN.md)
+
 RVT1 gives a single frame 64 MiB and a 2^18 value-node budget. That is
 deliberately generous for ordinary app traffic, and deliberately finite:
 real workspace data — semantic diffs over an OEM delivery, a package tree
