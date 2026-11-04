@@ -175,8 +175,17 @@
         (lambda (key) "200")
         (lambda (key value)
           (error 'settings "persist failed")))])
-  (define bucket (resolve-rollout-bucket! settings))
-  (check-true (and (exact-integer? bucket) (<= 0 bucket 99))))
+  ;; The deliberately failing persistence adapter emits a diagnostic.
+  ;; Capture it and assert the failure is observable, without contaminating
+  ;; the official package builder's --drdr stderr stream.
+  (define diagnostic (open-output-string))
+  (define bucket
+    (parameterize ([current-error-port diagnostic])
+      (resolve-rollout-bucket! settings)))
+  (check-true (and (exact-integer? bucket) (<= 0 bucket 99)))
+  (check-true
+   (regexp-match? #rx"rollout-bucket persist diagnostic: settings: persist failed"
+                  (get-output-string diagnostic))))
 
 (let ([settings
        (updater-settings-adapter (lambda (key) #f) (lambda (key value) void))])

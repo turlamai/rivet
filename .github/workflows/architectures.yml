@@ -25,9 +25,22 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $installer = Join-Path $env:RUNNER_TEMP 'racket-9.3-arm64-win32-cs.exe'
-          Invoke-WebRequest `
-            -Uri 'https://download.racket-lang.org/installers/9.3/racket-9.3-arm64-win32-cs.exe' `
-            -OutFile $installer
+          # A transient CDN/network failure must not fail an otherwise
+          # valid ARM64 package smoke. Keep the immutable SHA-256 check below;
+          # never execute a partial or unchecked installer.
+          for ($attempt = 1; $attempt -le 4; $attempt++) {
+            if (Test-Path $installer) { Remove-Item $installer -Force }
+            try {
+              Invoke-WebRequest `
+                -Uri 'https://download.racket-lang.org/installers/9.3/racket-9.3-arm64-win32-cs.exe' `
+                -OutFile $installer -TimeoutSec 120
+              break
+            } catch {
+              if ($attempt -eq 4) { throw }
+              Write-Warning "Racket ARM64 installer download attempt $attempt failed; retrying: $_"
+              Start-Sleep -Seconds ($attempt * 5)
+            }
+          }
           $hash = (Get-FileHash $installer -Algorithm SHA256).Hash.ToLowerInvariant()
           if ($hash -ne '15cd4ace652427465c7c576bad4aede2b8519cb6b59b190c9a22862cf57e7924') {
             throw "Racket 9.3 arm64 installer checksum mismatch: $hash"
