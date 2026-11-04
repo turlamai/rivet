@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add the Chinese chart-series guide covering the ring buffer, RVC1 batch format,
+  throughput envelope, host widgets, integration checklist and ticker
+  ownership. Correct the English multi-server error quote to the exact
+  message the backend raises.
+
 - Add Chinese counterparts for the system-services and large-payload guides.
   The system-services translation also corrects the Linux file-dialog claim:
   the adapter uses the GTK4 `GtkFileDialog` (GTK 4.10+), not

@@ -1,5 +1,7 @@
 # Real-time chart series
 
+**English** · [简体中文](chart-series.zh-CN.md)
+
 Rivet products render live time-series (sync convergence, engine telemetry,
 simulator traces) through one shared data plane. This page is the
 authoritative convention: the Racket state holder, the wire batch format,
@@ -104,7 +106,7 @@ unrestricted process-wide broadcast.
 
 When **multiple** `serve` instances exist in one Racket process, there is no
 safe way for an unrelated worker to choose a recipient. In that case the
-fallback raises `multiple Rivet servers are active` rather than leaking an
+fallback raises `multiple Rivet servers are active; emit from a server-owned thread` rather than leaking an
 event to the wrong connection. The fallback is also removed on server exit.
 A product managing multiple sessions should create its ticker within the
 relevant server's connected RPC handler so that the thread-local emitter

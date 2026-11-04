@@ -16,11 +16,11 @@ counterparts exist for the public entry journeys: [README](../README.zh-CN.md),
 [Release and updates](release-and-updates.zh-CN.md),
 [Package verification](package-verification.zh-CN.md),
 [System services](system-services.zh-CN.md),
-[Large payloads](large-payloads.zh-CN.md), and
-[Troubleshooting](troubleshooting.zh-CN.md). Pages without
+[Large payloads](large-payloads.zh-CN.md), [Chart series](chart-series.zh-CN.md),
+and [Troubleshooting](troubleshooting.zh-CN.md). Pages without
 a `中文` link are currently English-only; they are not silently bilingual and
-their translation status is tracked as remaining work, starting with charts,
-acceptance, and platform-integration guides. Protocol
+their translation status is tracked as remaining work, starting with
+acceptance and platform-integration guides. Protocol
 and architecture references stay English as the single normative definition.
 
 中文：英文页面是规范性技术来源。公开入门旅程已提供完整中文对照（见上方链接）；
@@ -50,7 +50,7 @@ and architecture references stay English as the single normative definition.
 - [System services](system-services.md) · [中文](system-services.zh-CN.md)
 - [Windows host integration](windows-native-window.md)
 - [Linux display policy](linux-display.md)
-- [Real-time chart series](chart-series.md)
+- [Real-time chart series](chart-series.md) · [中文](chart-series.zh-CN.md)
 - [Typed device communication](device-communication.md)
 - [Network device channel design](network-device-channel.md) — protocol, pairing, and selected Apple/Windows/Android transport foundations exist; product wiring and real-device qualification remain unverified
 

@@ -120,7 +120,7 @@ keep one normative English definition. See the central
 | Troubleshooting and recovery | Yes | Yes (2026-11-04) | Keep commands and failure paths current |
 | System services | Yes | Yes (2026-11-04) | The guide must keep the Partial wiring rows visible |
 | Production signing / package verification | Yes | Both guides have Chinese counterparts (2026-11-04) | Keep operator facts current |
-| Runtime limits / large payloads / charts | Partial | Limits and large payloads have Chinese counterparts (2026-11-04); charts English-only | Translate the chart guide |
+| Runtime limits / large payloads / charts | Yes | All three guides have Chinese counterparts (2026-11-04) | Keep batch/format facts in sync |
 | Native UI testing / product acceptance | Yes | **No** | Translate the evidence contract |
 | Architecture / protocol / embedding / agent guidance | Yes | English-only by policy | Keep one normative source |
 | API reference (`rivet/scribblings`) | Yes | Not required | Fix the reference gaps below |
@@ -205,12 +205,12 @@ They are ordered by user impact, not by repository convenience.
 - **Flagship acceptance manifest.** `examples/taskboard` has no
   `rivet-acceptance.rktd` even though the docs call it mandatory. Add one with
   contract, package and native-UI evidence and run it in the native jobs.
-- **Missing Chinese journeys.** Charts, product acceptance and the
-  platform-integration guides are still English-only; Chinese getting-started
-  links silently cross into English. Translate them and mark remaining
-  English-only links inline. Troubleshooting, diagnostics, runtime limits,
-  production signing, release/updates, package verification, system services
-  and large payloads landed on 2026-11-04.
+- **Missing Chinese journeys.** Product acceptance and the platform-integration
+  guides are still English-only; Chinese getting-started links silently cross
+  into English. Translate them and mark remaining English-only links inline.
+  Troubleshooting, diagnostics, runtime limits, production signing,
+  release/updates, package verification, system services, large payloads and
+  charts landed on 2026-11-04.
 
 ### P2
 
