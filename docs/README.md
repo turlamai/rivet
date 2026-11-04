@@ -4,6 +4,22 @@ This page is the canonical map of Rivet documentation. Start with one path and
 follow links only when the work crosses that boundary; the root README remains
 a product overview rather than a second documentation index.
 
+## Language status / 语言状态
+
+English pages are the normative technical source. Complete Simplified Chinese
+counterparts exist for the public entry journeys: [README](../README.zh-CN.md),
+[Using Rivet](USING.zh-CN.md), [Getting started](getting-started.zh-CN.md),
+[Continuous integration](ci.zh-CN.md), [API stability](api-stability.zh-CN.md),
+and [Apple release readiness](apple-release-readiness.zh-CN.md). Pages without
+a `中文` link are currently English-only; they are not silently bilingual and
+their translation status is tracked as remaining work, starting with
+release/update, configuration, diagnostics, and system-service guides. Protocol
+and architecture references stay English as the single normative definition.
+
+中文：英文页面是规范性技术来源。公开入门旅程已提供完整中文对照（见上方链接）；
+未标注“中文”的页面目前只有英文，不声称双语对等。翻译按“发布/更新 → 配置 →
+诊断 → 系统服务”的顺序补齐；协议与架构规范保持单一英文定义。
+
 ## Build an application / 开发应用
 
 - [Getting started](getting-started.md) · [中文](getting-started.zh-CN.md)

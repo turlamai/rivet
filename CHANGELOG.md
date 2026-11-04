@@ -6,6 +6,16 @@
   and `doctor` output can identify the installed release as one stable line
   instead of consulting the package database.
 
+- Publish the repository's contribution surface: issue forms for bugs and
+  capabilities, a pull-request evidence checklist, a code of conduct, and
+  weekly Dependabot updates for GitHub Actions. `SECURITY.md` now records
+  supported versions, the private reporting route, response expectations,
+  the trust boundary, and the no-telemetry posture.
+
+- The documentation map now states its language status explicitly: which
+  public journeys have complete Chinese counterparts and which pages are
+  English-only, instead of implying whole-repository parity.
+
 - Portable ZIP update staging now rejects a signed archive with a lone
   regular-file or symlink root rather than replacing an installed application
   directory with a non-app file. A complete ZIP SHA-256 is deliberately
