@@ -415,7 +415,7 @@ jobs:
           if (-not (Test-Path 'app\backend.rkt')) {
             throw 'raco rivet clean removed application source'
           }
-      - name: MSI first launch, running-app upgrade, downgrade rejection, and uninstall smoke
+      - name: MSI first launch, repair, running-app upgrade, data retention, and uninstall smoke
         shell: pwsh
         run: |
           # Issue #370: installed-package upgrade acceptance, not only
@@ -485,6 +485,24 @@ jobs:
               $launched.WaitForExit(5000) | Out-Null
             }
           }
+          # Repair the installed MSI via Windows Installer itself, with the
+          # application closed. This must not become a silent replacement of
+          # product-owned data in the user's profile or defer until reboot.
+          $userDataRoot = Join-Path $env:LOCALAPPDATA ("rivet-msi-acceptance-" + [guid]::NewGuid().ToString('N'))
+          New-Item -ItemType Directory -Force -Path $userDataRoot | Out-Null
+          $userDataFile = Join-Path $userDataRoot 'user-state.txt'
+          Set-Content -Path $userDataFile -Value 'retain-across-installer-lifecycle' -NoNewline
+          $p = Start-Process msiexec -ArgumentList "/fa", "`"$($v1.FullName)`"", "/qn", "/norestart", "/L*v", "$root\repair-v1.log" -Wait -PassThru
+          if ($p.ExitCode -ne 0) {
+            Get-Content "$root\repair-v1.log" -Tail 80
+            throw "MSI v1 repair failed or deferred until reboot with $($p.ExitCode)"
+          }
+          if ((Get-Content $installedResource -Raw) -ne 'msi-v1') {
+            throw 'MSI repair lost or changed the installed v1 payload'
+          }
+          if ((Get-Content $userDataFile -Raw) -ne 'retain-across-installer-lifecycle') {
+            throw 'MSI repair damaged user data outside Program Files'
+          }
           # Upgrade in place: same UpgradeCode, higher product version.
           Set-Content -Path 'assets\nested\product.txt' -Value 'msi-v2' -NoNewline
           $config = Get-Content 'rivet.rktd' -Raw
@@ -528,6 +546,9 @@ jobs:
             if ((Get-Content $installedResource -Raw) -ne 'msi-v2') {
               throw 'running-app upgrade did not install the v2 payload'
             }
+            if ((Get-Content $userDataFile -Raw) -ne 'retain-across-installer-lifecycle') {
+              throw 'running-app MSI upgrade damaged user data outside Program Files'
+            }
           } finally {
             # Kill only as test cleanup on failure, never before the installer.
             if ($upgradeProcess) {
@@ -549,6 +570,10 @@ jobs:
           $p = Start-Process msiexec -ArgumentList "/x", "`"$($v2.FullName)`"", "/qn", "/norestart", "/L*v", "$root\uninstall.log" -Wait -PassThru
           if ($p.ExitCode -notin 0, 3010) { Get-Content "$root\uninstall.log" -Tail 40; throw "MSI uninstall failed with $($p.ExitCode)" }
           if (Test-Path $installRoot) { throw 'uninstall left the installation directory behind' }
+          if ((Get-Content $userDataFile -Raw) -ne 'retain-across-installer-lifecycle') {
+            throw 'MSI uninstall removed the user data root'
+          }
+          Remove-Item -Path $userDataRoot -Recurse -Force
       - name: Doctor flags the exact bad icon overload in a consumer fixture
         shell: pwsh
         run: |
