@@ -294,6 +294,7 @@ raco rivet schema check <file> --json  Emit a machine-readable compatibility rep
 raco rivet generate                Regenerate Swift, C++, and Kotlin clients
 raco rivet generate --check        Fail if generated clients differ from the tree
 raco rivet clean                   Remove generated .rivet/build/dist artifacts
+raco rivet support-bundle          Collect a redacted doctor/inspect/log ZIP
 raco rivet build                   Compile backend, generate clients, build native host
 raco rivet dev                     Build and run the current application
 raco rivet package                 Create and verify a development distributable

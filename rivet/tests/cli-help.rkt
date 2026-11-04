@@ -16,7 +16,7 @@
 
 (define commands
   '("new" "doctor" "entitlements" "inspect" "acceptance" "matrix"
-    "verify-remote" "schema" "clean" "build" "generate" "dev" "package"
+    "verify-remote" "schema" "clean" "support-bundle" "build" "generate" "dev" "package"
     "release" "manifest-compose" "verify-release-assets" "sign-manifest"
     "i18n" "measure" "compliance" "apple-review" "verify" "help"))
 

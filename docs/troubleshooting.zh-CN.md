@@ -172,3 +172,7 @@ Rivet 本身，使用 `raco pkg remove rivet`；这不会删除生成项目或�
 
 附上 `raco rivet --version`、`raco rivet doctor --json` 的输出、平台与架构、完整
 命令和最小复现。先移除凭据、签名密钥、私有路径和客户数据。
+
+`raco rivet support-bundle --output rivet-support.zip --log <应用日志>` 会收集这些
+事实、脱敏家目录和用户名，并加入指定日志。附加前请检查 ZIP；bundle 无法判断应用日志本身
+是否含客户数据。

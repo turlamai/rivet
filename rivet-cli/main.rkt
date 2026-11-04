@@ -81,6 +81,9 @@
     [(list "inspect" "--json")
      (define run-inspect (command "inspect" 'run-inspect))
      (exit (run-inspect (current-project!) #:json? #t))]
+    [(cons "support-bundle" support-args)
+     (define run-support-bundle (command "support" 'run-support-bundle))
+     (exit (run-support-bundle support-args))]
     [(cons "acceptance" acceptance-args)
      (define run-acceptance-command
        (command "acceptance" 'run-acceptance-command))

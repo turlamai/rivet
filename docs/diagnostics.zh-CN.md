@@ -131,6 +131,24 @@ GUI 进程通常没有终端，而且在 Windows 上第一次写 stderr 可能�
 这对日志是合适的，但也意味着除非提供报告器，磁盘写满会保持静默。设置不是日志：不要在日志
 字段中放秘密，sink 不会对应用数据做脱敏。
 
+## `raco rivet support-bundle`
+
+Bug 报告不应要求用户手工拼路径，也不应把家目录一并交出去。一条命令收集 Rivet 已经
+知道的事实，以及显式指定的日志：
+
+```text
+raco rivet support-bundle --output rivet-support.zip --log ~/Library/Logs/app.log --json
+```
+
+ZIP 包含 `doctor.json`、在项目内运行时的 `inspect.json`、`manifest.json`，以及
+`logs/` 下每个 `--log` 文件。所有字符串都会递归脱敏：本地家目录变成 `~`，用户名变成
+`<user>`。命令把每个日志限制在 2 MiB、日志总量限制在 8 MiB；被截断的条目会在 manifest
+中标记。符号链接和目录日志参数会作为 note 报告，而不会被跟随。
+
+`--json` 向自动化打印与 manifest 相同的摘要（path、entries、redactions、notes）。分享前
+请先检查 ZIP：bundle 降低了本地身份信息，但不能保证应用日志内容不含敏感数据。Rivet 绝不
+会把 `rivet.rktd`、源码或任意项目文件复制进 bundle。
+
 ## 嵌入运行时诊断
 
 Windows、macOS 和 Linux 的嵌入运行时以及 Racket 后端会为生命周期和请求边界事件逐行

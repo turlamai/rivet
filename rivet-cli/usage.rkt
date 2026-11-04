@@ -53,6 +53,8 @@
    "  raco rivet schema check <file>     reject breaking changes from a baseline\n"
    "  raco rivet schema check <file> --json  emit a machine-readable compatibility report\n"
    "  raco rivet clean                   remove generated .rivet/build/dist artifacts\n"
+   "  raco rivet support-bundle [--output <file>] [--log <file>]... [--json]\n"
+   "                                      collect a redacted doctor/inspect/log bundle\n"
    "  raco rivet build                   compile backend and native host\n"
    "  raco rivet generate                regenerate Swift, C++, and Kotlin clients\n"
    "  raco rivet generate --check        fail if generated clients differ from the tree\n"

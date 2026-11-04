@@ -115,6 +115,29 @@ ignores them, which is appropriate for logging but means a full disk is silent
 unless you supply a reporter. Settings are not a log: keep secrets out of log
 fields, since the sink does not redact application data.
 
+## `raco rivet support-bundle`
+
+A bug report should not require a user to assemble paths by hand, and it must
+not hand over their home directory. One command collects the facts Rivet
+already knows plus explicitly named logs:
+
+```text
+raco rivet support-bundle --output rivet-support.zip --log ~/Library/Logs/app.log --json
+```
+
+The ZIP contains `doctor.json`, `inspect.json` when run inside a project,
+`manifest.json`, and each `--log` file under `logs/`. Every string is
+recursively redacted: the local home directory becomes `~` and the user name
+becomes `<user>`. The command caps each log at 2 MiB and the total log payload
+at 8 MiB; a truncated entry is marked in the manifest. Symbolic-link and
+directory log arguments are reported as notes instead of being followed.
+
+`--json` prints the same summary as the manifest (path, entries, redactions,
+notes) for automation. Review the ZIP before sharing it: the bundle reduces
+local identity, but it is not a guarantee that application log content is
+free of sensitive data. Rivet never copies `rivet.rktd`, source files, or
+arbitrary project files into the bundle.
+
 ## Embedded runtime diagnostics
 
 The embedded Windows, macOS, and Linux runtimes and the Racket backend emit one

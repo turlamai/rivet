@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Add `raco rivet support-bundle`: one command that collects the doctor and
+  project-inspect reports, the Rivet release, and explicitly named logs into
+  a ZIP with a manifest. It recursively redacts the home directory and user
+  name, caps each log at 2 MiB (8 MiB total) with truncation recorded, refuses
+  to follow symlinked or directory log arguments, and supports `--json` for
+  automation. Documented in both diagnostics guides and both troubleshooting
+  guides; covered by `rivet/tests/support-bundle.rkt`.
+
 - Document the implemented `#:trusted-keys` keyword on `make-updater` and
   `fetch-update-manifest`, `#:diagnostic-sink` on `serve`/`serve-fds`, and
   `#:install-kind` on `select-update`. Add `rivet/tests/manual-keywords.rkt`,

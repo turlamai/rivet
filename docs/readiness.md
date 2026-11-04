@@ -166,7 +166,7 @@ agents and products copy the reference.
 | Tag provenance and source-package smoke | Shipped | `docs/releasing.md`, release scripts, CI | — |
 | SBOM and third-party notices | Shipped | `raco rivet release`, `compliance` | Product review remains required |
 | Vulnerability scanning of dependencies | **Partial** | No automated advisory/license scan in CI | Scheduled scan plus a response policy |
-| Support bundle with redaction | **Missing** | `doctor --json` and `inspect --json` only | One-command, previewable, redacted bundle |
+| Support bundle with redaction | Shipped (2026-11-04) | `raco rivet support-bundle`, `rivet/tests/support-bundle.rkt` | Applications still decide which logs to attach |
 | Log rotation and retention | Shipped (2026-11-04) | `make-rotating-log-sink`, `rivet/tests/logging.rkt`; docs in both languages | Applications still choose the path and retention policy |
 | Crash report capture | **Partial** | Hooks and JSONL diagnostics | Default file/crash-bundle implementation |
 | Performance thresholds | **Deferred** | `docs/benchmarks.md` explains why timing has no pass/fail gate | Promote metrics only on stable hardware |
@@ -262,8 +262,8 @@ They are ordered by user impact, not by repository convenience.
    system services, native-UI testing and product acceptance. Release/update,
    diagnostics, limits, signing, package verification and troubleshooting are
    complete.
-4. **Support bundle + crash capture** — redacted, previewable, bounded,
-   consistent across platforms. The rotating log sink landed on 2026-11-04.
+4. **Crash capture** — a default crash file/bundle on every platform. The
+   rotating log sink and the redacted support bundle landed on 2026-11-04.
 5. **Menus, notifications, drag-and-drop, fonts** — native helpers with a
    documented recipe, not a shared UI DSL.
 6. **Reference-contract repair** — Scribble keywords, chart stability entry,

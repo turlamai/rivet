@@ -283,6 +283,7 @@ raco rivet schema check <file> --json  输出机器可读的兼容性报告
 raco rivet generate                重新生成 Swift、C++ 与 Kotlin client
 raco rivet generate --check        生成物与源码树不一致时失败
 raco rivet clean                   删除 .rivet/build/dist 生成物
+raco rivet support-bundle          收集脱敏后的 doctor/inspect/日志 ZIP
 raco rivet build                   编译 backend、生成 client、构建 native host
 raco rivet dev                     构建并运行当前应用
 raco rivet package                 创建并验证开发发布物

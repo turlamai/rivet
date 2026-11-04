@@ -194,3 +194,8 @@ back it up before deleting it.
 Include the output of `raco rivet --version`, `raco rivet doctor --json`, the
 platform and architecture, the exact commands, and the smallest reproduction.
 Remove credentials, signing keys, private paths and customer data first.
+
+`raco rivet support-bundle --output rivet-support.zip --log <your-app-log>`
+collects those facts, redacts the home directory and user name, and adds the
+named logs. Review the ZIP before attaching it; the bundle cannot know whether
+your application log contains customer data.
