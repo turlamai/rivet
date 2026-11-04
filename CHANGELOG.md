@@ -7,11 +7,30 @@
   archive swap. Staging rejects malformed, escaping and ambiguous containers
   before moving the old installation; package-manager artifacts remain delegated.
 
+- Branded macOS DMG packaging now verifies the backing image device has
+  actually detached before conversion, even when Finder removes its mountpoint.
+  It can convert an isolated copy if diskimages-helper retains the original
+  image lock, while cleaning copies and failing closed on persistent errors.
+
+- Windows MSI lifecycle CI now performs real maintenance repair after the
+  first installed-app launch and verifies the installed payload stays intact.
+  Repair, running-app upgrade and full uninstall must preserve disposable
+  profile data outside the installation directory.
+
 - Default macOS DMGs now include an Applications drag-to-install shortcut
   without requiring branded background art. The app is copied with ditto so
   nested Racket.framework symlinks remain intact, with native DMG mount tests.
   Branded DMG conversion also retries bounded transient disk-image busy errors
   after Finder detach, while persistent failures still fail packaging.
+
+- Align the public documentation with the shipped CLI and manual. The
+  copy-paste CI workflow no longer claims to pin 0.11.0 while its YAML pins
+  v0.13.0; the prose now describes the pinning rule without a version that
+  can rot. The README CLI tables (English and Chinese) list the commands that
+  `raco rivet help` actually exposes. The manual documents
+  `silent-check-interval-seconds` (previously an undefined reference) and
+  refers to the undedicated `rivet/distribution/identity` leaf module as plain
+  text, so the Scribble build is warning-clean.
 
 - Windows MSI Launch on the Finish dialog remains available for initial
   install and maintenance/repair but is explicitly suppressed on full

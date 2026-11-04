@@ -25,10 +25,10 @@ CI 应使用与发布任务相同类别的 runner 和工具链：
 
 ## 可直接使用的 GitHub Actions 工作流
 
-下面的工作流固定到 Rivet 0.11.0。升级时，应在同一次评审中把每处 Rivet
-包来源和 Linux setup action 更新到同一个标签（或完整 commit）。这里有意
-使用 Git 来源：Racket Package Catalog 对每个包名只保留一个当前入口，不能
-选择较旧的 Rivet 版本。
+下面的工作流固定到一个具体的 Rivet 发布版本：每处 `#v…` 包来源和
+Linux setup action 必须使用同一个标签（或完整 commit），并在同一次评审中
+一起升级。这里有意使用 Git 来源：Racket Package Catalog 对每个包名只保留
+一个当前入口，不能选择较旧的 Rivet 版本。
 
 ```yaml
 name: Native hosts
