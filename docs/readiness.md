@@ -254,26 +254,44 @@ They are ordered by user impact, not by repository convenience.
 - Require a real `@defproc`/`@defthing` per export in the documentation test,
   and scan leaf modules.
 
+## Program progress (2026-11-05)
+
+Completed in this pass, with tests and both language paths where public:
+
+- generated three-platform CI, a real starter test, and a non-vacuous acceptance
+  manifest; opt-in `--with-updates` check/download scaffold;
+- redacted support bundle, bounded rotating log sink, and a crash-file reporter
+  for uncaught Racket exceptions;
+- `--json` for `measure size|startup` and `generate --check`, plus a real
+  `measure` project-discovery fix;
+- every public user journey in Chinese, enforced by
+  `rivet/tests/translation-coverage.rkt`;
+- manual keyword, public-API, CLI/README, chart-stability and Taskboard
+  acceptance gates;
+- duplicated release logic and dead code removed; stale adoption snapshot
+  deleted.
+
 ## Open slices, in order
 
 1. **Activation delivery** — one payload path from OS to a Racket RPC on all
-   three platforms, with acceptance coverage. This is the highest-risk broken
-   promise because packaging already registers the schemes.
-2. **Generated app baseline** — single-instance acquisition, About/Quit, window
-   state, CI workflow and release template in `raco rivet new`.
-3. **Platform-reference translations (optional)** — Windows host, Linux display
-   and device communication. Every public user journey is complete and
-   enforced by `rivet/tests/translation-coverage.rkt`.
-4. **Crash capture** — a default crash file/bundle on every platform. The
-   rotating log sink and the redacted support bundle landed on 2026-11-04.
-5. **Menus, notifications, drag-and-drop, fonts** — native helpers with a
-   documented recipe, not a shared UI DSL.
-6. **Reference-contract repair** — Scribble keywords, chart stability entry,
-   CLI list, config keys, exit codes, documentation gate.
-7. **Cooperative RPC cancellation** — handler-visible check, cleanup window,
+   three platforms, with acceptance coverage. Packaging already registers the
+   schemes, so this is the highest-risk broken promise.
+2. **Generated app baseline, remainder** — single-instance acquisition,
+   About/Quit, window-state restore and a release-workflow template in
+   `raco rivet new`. CI, starter test and updater scaffold are done.
+3. **Crash capture, native remainder** — macOS has no fatal-signal hook,
+   Windows writes no dump, and Linux does not restart. The Racket reporter,
+   rotating sink and support bundle are done.
+4. **Menus, notifications, drag-and-drop, fonts, printing, power/sleep** —
+   native helpers with a documented recipe, not a shared UI DSL.
+5. **Cooperative RPC cancellation** — handler-visible check, cleanup window,
    and a real long-running consumer.
-8. **Reproducible framework archives** and **dependency advisory scanning**.
-9. **#405 installer qualification** and **#397 consumer update migration**.
+6. **Reproducible framework archives** and **dependency advisory scanning**.
+7. **#405 installer qualification** and **#397 consumer update migration**.
+   Product migration is explicitly out of scope for this program.
+
+Optional: platform-reference translations (Windows host, Linux display, device
+communication); all public user journeys are complete.
 
 ## Maintenance rule
 

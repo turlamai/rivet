@@ -319,10 +319,14 @@ Requests orderly backend shutdown.}
 
 @defmodule[rivet/testing]
 
-Test-only helpers for exercising code that performs HTTP: an ephemeral
-listener, a request-serving entry point, and fake request/body/header/method/
-path values. They are stable enough for product tests but are not a production
-HTTP server.
+Test-only helpers for exercising code that performs HTTP:
+@racket[ephemeral-http-listener] starts a bounded loopback listener,
+@racket[serve-http!] accepts one request, and
+@racket[fake-request], @racket[fake-request?], @racket[fake-request-body],
+@racket[fake-request-headers], @racket[fake-request-method] and
+@racket[fake-request-path] construct and inspect a deterministic request.
+They are stable enough for product tests but are not a production HTTP
+server.
 
 @defmodule[rivet/resources]
 
