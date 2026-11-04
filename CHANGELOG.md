@@ -37,6 +37,12 @@
   uninstall (`REMOVE="ALL"`), when the target executable has been removed.
   The generated WiX source and its Racket regression test enforce the guard.
 
+- Framework source releases now publish one versioned Racket package ZIP and
+  its canonical SHA256SUMS manifest. A strict final-staging verifier rejects
+  unexpected files, mismatched digests, invalid names, symlinks, and missing
+  release notes before GitHub publication; ordinary CI runs negative tests.
+  Existing published release assets are not rewritten.
+
 - Windows MSI lifecycle CI now upgrades a real installed v1 while its native
   window/process are still live, using Installer Restart Manager rather than
   preemptively closing the application. It requires the upgrade to finish
