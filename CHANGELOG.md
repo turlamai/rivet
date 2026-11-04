@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Add `make-rotating-log-sink` to `rivet/system`: an optional bounded JSONL
+  file sink with size-based rotation, a configurable archive count, private
+  `#o600` permissions on Unix, per-sink serialized appends, and a non-fatal
+  error hook. GUI applications no longer need to hand-write log rotation or
+  send users to a terminal; covered by `rivet/tests/logging.rkt` and listed
+  in the public-API snapshot, diagnostics guide (both languages) and system
+  services guide.
+
 - Add the Chinese chart-series guide covering the ring buffer, RVC1 batch format,
   throughput envelope, host widgets, integration checklist and ticker
   ownership. Correct the English multi-server error quote to the exact

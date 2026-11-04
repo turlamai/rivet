@@ -109,6 +109,28 @@ raco rivet build
 
 自动化诊断可改用 `raco rivet doctor --json`，并把生成的 JSON 与失败构建日志一起归档。
 
+## 应用日志 sink
+
+`rivet-log` 把结构化记录发给 `current-rivet-log-sink`；默认把 JSONL 写到标准错误。
+GUI 进程通常没有终端，而且在 Windows 上第一次写 stderr 可能分配控制台窗口，因此商业应用
+应安装文件 sink：
+
+```racket
+(require rivet/system)
+
+(current-rivet-log-sink
+ (make-rotating-log-sink (build-path data-directory "logs" "app.log")
+                         #:max-bytes (* 5 1024 1024)
+                         #:max-files 3))
+```
+
+该 sink 每行追加一个 JSON 对象；在记录会超过 `#:max-bytes` 之前轮转；最多保留
+`#:max-files` 个归档（`.1` 最新）；创建父目录；在 Unix 上把活动文件权限设为
+`#:permissions`（默认 `#o600`）。追加由每个 sink 的信号量串行化，因此多个 Racket 线程的
+回调不会交错写入一条记录。I/O 错误交给可选的 `#:on-error` 过程，而不是杀死应用；默认忽略，
+这对日志是合适的，但也意味着除非提供报告器，磁盘写满会保持静默。设置不是日志：不要在日志
+字段中放秘密，sink 不会对应用数据做脱敏。
+
 ## 嵌入运行时诊断
 
 Windows、macOS 和 Linux 的嵌入运行时以及 Racket 后端会为生命周期和请求边界事件逐行

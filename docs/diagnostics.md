@@ -89,6 +89,32 @@ raco rivet build
 
 For automated diagnostics, substitute `raco rivet doctor --json` and archive the resulting JSON with the failing build logs.
 
+## Application log sink
+
+`rivet-log` sends structured records to `current-rivet-log-sink`; the default
+writes JSONL to standard error. A GUI process usually has no terminal and, on
+Windows, the first stderr write can allocate a console window, so a commercial
+application should install a file sink:
+
+```racket
+(require rivet/system)
+
+(current-rivet-log-sink
+ (make-rotating-log-sink (build-path data-directory "logs" "app.log")
+                         #:max-bytes (* 5 1024 1024)
+                         #:max-files 3))
+```
+
+The sink appends one JSON object per line, rotates before a record would exceed
+`#:max-bytes`, keeps at most `#:max-files` archives (`.1` is newest), creates
+the parent directory, and sets the active file to `#:permissions` (`#o600` by
+default) on Unix. Appends are serialized on a per-sink semaphore, so callbacks
+from multiple Racket threads cannot interleave a record. I/O errors go to the
+optional `#:on-error` procedure instead of killing the application; the default
+ignores them, which is appropriate for logging but means a full disk is silent
+unless you supply a reporter. Settings are not a log: keep secrets out of log
+fields, since the sink does not redact application data.
+
 ## Embedded runtime diagnostics
 
 The embedded Windows, macOS, and Linux runtimes and the Racket backend emit one

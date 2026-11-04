@@ -538,6 +538,20 @@ Sends a structured record to @racket[current-rivet-log-sink] and returns it.}
 Reports an uncaught Racket exception through
 @racket[current-rivet-crash-reporter], then re-raises it.}
 
+@defproc[(make-rotating-log-sink [path path-string?]
+                                 [#:max-bytes max-bytes exact-positive-integer? (* 5 1024 1024)]
+                                 [#:max-files max-files exact-positive-integer? 3]
+                                 [#:permissions permissions exact-positive-integer? #o600]
+                                 [#:on-error on-error procedure? void])
+         (-> hash? void?)]{
+Returns a file sink for @racket[current-rivet-log-sink]. Each record is one
+JSON object per line; before a record would exceed @racket[max-bytes] the
+active file rotates, and at most @racket[max-files] archives are retained
+(@filepath{.1} is newest). Appends are serialized per sink, the parent
+directory is created, and Unix permissions are set on the active file.
+I/O failures go to @racket[on-error] instead of escaping the logger. The sink
+does not redact application fields; keep secrets out of log records.}
+
 @section{Distribution and Secure Updates}
 
 @defmodule[rivet/distribution]

@@ -166,7 +166,7 @@ agents and products copy the reference.
 | SBOM and third-party notices | Shipped | `raco rivet release`, `compliance` | Product review remains required |
 | Vulnerability scanning of dependencies | **Partial** | No automated advisory/license scan in CI | Scheduled scan plus a response policy |
 | Support bundle with redaction | **Missing** | `doctor --json` and `inspect --json` only | One-command, previewable, redacted bundle |
-| Log rotation and retention | **Missing** | `rivet/system/logging.rkt` is a sink, not a file policy | Optional rotating sink or an explicit product contract |
+| Log rotation and retention | Shipped (2026-11-04) | `make-rotating-log-sink`, `rivet/tests/logging.rkt`; docs in both languages | Applications still choose the path and retention policy |
 | Crash report capture | **Partial** | Hooks and JSONL diagnostics | Default file/crash-bundle implementation |
 | Performance thresholds | **Deferred** | `docs/benchmarks.md` explains why timing has no pass/fail gate | Promote metrics only on stable hardware |
 | Windows system-adapter tests | **Missing** | 936 source lines, no test target, no CI job | Win32 test executable for tray/menu/hotkey/clipboard/credential paths |
@@ -261,8 +261,8 @@ They are ordered by user impact, not by repository convenience.
    system services, native-UI testing and product acceptance. Release/update,
    diagnostics, limits, signing, package verification and troubleshooting are
    complete.
-4. **Support bundle + rotating log sink + crash capture** — redacted,
-   previewable, bounded, consistent across platforms.
+4. **Support bundle + crash capture** — redacted, previewable, bounded,
+   consistent across platforms. The rotating log sink landed on 2026-11-04.
 5. **Menus, notifications, drag-and-drop, fonts** — native helpers with a
    documented recipe, not a shared UI DSL.
 6. **Reference-contract repair** — Scribble keywords, chart stability entry,

@@ -52,7 +52,8 @@
     (rivet/system
      (acquire-single-instance! autostart-enabled? call-with-crash-reporting
       current-rivet-crash-reporter current-rivet-log-sink
-      current-system-adapter install-crash-hook! make-settings-store
+      current-system-adapter install-crash-hook! make-rotating-log-sink
+      make-settings-store
       register-activation-handler! rivet-log secure-store-ref
       secure-store-remove! secure-store-set! set-autostart!
       set-tray-menu! settings-ref settings-remove! settings-set!
