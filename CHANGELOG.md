@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add a complete Simplified Chinese counterpart for the package-verification
+  guide: clean packaging, the five-second launch smoke, per-platform layout
+  and dependency checks, production trust checks, and the Linux tarball
+  re-derivation. The readiness translation table now marks the ship journey
+  complete.
+
 - Add a complete Simplified Chinese counterpart for the release-and-updates
   guide: release modes, platform matrices, asset-parity gate, the update trust
   chain, key rotation, the managed API, both native host handoffs, and the

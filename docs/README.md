@@ -13,11 +13,12 @@ counterparts exist for the public entry journeys: [README](../README.zh-CN.md),
 [Apple release readiness](apple-release-readiness.zh-CN.md),
 [Diagnostics](diagnostics.zh-CN.md), [Runtime limits](runtime-limits.zh-CN.md),
 [Production signing](production-signing.zh-CN.md),
-[Release and updates](release-and-updates.zh-CN.md), and
+[Release and updates](release-and-updates.zh-CN.md),
+[Package verification](package-verification.zh-CN.md), and
 [Troubleshooting](troubleshooting.zh-CN.md). Pages without
 a `中文` link are currently English-only; they are not silently bilingual and
-their translation status is tracked as remaining work, starting with package
-verification, large payloads, charts, and system-service guides. Protocol
+their translation status is tracked as remaining work, starting with large
+payloads, charts, system services, and acceptance guides. Protocol
 and architecture references stay English as the single normative definition.
 
 中文：英文页面是规范性技术来源。公开入门旅程已提供完整中文对照（见上方链接）；
@@ -53,7 +54,7 @@ and architecture references stay English as the single normative definition.
 
 ## Ship and maintain / 发布与维护
 
-- [Package verification](package-verification.md)
+- [Package verification](package-verification.md) · [中文](package-verification.zh-CN.md)
 - [Production signing](production-signing.md) · [中文](production-signing.zh-CN.md)
 - [Apple release readiness](apple-release-readiness.md) · [中文](apple-release-readiness.zh-CN.md) — channel-specific bundle preflight and App Store evidence boundaries
 - [Release and updates](release-and-updates.md) · [中文](release-and-updates.zh-CN.md)

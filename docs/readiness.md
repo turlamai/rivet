@@ -119,7 +119,7 @@ keep one normative English definition. See the central
 | Diagnostics | Yes | Yes (2026-11-04) | Add the remaining exit-code table |
 | Troubleshooting and recovery | Yes | Yes (2026-11-04) | Keep commands and failure paths current |
 | System services | Yes | **No** | Translate the capability matrix, including the Partial rows above |
-| Production signing / package verification | Partial | Yes (signing, 2026-11-04); package verification English-only | Translate the package-verification guide |
+| Production signing / package verification | Yes | Both guides have Chinese counterparts (2026-11-04) | Keep operator facts current |
 | Runtime limits / large payloads / charts | Partial | Yes (limits, 2026-11-04); large payloads/charts English-only | Translate the large-payload and chart guides |
 | Native UI testing / product acceptance | Yes | **No** | Translate the evidence contract |
 | Architecture / protocol / embedding / agent guidance | Yes | English-only by policy | Keep one normative source |
@@ -205,11 +205,11 @@ They are ordered by user impact, not by repository convenience.
 - **Flagship acceptance manifest.** `examples/taskboard` has no
   `rivet-acceptance.rktd` even though the docs call it mandatory. Add one with
   contract, package and native-UI evidence and run it in the native jobs.
-- **Missing Chinese journeys.** Package verification, large payloads, charts
-  and system services are still English-only; Chinese getting-started links
+- **Missing Chinese journeys.** Large payloads, charts, system services and
+  product acceptance are still English-only; Chinese getting-started links
   silently cross into English. Translate them and mark remaining English-only
   links inline. Troubleshooting, diagnostics, runtime limits, production
-  signing and release/updates landed on 2026-11-04.
+  signing, release/updates and package verification landed on 2026-11-04.
 
 ### P2
 
@@ -256,8 +256,10 @@ They are ordered by user impact, not by repository convenience.
    promise because packaging already registers the schemes.
 2. **Generated app baseline** — single-instance acquisition, About/Quit, window
    state, CI workflow and release template in `raco rivet new`.
-3. **Translate the remaining public journeys** — release/update, diagnostics,
-   system services, signing/verification, limits, acceptance.
+3. **Translate the remaining public journeys** — large payloads, charts,
+   system services, native-UI testing and product acceptance. Release/update,
+   diagnostics, limits, signing, package verification and troubleshooting are
+   complete.
 4. **Support bundle + rotating log sink + crash capture** — redacted,
    previewable, bounded, consistent across platforms.
 5. **Menus, notifications, drag-and-drop, fonts** — native helpers with a
