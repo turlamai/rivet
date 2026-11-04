@@ -96,7 +96,8 @@ Shipped.
 | `new` / `build` / `dev` / `package` / `verify` / `release` | Shipped | CLI tests, docs | — |
 | `doctor`, `inspect`, `acceptance`, `schema`, `i18n`, `measure`, `compliance` | Shipped | `rivet-cli`, `docs/diagnostics.md`, `docs/product-acceptance.md` | — |
 | CLI version identity | Shipped | `raco rivet --version`, `rivet/tests/version.rkt` | — |
-| Generated project CI and release workflow | **Missing** | `rivet-cli/scaffold.rkt` writes no `.github/workflows`; `docs/ci.md` requires hand-copying | Generate a pinned three-platform CI workflow and a tag-driven release template |
+| Generated project CI workflow | Shipped (2026-11-04) | `rivet-cli/scaffold.rkt` writes `.github/workflows/native.yml`; `rivet/tests/scaffold-ci.rkt` | Release template still manual |
+| Generated project release workflow | **Missing** | Only CI is generated; signing/update secrets remain a documented operator step | Add a comment-only release template after the update scaffold exists |
 | Generated project updater wiring | **Missing** | Scaffold emits no `rivet/distribution` integration | Generate a backend updater module plus native handoff calls |
 | Generated project tests | **Partial** | Acceptance manifest exists, no starter suite | Runnable smoke test so `acceptance` is not vacuous |
 | CLI exit-code contract | **Missing** | Only `apple-review` documents codes; most failures collapse to 1 | Numeric table per subcommand and distinct parse/policy failures |

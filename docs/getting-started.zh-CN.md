@@ -200,6 +200,14 @@ raco rivet verify
 
 `package` 在成功返回之前会先验证开发发布物；`verify` 可以稍后再次审计已经生成的发布物。
 
+每个生成项目还会带有 `.github/workflows/native.yml`：它固定一个 Rivet 版本，
+在 Windows、两条 macOS runner 和 Linux 上运行 `doctor`、schema 门禁和
+`acceptance --json`，并归档每份验收报告。升级 Rivet 时请同步更新其中的 pin。
+Linux job 使用 Rivet 的 setup action 构建可嵌入的 Racket CS 运行时并安装 GTK4
+开发文件，因此干净 runner 无需额外 CI 配置即可编译宿主。首次执行 `release`
+之前，请在 `rivet.rktd` 中设置 `linux-icon`：缺少它时 AppImage 打包会失败关闭，
+生成的 README 也已列出这条前提。
+
 需要正式可信的发行包时：
 
 ```bash

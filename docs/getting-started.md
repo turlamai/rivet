@@ -201,6 +201,15 @@ raco rivet verify
 
 `package` verifies the generated development distributable before reporting success. `verify` can audit it again later.
 
+Every generated project also ships `.github/workflows/native.yml`: it pins one
+Rivet release, runs `doctor`, the schema gate and `acceptance --json` on
+Windows, both macOS runner lines and Linux, and archives each acceptance
+report. Keep that pin in sync when you upgrade Rivet. The Linux job builds the
+embeddable Racket CS runtime with Rivet's setup action and installs GTK4
+development files, so a clean runner can compile the host without bespoke CI.
+Before the first `release`, set `linux-icon` in `rivet.rktd`: AppImage packaging
+fails closed without it, and the generated README now lists that prerequisite.
+
 For a publisher-trusted production artifact:
 
 ```bash

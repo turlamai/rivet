@@ -30,6 +30,10 @@ nonzero exits, and missing evidence. Archive the JSON report on failure. See
 
 ## Copy-paste GitHub Actions workflow
 
+`raco rivet new` writes this contract to `.github/workflows/native.yml` with the
+installed Rivet release pinned; the block below is for existing projects and
+for reviewing what the generated file runs.
+
 The following workflow pins one concrete Rivet release: keep every
 `#v…` package source and the Linux setup action on the same tag (or full
 commit), and update them together in one review. A direct

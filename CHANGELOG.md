@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- `raco rivet new` now generates `.github/workflows/native.yml`: a pinned
+  Windows/macOS/Linux contract that runs `doctor`, the schema gate and
+  `acceptance --json`, installs GTK4 and the embeddable Racket CS runtime on
+  Linux, and archives every report. The generated README lists the CI pin and
+  the `linux-icon` prerequisite for AppImage releases, and getting-started
+  explains both. Covered by `rivet/tests/scaffold-ci.rkt`.
+
 - Add `docs/readiness.md`, a living commercial-readiness contract for the
   desktop framework. It records the verified 2026-11-04 gaps instead of
   implying parity: activation delivery, single-instance wiring, menus,
