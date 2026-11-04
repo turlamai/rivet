@@ -115,6 +115,20 @@ ignores them, which is appropriate for logging but means a full disk is silent
 unless you supply a reporter. Settings are not a log: keep secrets out of log
 fields, since the sink does not redact application data.
 
+Uncaught Racket exceptions are reported through `current-rivet-crash-reporter`;
+the default is a no-op. A bounded crash file is one line away:
+
+```racket
+(current-rivet-crash-reporter
+ (make-crash-file-reporter (build-path data-directory "logs" "crash.log")))
+```
+
+`make-crash-file-reporter` reuses the rotating sink and adds the exception
+message to the record. It covers exceptions that reach
+`call-with-crash-reporting`; native fatal signals remain the platform
+adapter's crash/shutdown hook, which must stay allocation- and
+network-free.
+
 ## `raco rivet support-bundle`
 
 A bug report should not require a user to assemble paths by hand, and it must

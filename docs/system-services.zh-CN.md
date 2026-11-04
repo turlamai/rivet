@@ -158,6 +158,6 @@ Linux 集成二进制自检适配器（`RivetIntegration --system`）：lease �
 （Linux 上是 XDG state 或 config 目录下的文件）。秘密不属于设置；请使用安全存储。
 
 `rivet-log` 向 `current-rivet-log-sink` 发出结构化记录；`make-rotating-log-sink` 是
-可选的、有界的 JSONL 文件 sink，支持按大小轮转和私有权限。`call-with-crash-reporting` 记录
+可选的、有界的 JSONL 文件 sink，支持按大小轮转和私有权限；`make-crash-file-reporter` 把未捕获的 Racket 异常写成同样的有界记录。`call-with-crash-reporting` 记录
 逃逸的 Racket 异常，并在重新抛出前调用 `current-rivet-crash-reporter`。原生致命钩子有意
 保持最小：崩溃处理器必须避免分配和网络访问，然后让 helper 在下次启动时提交报告。

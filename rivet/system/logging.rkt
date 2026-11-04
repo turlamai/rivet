@@ -10,7 +10,8 @@
          current-rivet-crash-reporter
          rivet-log
          call-with-crash-reporting
-         make-rotating-log-sink)
+         make-rotating-log-sink
+         make-crash-file-reporter)
 
 (define current-rivet-log-sink
   (make-parameter
@@ -121,3 +122,24 @@
              (flush-output out)))
          (unless (eq? (system-type 'os) 'windows)
            (file-or-directory-permissions complete permissions)))))))
+
+
+;; The default crash reporter is a no-op, which is correct for a library but
+;; invisible in the field. This reporter writes the same structured record the
+;; log sink receives, plus the exception message, to a bounded crash file.
+;; Native fatal signals are still the platform adapter's job; this covers
+;; uncaught Racket exceptions reported through `call-with-crash-reporting`.
+(define (make-crash-file-reporter path
+                                  #:max-bytes [max-bytes (* 1024 1024)]
+                                  #:max-files [max-files 3])
+  (define sink
+    (make-rotating-log-sink path
+                            #:max-bytes max-bytes
+                            #:max-files max-files))
+  (lambda (record exception)
+    (sink
+     (hash-set record
+               'exception
+               (if (exn? exception)
+                   (exn-message exception)
+                   "non-exception value")))))

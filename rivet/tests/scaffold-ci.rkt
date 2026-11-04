@@ -38,5 +38,14 @@
       (check-true (string-contains? text (string-append "rivet.git#v" installed))))
     (define readme (file->string (build-path project "README.md")))
     (check-true (string-contains? readme ".github/workflows/native.yml"))
-    (check-true (string-contains? readme "linux-icon")))
+    (check-true (string-contains? readme "linux-icon"))
+
+    ;; A generated project must prove behavior, not only compile.
+    (define smoke (build-path project "tests" "smoke.rkt"))
+    (check-true (file-exists? smoke))
+    (dynamic-require smoke #f)
+    (define acceptance (file->string (build-path project "rivet-acceptance.rktd")))
+    (check-true (string-contains? acceptance "(kind . unit)"))
+    (check-true (string-contains? acceptance "\"raco\" \"test\" \"tests/\""))
+    (check-true (string-contains? acceptance "starter-smoke")))
   (lambda () (delete-directory/files root)))

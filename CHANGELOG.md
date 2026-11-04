@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- Add `make-crash-file-reporter` to `rivet/system`: a bounded JSONL reporter
+  for uncaught Racket exceptions, reusing the rotating log sink and adding
+  the exception message. It is the documented one-line default for
+  `current-rivet-crash-reporter`; native fatal signals and restart policy
+  remain the platform adapter's responsibility. Documented in both
+  diagnostics guides and both system-services guides.
+
+- Generated projects now start with a real test: `tests/smoke.rkt` checks the
+  starter `greeting` helper, and `rivet-acceptance.rktd` declares a
+  `starter-smoke` unit suite that runs `raco test tests/`. Before this,
+  `raco rivet acceptance` could be green without executing any behavior.
+  `rivet/tests/scaffold-ci.rkt` asserts the file, the suite and that the test
+  passes; getting-started now lists the generated contract files.
+
 - Add the Chinese product-acceptance guide covering the manifest, suite and
   evidence rules, the in-process RVT1 backend recipe, capability classes,
   the cross-platform matrix and verify-remote. Add

@@ -131,6 +131,18 @@ GUI 进程通常没有终端，而且在 Windows 上第一次写 stderr 可能�
 这对日志是合适的，但也意味着除非提供报告器，磁盘写满会保持静默。设置不是日志：不要在日志
 字段中放秘密，sink 不会对应用数据做脱敏。
 
+未捕获的 Racket 异常通过 `current-rivet-crash-reporter` 报告；默认是 no-op。有界崩溃文件
+只需一行：
+
+```racket
+(current-rivet-crash-reporter
+ (make-crash-file-reporter (build-path data-directory "logs" "crash.log")))
+```
+
+`make-crash-file-reporter` 复用轮转 sink，并把异常消息加入记录。它覆盖到达
+`call-with-crash-reporting` 的异常；原生致命信号仍属于平台适配器的崩溃/关闭钩子，必须保持
+无分配、无网络访问。
+
 ## `raco rivet support-bundle`
 
 Bug 报告不应要求用户手工拼路径，也不应把家目录一并交出去。一条命令收集 Rivet 已经

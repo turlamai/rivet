@@ -8,6 +8,7 @@
          racket/file
          racket/list
          racket/path
+         racket/string
          rackunit
          "../../rivet/system/logging.rkt")
 
@@ -53,6 +54,19 @@
     (define records (read-records concurrent))
     (check-equal? (length records) 100)
     (check-equal? (length (remove-duplicates records)) 100)
+
+    ;; --- crash reporter writes the record plus the exception -------------
+    (define crash-path (build-path root "crash.log"))
+    (parameterize ([current-rivet-crash-reporter
+                    (make-crash-file-reporter crash-path)])
+      (check-exn exn:fail?
+                 (lambda ()
+                   (call-with-crash-reporting
+                    (lambda () (error 'smoke "boom"))))))
+    (define crash-record
+      (last (read-records crash-path)))
+    (check-equal? (hash-ref crash-record 'event) "unhandled-exception")
+    (check-true (string-contains? (hash-ref crash-record 'exception) "boom"))
 
     ;; --- the active file is private on Unix ------------------------------
     (unless (eq? (system-type 'os) 'windows)

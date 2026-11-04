@@ -100,7 +100,7 @@ Shipped.
 | Generated project CI workflow | Shipped (2026-11-04) | `rivet-cli/scaffold.rkt` writes `.github/workflows/native.yml`; `rivet/tests/scaffold-ci.rkt` | Release template still manual |
 | Generated project release workflow | **Missing** | Only CI is generated; signing/update secrets remain a documented operator step | Add a comment-only release template after the update scaffold exists |
 | Generated project updater wiring | **Missing** | Scaffold emits no `rivet/distribution` integration | Generate a backend updater module plus native handoff calls |
-| Generated project tests | **Partial** | Acceptance manifest exists, no starter suite | Runnable smoke test so `acceptance` is not vacuous |
+| Generated project tests | Shipped (2026-11-04) | `tests/smoke.rkt` plus the `starter-smoke` unit suite; scaffold test asserts both | Products still replace the scenario with real behavior |
 | CLI exit-code contract | **Missing** | Only `apple-review` documents codes; most failures collapse to 1 | Numeric table per subcommand and distinct parse/policy failures |
 | Upgrade/migration guide per release | **Partial** | `docs/USING.md`, `CHANGELOG` | Migration section for public-contract changes |
 | API stability and deprecation | **Partial** | `docs/api-stability.md` (pre-1.0) | State Racket 9.0+ explicitly; define deprecation markers/window and a support matrix |
@@ -168,7 +168,7 @@ agents and products copy the reference.
 | Vulnerability scanning of dependencies | **Partial** | No automated advisory/license scan in CI | Scheduled scan plus a response policy |
 | Support bundle with redaction | Shipped (2026-11-04) | `raco rivet support-bundle`, `rivet/tests/support-bundle.rkt` | Applications still decide which logs to attach |
 | Log rotation and retention | Shipped (2026-11-04) | `make-rotating-log-sink`, `rivet/tests/logging.rkt`; docs in both languages | Applications still choose the path and retention policy |
-| Crash report capture | **Partial** | Hooks and JSONL diagnostics | Default file/crash-bundle implementation |
+| Crash report capture | **Partial** | `make-crash-file-reporter` covers uncaught Racket exceptions; native hooks exist | macOS has no native fatal-signal hook; Windows writes no dump; Linux does not restart |
 | Performance thresholds | **Deferred** | `docs/benchmarks.md` explains why timing has no pass/fail gate | Promote metrics only on stable hardware |
 | Windows system-adapter tests | **Missing** | 936 source lines, no test target, no CI job | Win32 test executable for tray/menu/hotkey/clipboard/credential paths |
 | macOS system-adapter tests | **Partial** | Clipboard, filters, menu bar, notification availability | Single instance, Keychain, login item, activation router |

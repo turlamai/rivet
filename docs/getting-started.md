@@ -39,6 +39,11 @@ The generated project contains:
 hello-rivet/
 ├── rivet.rktd              # app identity, backend entry point, deployment targets
 ├── app/backend.rkt         # shared Racket application logic
+├── tests/smoke.rkt         # starter unit test wired into acceptance
+├── rivet-acceptance.rktd   # executable definition of done
+├── rivet-schema.json       # committed API compatibility baseline
+├── .github/workflows/native.yml  # Windows/macOS/Linux CI
+├── AGENTS.md               # project agent contract
 ├── windows/                # WinUI 3 application
 ├── macos-host/             # SwiftUI application
 └── linux/                  # GTK4 application

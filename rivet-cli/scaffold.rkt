@@ -24,13 +24,16 @@
 
 (require rivet/backend)
 
-(provide start)
+(provide start greeting)
+
+(define (greeting name)
+  (format "Hello, ~a!" name))
 
 (define-event notification : String)
 (define-state counter : Int64 0)
 
 (define-rpc (greet [name String] : String)
-  (format "Hello, ~a!" name))
+  (greeting name))
 
 (define-rpc (notify [message String] : Void)
   (notification message)
@@ -47,12 +50,19 @@ RKT
  (version . 1)
  (requirements
   . (#hasheq((kind . contract) (platforms . (windows macos linux)))
+     #hasheq((kind . unit) (platforms . (windows macos linux)))
      #hasheq((kind . native-build) (platforms . (windows macos linux)))))
  (suites
   . (#hasheq((id . schema-contract)
              (kind . contract)
              (platforms . (windows macos linux))
              (command . ("raco" "rivet" "schema" "check" "rivet-schema.json" "--json"))
+             (timeout-seconds . 120)
+             (evidence . ()))
+     #hasheq((id . starter-smoke)
+             (kind . unit)
+             (platforms . (windows macos linux))
+             (command . ("raco" "test" "tests/"))
              (timeout-seconds . 120)
              (evidence . ()))
      #hasheq((id . native-build)
@@ -87,7 +97,8 @@ ACCEPTANCE
     "- Continuous integration: `.github/workflows/native.yml` builds and runs acceptance on Windows, macOS, and Linux; keep its Rivet pin in sync with your installed release\n"
     "- App identity/deployment targets: `rivet.rktd`\n"
     "- Versioned public API baseline: `rivet-schema.json`\n"
-    "- Executable completion evidence: `rivet-acceptance.rktd`\n\n"
+    "- Executable completion evidence: `rivet-acceptance.rktd`; its `starter-smoke`\n"
+    "  suite runs `tests/smoke.rkt`, so replace that scenario with real product behavior\n\n"
     "## Design and verify the native interaction\n\n"
     "Use the running native app as the interactive prototype; a separate mockup is optional. Before coding a user-facing flow, write its behavior into the product's existing design/spec: initial state, action, visible result, saved effect, error/recovery, per-platform presentation, and evidence. Follow `AGENTS.md` for save/cancel/focus/keyboard and accessibility rules. Review the packaged window, capture a screenshot when supported, and exercise the workflow through native UI automation. A green build alone is not a UX pass.\n\n"
     "## When Racket does not already have the capability\n\n"
@@ -375,6 +386,20 @@ jobs:
 YAML
    pin (version) pin (version) pin pin pin))
 
+(define starter-smoke-test
+  #<<SMOKE
+#lang racket/base
+
+;; A generated project starts with one real test so `raco rivet acceptance`
+;; proves behavior instead of only compiling. Replace this scenario with the
+;; product's smallest critical flow.
+(require rackunit
+         "../app/backend.rkt")
+
+(check-equal? (greeting "Rivet") "Hello, Rivet!")
+SMOKE
+  )
+
 (define (create-project! name [parent (current-directory)])
   (unless (safe-project-name? name)
     (raise-arguments-error 'rivet-new
@@ -404,6 +429,8 @@ YAML
   (write-text (build-path root ".github" "workflows" "native.yml")
               (starter-ci-workflow))
   (write-text (build-path root "app" "backend.rkt") backend-template)
+  (write-text (build-path root "tests" "smoke.rkt")
+              starter-smoke-test)
   (write-text
    (build-path root ".gitignore")
    (string-append

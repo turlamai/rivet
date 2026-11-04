@@ -39,6 +39,11 @@ cd hello-rivet
 hello-rivet/
 ├── rivet.rktd              # 应用标识、后端入口、最低系统版本
 ├── app/backend.rkt         # 三个平台共享的 Racket 业务逻辑
+├── tests/smoke.rkt         # 接入 acceptance 的起步单元测试
+├── rivet-acceptance.rktd   # 可执行的完成定义
+├── rivet-schema.json       # 需提交的 API 兼容性基线
+├── .github/workflows/native.yml  # Windows/macOS/Linux CI
+├── AGENTS.md               # 项目 Agent 契约
 ├── windows/                # WinUI 3 应用
 ├── macos-host/             # SwiftUI 应用
 └── linux/                  # GTK4 应用

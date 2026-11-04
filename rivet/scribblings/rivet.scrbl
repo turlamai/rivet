@@ -541,6 +541,14 @@ Sends a structured record to @racket[current-rivet-log-sink] and returns it.}
 Reports an uncaught Racket exception through
 @racket[current-rivet-crash-reporter], then re-raises it.}
 
+@defproc[(make-crash-file-reporter [path path-string?]
+                                    [#:max-bytes max-bytes exact-positive-integer? (* 1024 1024)]
+                                    [#:max-files max-files exact-positive-integer? 3])
+         (-> hash? any/c void?)]{
+Returns a value for @racket[current-rivet-crash-reporter] that writes the
+structured crash record plus the exception message to a bounded JSONL file.
+Native fatal signals remain the platform adapter's responsibility.}
+
 @defproc[(make-rotating-log-sink [path path-string?]
                                  [#:max-bytes max-bytes exact-positive-integer? (* 5 1024 1024)]
                                  [#:max-files max-files exact-positive-integer? 3]
