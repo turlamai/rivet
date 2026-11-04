@@ -196,7 +196,8 @@ Projects the declarations currently registered in the backend.
 @defproc[(serve [in input-port?]
                 [out output-port?]
                 [#:max-pending-requests max-pending-requests exact-positive-integer? 1024]
-                [#:max-outgoing-frames max-outgoing-frames exact-positive-integer? 64])
+                [#:max-outgoing-frames max-outgoing-frames exact-positive-integer? 64]
+                [#:diagnostic-sink diagnostic-sink procedure? void])
          void?]{
 Runs the RVT1 backend over binary ports. Requests execute concurrently within
 the configured bound, while outgoing responses and events use bounded
@@ -205,7 +206,9 @@ backpressure.}
 @defproc[(serve-fds [input-fd exact-integer?]
                     [output-fd exact-integer?]
                     [#:max-pending-requests max-pending-requests exact-positive-integer? 1024]
-                    [#:max-outgoing-frames max-outgoing-frames exact-positive-integer? 64])
+                    [#:max-outgoing-frames max-outgoing-frames exact-positive-integer? 64]
+                    [#:diagnostic-sink diagnostic-sink procedure?
+                                       (current-rivet-diagnostic-sink)])
          void?]{
 Adapts native file descriptors to binary ports and calls @racket[serve].}
 
@@ -828,6 +831,7 @@ rollout bucket, and maximum download size.
 @defproc[(fetch-update-manifest [manifest-url string?]
                                 [public-key any/c]
                                 [#:key-id key-id (or/c #f string?) #f]
+                                [#:trusted-keys trusted-keys (or/c #f (listof (cons/c string? bytes?))) #f]
                                 [#:maximum-bytes maximum-bytes exact-positive-integer? (* 1024 1024)]
                                 [#:connect-timeout-seconds connect-timeout-seconds (real-in 0.001 3600) 30]
                                 [#:idle-timeout-seconds idle-timeout-seconds (real-in 0.001 3600) 60])
@@ -851,10 +855,12 @@ The response status is checked before anything is saved, a declared
 Content-Length beyond the byte limit is rejected, the stream honors the
 stall deadline, and an expected SHA-256 is verified before the download is
 moved into place. A failed checksum leaves no output file.}
-@defproc[(select-update [config updater-config?] [manifest update-manifest?])
+@defproc[(select-update [config updater-config?] [manifest update-manifest?]
+                        [#:install-kind install-kind
+                         (or/c #f 'portable 'msi 'appimage 'package-manager) #f])
          (or/c #f update-candidate?)]{
-Applies identity, channel, version, minimum-version, rollout, platform, and
-architecture policy.}
+Applies identity, channel, version, minimum-version, rollout, platform,
+architecture, component, and install-kind policy.}
 @defproc[(download-update [config updater-config?]
                           [candidate update-candidate?]
                           [destination path-string?]
@@ -912,6 +918,7 @@ Returns the architecture symbol used by Rivet release manifests.}
            (or/c #f 'portable 'msi 'appimage 'package-manager) #f]
           [#:public-key public-key any/c]
           [#:key-id key-id string?]
+          [#:trusted-keys trusted-keys (listof (cons/c string? bytes?)) '()]
           [#:manifest-url manifest-url string?]
           [#:data-directory data-directory path-string?]
           [#:rollout-bucket rollout-bucket (integer-in 0 99)]

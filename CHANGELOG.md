@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Document the implemented `#:trusted-keys` keyword on `make-updater` and
+  `fetch-update-manifest`, `#:diagnostic-sink` on `serve`/`serve-fds`, and
+  `#:install-kind` on `select-update`. Add `rivet/tests/manual-keywords.rkt`,
+  which parses each Scribble signature and compares its keywords with the
+  live procedure's accepted keywords in both directions.
+
 - Add `make-rotating-log-sink` to `rivet/system`: an optional bounded JSONL
   file sink with size-based rotation, a configurable archive count, private
   `#o600` permissions on Unix, per-sink serialized appends, and a non-fatal

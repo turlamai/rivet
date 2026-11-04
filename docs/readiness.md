@@ -131,9 +131,10 @@ keep one normative English definition. See the central
 These are documentation defects, not missing features. They matter because
 agents and products copy the reference.
 
-- `make-updater` and `fetch-update-manifest` omit the implemented
-  `#:trusted-keys` keyword; `serve`/`serve-fds` omit `#:diagnostic-sink`;
-  `select-update` omits `#:install-kind`.
+- The manual keyword omissions are fixed (2026-11-04): `#:trusted-keys` on
+  `make-updater`/`fetch-update-manifest`, `#:diagnostic-sink` on
+  `serve`/`serve-fds`, and `#:install-kind` on `select-update` are documented
+  and guarded by `rivet/tests/manual-keywords.rkt`.
 - `rivet/chart` is absent from `docs/api-stability.md` and
   `rivet/tests/public-api.rkt`, so its exports can change without the gate.
 - The Scribble CLI section lists 13 commands while `raco rivet help` exposes
@@ -146,8 +147,8 @@ agents and products copy the reference.
   and has no deprecation window or marker policy.
 - There is no exit-code table; a usage error, a failed build and a policy
   rejection all exit 1.
-- The documentation test checks keyword drift for four update procedures and
-  never parses Scribble signatures, which is how the omissions above survived.
+- The documentation test still does not parse every Scribble signature; the
+  new `manual-keywords` gate covers the update/serve surface only.
 - `rivet/backend` has no `@defmodule`; `rivet/testing` is in the stability
   snapshot but described as internal; doctor/inspect warning codes and the
   `rivet-schema.json` baseline format are unspecified; `message:hello`
