@@ -620,6 +620,11 @@ Run @racket[updater-runtime-check!] and @racket[updater-runtime-download!]
 on a product-owned worker thread; the RVT1 layer observes
 @racket[updater-runtime-state].}
 
+@defthing[silent-check-interval-seconds exact-positive-integer?]{
+Default interval between silent update checks: four hours, in seconds.
+Supplied as the @racket[#:silent-interval-seconds] default and overridable
+per runtime.}
+
 @defproc[(make-updater-runtime [#:config config updater-config?]
                                [#:destination-dir destination-dir path-string?]
                                [#:settings settings updater-settings-adapter?]
@@ -696,7 +701,7 @@ Checks whether a version is allowed by a release channel.}
 
 @subsection{Release Target Metadata}
 
-These helpers live in the leaf module @racketmodname[rivet/distribution/identity]
+These helpers live in the leaf module @tt{rivet/distribution/identity}
 and are also re-exported by @racketmodname[rivet/distribution]. Requiring the
 leaf module does not initialize cryptographic factories or platform adapters.
 

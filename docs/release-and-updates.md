@@ -31,10 +31,33 @@ Downgrade and uninstall checks remain. These gates do not simulate clicking
 WiX Finish or prove every downstream product's single-instance or first-run
 business behavior.
 
+The Windows MSI native CI also performs a real closed-app `msiexec /fa`
+repair after initial installed-app launch; it requires exit code 0 without
+reboot deferral, intact installed payload, and unchanged disposable user data
+outside the install directory. It repeats the user-data check across a
+running-app upgrade and final full uninstall. These are generic framework
+installer gates and do not replace each product's profile/data migration
+acceptance.
+
 The MSI Finish-page Launch checkbox is honored on first install and
 repair/reinstall; Rivet suppresses its launch action for full uninstall
 (`REMOVE="ALL"`) so a removed executable is never started. This is a WiX
 installer contract, distinct from CI's separate installed-program launch gate.
+
+Branded DMG packaging checks the whole backing device with `hdiutil info`
+before converting a read/write image. A removed Finder mountpoint alone is
+not successful detachment. If the old image path remains briefly locked after
+detach, the packager converts a same-directory private copy and deletes it
+on both success and failure. Native tests still mount and inspect the resulting
+DMG; a detached-device or conversion failure does not qualify an installer.
+
+All macOS DMGs place the app bundle and a genuine `/Applications` link at
+the volume root, including when a product does not configure `dmg-background`.
+The plain image uses native Finder copying without AppleScript automation;
+both plain and branded images copy the signed app with `ditto` to preserve
+Racket.framework symlinks. Native macOS tests mount the plain image and inspect
+the link and nested framework layout. This is first-install packaging evidence,
+not proof of every product's first-run, data migration, or update/rollback.
 
 WiX Toolset v4 or later is required to build the Windows MSI. macOS uses the system `hdiutil`. Rivet signs the final MSI/DMG as well as the contained application. On Linux the final tarball is signed and, because the archive is deterministic, `raco rivet verify --production` re-derives it from the package and checks the detached signature.
 

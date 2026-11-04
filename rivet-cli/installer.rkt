@@ -298,6 +298,29 @@
     (sign-windows-production! output (load-windows-production-signing)))
   output)
 
+;; Default DMGs need the same drag-to-Applications affordance as branded ones.
+;; Use ditto: Racket's recursive copy dereferences nested framework symlinks,
+;; damaging the code-signature layout of an already signed app bundle.
+(define (create-plain-macos-dmg! project app output hdiutil)
+  (define ditto (find-executable-path "ditto"))
+  (unless ditto
+    (error 'create-installer! "ditto is required to preserve signed macOS app bundles"))
+  (define staging (project-path project ".rivet" "installer" "plain-dmg-staging"))
+  (delete-directory/files staging #:must-exist? #f)
+  (make-directory* staging)
+  (dynamic-wind
+    void
+    (lambda ()
+      (run! 'create-installer! ditto (path->string app)
+            (path->string (build-path staging (file-name-from-path app))))
+      (make-file-or-directory-link "/Applications"
+                                   (build-path staging "Applications"))
+      (run! 'create-installer! hdiutil "create" "-fs" "HFS+"
+            "-format" "UDZO" "-volname" (project-display-name project)
+            "-srcfolder" (path->string staging) (path->string output)))
+    (lambda ()
+      (delete-directory/files staging #:must-exist? #f))))
+
 (define (create-macos-installer! project app production?)
   (define hdiutil (find-executable-path "hdiutil"))
   (unless hdiutil (error 'create-installer! "hdiutil was not found"))
@@ -310,10 +333,7 @@
   (when (file-exists? output) (delete-file output))
   (if (project-dmg-background project)
       (create-branded-macos-dmg! project app output hdiutil)
-      (run! 'create-installer! hdiutil "create" "-fs" "HFS+" "-format" "UDZO"
-            "-volname" (project-display-name project)
-            "-srcfolder" (path->string app)
-            (path->string output)))
+      (create-plain-macos-dmg! project app output hdiutil))
   (when production?
     (define settings (load-macos-production-signing))
     (run! 'create-installer! (find-executable-path "codesign")
@@ -393,31 +413,59 @@
   (define fields (string-split mounted-line "\t" #:trim? #f))
   (values (string-trim (first fields)) (string-trim (last fields))))
 
-;; Bounded retry and forced detach retain resilience to Finder/Spotlight.
-;; A failed hdiutil call is harmless only if the mount has disappeared.
+;; A vanished mountpoint does not mean that the image's backing device was
+;; ejected. In particular, hdiutil can unmount diskNs1 but leave diskN active
+;; and keep its read/write image locked against conversion.
+(define (whole-image-device device)
+  (define match
+    (regexp-match #px"^(/dev/disk[0-9]+)(?:s[0-9]+)?$" device))
+  (if match (cadr match) device))
+
+(define (disk-image-device-listed? information device)
+  ;; hdiutil info lists attached device rows before each image-path entry.
+  ;; Match complete device tokens; disk2 must not match disk20 or disk2s1.
+  (for/or ([line (in-list (string-split information "\n"))])
+    (define field (first (string-split (string-trim line) "\t" #:trim? #f)))
+    (string=? field device)))
+
+(define (disk-image-device-attached? hdiutil device)
+  (define report
+    (with-output-to-string
+      (lambda () (run! 'create-installer! hdiutil "info"))))
+  (disk-image-device-listed? report device))
+
+;; Keep retries bounded. Accept detach only when the actual backing device,
+;; not merely its former mountpoint, has disappeared. Callers that do not
+;; supply #:attached? retain their original mount-based test contract.
 (define (detach-mounted-image! hdiutil device mount-path
                                #:run! [runner run!]
                                #:mounted? [mounted? (lambda ()
                                                      (directory-exists? mount-path))]
+                               #:attached? [attached? mounted?]
                                #:retries [retries 5]
                                #:pause [pause sleep])
   (define (attempt force?)
     (cond
-      [(not (mounted?)) #t]
+      [(not (attached?)) #t]
       [else
-       (with-handlers ([exn:fail? (lambda (_) (not (mounted?)))])
+       (with-handlers ([exn:fail? (lambda (_) (not (attached?)))])
          (if force?
              (runner 'create-installer! hdiutil "detach" "-force" device)
              (runner 'create-installer! hdiutil "detach" device))
-         (not (mounted?)))]))
+         (not (attached?)))]))
   (unless (or (for/or ([_ (in-range retries)])
                 (define ok (attempt #f))
                 (unless ok (pause 2))
                 ok)
               (attempt #t)
-              (not (mounted?)))
+              ;; DiskImages may release the device asynchronously after a
+              ;; successful forced eject. Never mistake the removed mount for
+              ;; confirmation of a detached backing image.
+              (for/or ([_ (in-range 5)])
+                (pause 1)
+                (not (attached?))))
     (raise-arguments-error 'create-installer!
-                           "hdiutil could not detach the branded DMG"
+                           "hdiutil could not detach the branded DMG backing device"
                            "device" device
                            "mount-path" mount-path)))
 
@@ -445,6 +493,55 @@
 ;; let Finder size the window and place both icons, then convert to the
 ;; compressed output. Projects without a declared background keep the plain
 ;; single-folder image instead.
+;; Finder and Spotlight can briefly retain the just-unmounted read/write
+;; image. A successful hdiutil detach is not a promise that a following
+;; convert can immediately reopen the image exclusively. Keep conversion
+;; strictly bounded: persistent errors still fail the installer build.
+(define (convert-detached-dmg! hdiutil source output
+                               #:run! [runner run!]
+                               #:pause [pause sleep]
+                               #:attempts [attempts 6])
+  (let retry ([remaining attempts])
+    (with-handlers ([exn:fail?
+                     (lambda (e)
+                       (if (> remaining 1)
+                           (begin (pause 2)
+                                  (retry (sub1 remaining)))
+                           (raise e)))])
+      (runner 'create-installer! hdiutil "convert" (path->string source)
+              "-format" "UDZO" "-ov" "-o" (path->string output)))))
+
+;; A detached image may remain locked by diskimages-helper despite a successful
+;; eject. Retry the original briefly, then work on a private same-directory
+;; copy of the *detached* image: the copy has an independent backing-file lock.
+;; On every failure remove partial output; an invalid image never ships.
+(define (convert-released-dmg! hdiutil source output
+                               #:run! [runner run!]
+                               #:pause [pause sleep]
+                               #:attempts [attempts 2])
+  (define (convert source-path)
+    (convert-detached-dmg! hdiutil source-path output
+                           #:run! runner #:pause pause #:attempts attempts)
+    (unless (file-exists? output)
+      (error 'create-installer! "hdiutil reported conversion success without an output DMG")))
+  (with-handlers ([exn:fail?
+                   (lambda (e)
+                     (delete-optional! output)
+                     (raise e))])
+    (with-handlers ([exn:fail?
+                     (lambda (_original-error)
+                       (define copy-path
+                         (make-temporary-file "rivet-dmg-copy-~a.dmg"
+                                              #f (path-only source)))
+                       (dynamic-wind
+                         void
+                         (lambda ()
+                           (copy-file source copy-path #t)
+                           (convert copy-path))
+                         (lambda ()
+                           (delete-optional! copy-path))))])
+      (convert source))))
+
 (define (create-branded-macos-dmg! project app output hdiutil)
   (define background (project-path project (project-dmg-background project)))
   (unless (file-exists? background)
@@ -520,8 +617,15 @@
     #:exists 'truncate/replace
     (lambda (out)
       (display (dmg-style-applescript disk-name app-name) out)))
+  (define whole-device (whole-image-device mounted-device))
   (define (detach!)
-    (detach-mounted-image! hdiutil mounted-device mount-path))
+    ;; Finder can close the mount while diskimages-helper still retains
+    ;; the underlying device. Eject the whole disk and verify the hdiutil
+    ;; attachment table, even if /Volumes/<name> is no longer present.
+    (detach-mounted-image! hdiutil whole-device mount-path
+                           #:attached?
+                           (lambda ()
+                             (disk-image-device-attached? hdiutil whole-device))))
   (with-handlers ([exn:fail?
                    (lambda (e)
                      (with-handlers ([exn:fail? void]) (detach!))
@@ -531,8 +635,7 @@
     (when (find-executable-path "sync")
       (run! 'create-installer! (find-executable-path "sync")))
     (detach!))
-  (run! 'create-installer! hdiutil "convert" (path->string rw-image)
-        "-format" "UDZO" "-ov" "-o" (path->string output))
+  (convert-released-dmg! hdiutil rw-image output)
   (delete-optional! rw-image)
   (delete-directory/files staging)
   output)
@@ -587,4 +690,8 @@
            text->rtf
            dmg-style-applescript
            raster-pixel-size
-           create-macos-installer!))
+           create-macos-installer!
+           convert-detached-dmg!
+           convert-released-dmg!
+           whole-image-device
+           disk-image-device-listed?))

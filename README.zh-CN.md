@@ -266,23 +266,45 @@ raco rivet schema check rivet-schema.json --json
 raco rivet new <name>              创建新的 Rivet 应用
 raco rivet doctor                  检查 Racket 与 native 工具链
 raco rivet doctor --json           输出机器可读诊断
+raco rivet doctor --release        运行发布门禁（生成物新鲜度、schema、pin）
+raco rivet entitlements --json     输出 channel entitlement manifest（macOS）
+raco rivet entitlements --check APP  断言 APP 与 manifest 一致，否则失败
 raco rivet inspect                 显示项目编辑点与验证路径
 raco rivet inspect --json          输出 Agent 可读的项目契约
+raco rivet acceptance              运行当前平台声明的验收套件
+raco rivet acceptance --json       输出有界的机器可读验收证据
+raco rivet acceptance --dry-run    只解析 manifest，不启动任何命令
+raco rivet matrix <report>...      聚合各平台验收报告
+raco rivet verify-remote ...       触发并汇总各平台验收任务
 raco rivet schema --json           输出当前带版本的 API schema
 raco rivet schema --output <file>  写入 schema 兼容性基线
 raco rivet schema check <file>     拒绝相对基线的破坏性变化
 raco rivet schema check <file> --json  输出机器可读的兼容性报告
+raco rivet generate                重新生成 Swift、C++ 与 Kotlin client
+raco rivet generate --check        生成物与源码树不一致时失败
 raco rivet clean                   删除 .rivet/build/dist 生成物
 raco rivet build                   编译 backend、生成 client、构建 native host
 raco rivet dev                     构建并运行当前应用
 raco rivet package                 创建并验证开发发布物
 raco rivet package --production    创建、签名并验证正式发布物
+raco rivet package --skip-launch-smoke  打包但不启动 GUI 产物
 raco rivet release                 构建 installer、签名更新 manifest、SBOM 与许可声明
 raco rivet release --development   不做平台正式签名，演练完整 release 流程
 raco rivet release --without-updates  构建不含更新 manifest 的完整发布物
+raco rivet release --update-payload <installer>:<glob>[:<component>]
+                                   为 feed 增加按平台划分的更新载荷
+raco rivet manifest-compose <inputs...> [--output <file>]
+                                   组合更新 manifest
+raco rivet sign-manifest ...       组合并签名经过验证的家族更新 manifest
+raco rivet verify-release-assets ...  校验已签名发布资产的完整性
+raco rivet i18n                    校验 shared/i18n 对齐并重生成内嵌表
+raco rivet measure                 报告打包产物大小与启动存活
+raco rivet measure size --budget <file>  产物超出预算时失败
+raco rivet apple-review ...        检查真实 Apple 产物
 raco rivet compliance              生成 SBOM/许可声明并执行 license audit
 raco rivet verify                  重新验证当前发布物
 raco rivet verify --production     验证生产签名/公证信任状态
+raco rivet verify --skip-launch-smoke  验证但不启动 GUI 产物
 raco rivet help                    显示帮助
 ```
 
