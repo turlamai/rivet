@@ -91,6 +91,10 @@ packaged dependency-closure, and clean-machine checks.
 
 @defmodule[rivet]
 
+The backend declaration and serving surface is also available without the
+aggregate module as @racketmodname[rivet/backend]; require whichever is
+smaller for the application.
+
 @subsection{RPCs, Events, State, Records, and Enums}
 
 State descriptors and the registry records behind RPCs, Events, Records, and
@@ -141,8 +145,10 @@ state through generated APIs, and successful changes emit Rivet's reserved
 state event. State values cannot have type @racket[Void].}
 
 @defproc[(emit-event! [name (or/c symbol? string?)] [value any/c]) void?]{
-Emits an already registered event value on the active server connection. The
-procedure reports an error when no server is active on the current thread.}
+Emits an already registered event value on the active server connection. Inside
+a request it prefers that request's server. On an independent worker thread it
+uses the unique active server, and errors only when no server is active or when
+more than one is active and the destination would be ambiguous.}
 
 @defproc[(state? [value any/c]) boolean?]{Reports whether @racket[value] is an
 opaque State descriptor produced by @racket[define-state].}
@@ -210,7 +216,10 @@ backpressure.}
                     [#:diagnostic-sink diagnostic-sink procedure?
                                        (current-rivet-diagnostic-sink)])
          void?]{
-Adapts native file descriptors to binary ports and calls @racket[serve].}
+Adapts native file descriptors to binary ports, calls @racket[serve], and
+closes both adapted ports on exit. A backend failure is reported to
+@racket[diagnostic-sink] and does not escape: the embedded host owns
+supervision and process teardown.}
 
 @defparam[current-rivet-diagnostic-sink sink procedure?]{
 Receives each structured diagnostic record emitted by the backend. The
@@ -291,7 +300,8 @@ The maximum number of value nodes, including the root, decoded or encoded
 per payload.}
 
 @defthing[message:hello exact-positive-integer? #:value 1]{
-The host greeting message type.}
+The backend greeting message type, sent by the backend before it reads any
+request. The native host must observe it before sending a request.}
 @defthing[message:request exact-positive-integer? #:value 2]{
 A client request; the identifier correlates it with a response.}
 @defthing[message:response exact-positive-integer? #:value 3]{
@@ -306,6 +316,13 @@ Cancels a pending request by identifier.}
 Requests orderly backend shutdown.}
 
 @subsection{Application Resources}
+
+@defmodule[rivet/testing]
+
+Test-only helpers for exercising code that performs HTTP: an ephemeral
+listener, a request-serving entry point, and fake request/body/header/method/
+path values. They are stable enough for product tests but are not a production
+HTTP server.
 
 @defmodule[rivet/resources]
 

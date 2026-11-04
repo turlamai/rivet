@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Align the backend/protocol reference with the implementation: note
+  `rivet/backend` from the aggregate module, document `rivet/testing`, state
+  that `message:hello` is backend-to-native, describe `emit-event!`'s
+  unique-server fallback, document `serve-fds` port closing, and specify the
+  closed `rivet-schema.json` format. `serve-fds` now reports a backend
+  failure to its diagnostic sink instead of discarding it silently; the
+  embedded host still owns supervision. Protocol shutdown wording now
+  matches the implemented leniency for type-7 frames.
+
 - Add `examples/taskboard/rivet-acceptance.rktd`: the maintained reference
   now carries an executable definition of done (backend contract, schema
   gate, native build on all desktop platforms). A new test runs

@@ -149,13 +149,14 @@ agents and products copy the reference.
   rejection all exit 1.
 - The documentation test still does not parse every Scribble signature; the
   new `manual-keywords` gate covers the update/serve surface only.
-- `rivet/backend` has no `@defmodule`; `rivet/testing` is in the stability
-  snapshot but described as internal; doctor/inspect warning codes and the
-  `rivet-schema.json` baseline format are unspecified; `message:hello`
-  direction and `serve`/`serve-fds` port-closing and error behavior contradict
-  the protocol/runtime docs. The chart capacity cap is documented; the
-  decoder reads the first index as unsigned, so a negative value is not
-  representable and the earlier audit item was withdrawn.
+- The backend/protocol reference drift is fixed (2026-11-05): the manual notes
+  `rivet/backend` and documents `rivet/testing`, `message:hello` is stated as
+  backend-to-native, `emit-event!` describes the unique-server fallback,
+  `serve-fds` documents port closing and reports failures to its diagnostic
+  sink instead of swallowing them silently, shutdown wording matches the
+  implemented leniency, and `rivet-schema.json`'s closed format is specified.
+  The chart capacity cap is documented; the decoder reads the first index as
+  unsigned, so the earlier negative-index audit item was withdrawn.
 
 ## Repository and release operations
 
