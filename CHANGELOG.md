@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Move the CLI help and version text into `rivet-cli/usage.rkt`, so tests can
+  read the public help contract without executing the entry point. Add the
+  implemented `entitlements --plist/--dev-overlay/--check-overlay`,
+  `acceptance --suite/--manifest`, `measure startup/--artifact/--seconds` and
+  `verify-remote` flags to `raco rivet help`, and add
+  `rivet/tests/cli-help.rkt`: every command must appear in help and in both
+  READMEs, and every listed automation flag must exist.
+
 - `doctor --json` now reports `rivet-version` (the same release identity as
   `raco rivet --version`), and the human output prints it. The diagnostics
   reference also documents `project-readiness`, the warning object shape and

@@ -96,6 +96,7 @@ Shipped.
 | `new` / `build` / `dev` / `package` / `verify` / `release` | Shipped | CLI tests, docs | — |
 | `doctor`, `inspect`, `acceptance`, `schema`, `i18n`, `measure`, `compliance` | Shipped | `rivet-cli`, `docs/diagnostics.md`, `docs/product-acceptance.md` | — |
 | CLI version identity | Shipped | `raco rivet --version`, `rivet/tests/version.rkt` | — |
+| CLI help/README parity | Shipped (2026-11-04) | `rivet-cli/usage.rkt`, `rivet/tests/cli-help.rkt`; missing automation flags added | Per-command help and `--json` coverage remain |
 | Generated project CI workflow | Shipped (2026-11-04) | `rivet-cli/scaffold.rkt` writes `.github/workflows/native.yml`; `rivet/tests/scaffold-ci.rkt` | Release template still manual |
 | Generated project release workflow | **Missing** | Only CI is generated; signing/update secrets remain a documented operator step | Add a comment-only release template after the update scaffold exists |
 | Generated project updater wiring | **Missing** | Scaffold emits no `rivet/distribution` integration | Generate a backend updater module plus native handoff calls |
@@ -192,10 +193,11 @@ They are ordered by user impact, not by repository convenience.
 - **Fresh Linux release checklist.** AppImage fails closed without `linux-icon`,
   but the generated README and getting-started do not mention it. List the icon
   and update-key prerequisites before the first `release`.
-- **Help and README drift.** `entitlements --plist/--dev-overlay/--check-overlay`,
-  `acceptance --suite/--manifest`, `measure startup/--artifact/--seconds`, and
-  most `verify-remote` flags are implemented but absent from `raco rivet help`.
-  Derive help, README and the usage test from one command specification.
+- **Help and README drift (partially fixed 2026-11-04).** The missing
+  `entitlements`, `acceptance`, `measure` and `verify-remote` flags are now in
+  one usage string, and `rivet/tests/cli-help.rkt` checks every command against
+  both READMEs. Remaining: per-command `--help`, a command specification that
+  dispatch and help share, and the same parity for subcommand flags.
 - **Documentation parity gate.** The test checks links and CI pins but not the
   CLI blocks or the must-translate list. Add a check that both READMEs expose
   the same commands/flags and that required journeys have `zh-CN` files.
