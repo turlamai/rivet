@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add complete Simplified Chinese counterparts for the diagnostics, runtime
+  limits and production-signing guides, with reciprocal language links and
+  documentation-map entries. Commands, API names, limits, environment
+  variables and fail-closed behavior are unchanged from the normative English
+  text; the readiness page records the remaining English-only journeys.
+
 - Add an English/Chinese troubleshooting guide covering the first-run
   diagnostics path, stale bytecode, missing native and embeddable-runtime
   toolchains, packaged-versus-staged paths, signing and AppImage icon

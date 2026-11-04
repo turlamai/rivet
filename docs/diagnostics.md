@@ -1,5 +1,7 @@
 # Diagnostics and cleanup
 
+**English** · [简体中文](diagnostics.zh-CN.md)
+
 Rivet's CLI exposes both human-readable and machine-readable toolchain diagnostics. The goal is to make native build failures inspectable without guessing which Racket runtime or platform tool was selected.
 
 ## `raco rivet doctor`

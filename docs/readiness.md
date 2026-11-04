@@ -116,11 +116,11 @@ keep one normative English definition. See the central
 | README / Using Rivet / Getting started | Yes | Yes | Keep paired facts current |
 | Project configuration | Yes | Yes (2026-11-04) | Add the missing `linux-desktop-id` / `linux-binary-name` keys |
 | Release and updates | Yes | **No** | Translate the install/update/recovery journey |
-| Diagnostics | Yes | **No** | Translate; include doctor/report/redaction and exit codes |
+| Diagnostics | Yes | Yes (2026-11-04) | Add the remaining exit-code table |
 | Troubleshooting and recovery | Yes | Yes (2026-11-04) | Keep commands and failure paths current |
 | System services | Yes | **No** | Translate the capability matrix, including the Partial rows above |
-| Production signing / package verification | Yes | **No** | Translate the operator path |
-| Runtime limits / large payloads / charts | Yes | **No** | Translate limits and workarounds |
+| Production signing / package verification | Partial | Yes (signing, 2026-11-04); package verification English-only | Translate the package-verification guide |
+| Runtime limits / large payloads / charts | Partial | Yes (limits, 2026-11-04); large payloads/charts English-only | Translate the large-payload and chart guides |
 | Native UI testing / product acceptance | Yes | **No** | Translate the evidence contract |
 | Architecture / protocol / embedding / agent guidance | Yes | English-only by policy | Keep one normative source |
 | API reference (`rivet/scribblings`) | Yes | Not required | Fix the reference gaps below |
@@ -205,10 +205,11 @@ They are ordered by user impact, not by repository convenience.
 - **Flagship acceptance manifest.** `examples/taskboard` has no
   `rivet-acceptance.rktd` even though the docs call it mandatory. Add one with
   contract, package and native-UI evidence and run it in the native jobs.
-- **Missing Chinese journeys.** Release/updates, diagnostics, runtime limits
-  and production signing are still English-only; Chinese getting-started links
+- **Missing Chinese journeys.** Release/updates, package verification, large
+  payloads and charts are still English-only; Chinese getting-started links
   silently cross into English. Translate them and mark remaining English-only
-  links inline. Troubleshooting landed on 2026-11-04.
+  links inline. Troubleshooting, diagnostics, runtime limits and production
+  signing landed on 2026-11-04.
 
 ### P2
 

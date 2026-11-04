@@ -10,11 +10,14 @@ English pages are the normative technical source. Complete Simplified Chinese
 counterparts exist for the public entry journeys: [README](../README.zh-CN.md),
 [Using Rivet](USING.zh-CN.md), [Getting started](getting-started.zh-CN.md),
 [Continuous integration](ci.zh-CN.md), [API stability](api-stability.zh-CN.md),
-[Apple release readiness](apple-release-readiness.zh-CN.md), and
+[Apple release readiness](apple-release-readiness.zh-CN.md),
+[Diagnostics](diagnostics.zh-CN.md), [Runtime limits](runtime-limits.zh-CN.md),
+[Production signing](production-signing.zh-CN.md), and
 [Troubleshooting](troubleshooting.zh-CN.md). Pages without
 a `中文` link are currently English-only; they are not silently bilingual and
 their translation status is tracked as remaining work, starting with
-release/update, diagnostics, and system-service guides. Protocol
+release/update, package verification, large payloads, charts, and system-service
+guides. Protocol
 and architecture references stay English as the single normative definition.
 
 中文：英文页面是规范性技术来源。公开入门旅程已提供完整中文对照（见上方链接）；
@@ -25,7 +28,7 @@ and architecture references stay English as the single normative definition.
 
 - [Getting started](getting-started.md) · [中文](getting-started.zh-CN.md)
 - [Project configuration](configuration.md) · [中文](configuration.zh-CN.md)
-- [Diagnostics and cleanup](diagnostics.md)
+- [Diagnostics and cleanup](diagnostics.md) · [中文](diagnostics.zh-CN.md)
 - [Troubleshooting](troubleshooting.md) · [中文](troubleshooting.zh-CN.md)
 - [Continuous integration](ci.md) · [中文](ci.zh-CN.md)
 - [Agent-native development](agent-native.md)
@@ -34,7 +37,7 @@ and architecture references stay English as the single normative definition.
 ## Understand contracts / 理解契约
 
 - [Architecture](architecture.md) — process, runtime, UI, Android, and service boundaries
-- [RVT1 protocol](protocol.md) and [runtime limits](runtime-limits.md)
+- [RVT1 protocol](protocol.md) and [runtime limits](runtime-limits.md) · [中文](runtime-limits.zh-CN.md)
 - [Racket CS embedding](embedding.md)
 - [API stability](api-stability.md) · [中文](api-stability.zh-CN.md)
 - [Large payloads, pagination, and progress](large-payloads.md)
@@ -51,7 +54,7 @@ and architecture references stay English as the single normative definition.
 ## Ship and maintain / 发布与维护
 
 - [Package verification](package-verification.md)
-- [Production signing](production-signing.md)
+- [Production signing](production-signing.md) · [中文](production-signing.zh-CN.md)
 - [Apple release readiness](apple-release-readiness.md) · [中文](apple-release-readiness.zh-CN.md) — channel-specific bundle preflight and App Store evidence boundaries
 - [Release and updates](release-and-updates.md)
 - [Cross-product adoption inventory](adoption.md) — which products run which release/update contract parts
