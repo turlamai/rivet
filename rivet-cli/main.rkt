@@ -12,6 +12,19 @@
          racket/match
          "tolerant-log.rkt")
 
+(provide rivet-version-line)
+
+;; A framework binary must be able to say which release it is. `raco pkg show`
+;; is not a substitute: scripts, bug reports and `doctor` output need one
+;; stable string that distinguishes a catalog install from a linked checkout.
+(define (rivet-version-line)
+  (define installed-rivet-release-version
+    (command "doctor" 'installed-rivet-release-version))
+  (define release (installed-rivet-release-version))
+  (if release
+      (format "rivet ~a" release)
+      "rivet unreleased source checkout"))
+
 (define (say fmt . args)
   (apply printf (string-append "rivet: " fmt "\n") args))
 
@@ -90,13 +103,16 @@
     "  raco rivet verify                  re-verify the current packaged artifact\n"
     "  raco rivet verify --production     verify production trust/notarization requirements\n"
     "  raco rivet verify --skip-launch-smoke  verify without starting the GUI artifact\n"
-    "  raco rivet help                    show this help\n")))
+    "  raco rivet help                    show this help\n"
+    "  raco rivet --version               print the installed Rivet release version\n")))
 
 (define (main)
   (define args (vector->list (current-command-line-arguments)))
   (match args
     [(or '() (list "help") (list "--help") (list "-h"))
      (usage)]
+    [(or (list "version") (list "--version") (list "-V"))
+     (displayln (rivet-version-line))]
     [(list "new" name)
      (define create-project! (command "scaffold" 'create-project!))
      (define root (create-project! name))

@@ -317,6 +317,7 @@ raco rivet verify                  Re-verify the current packaged artifact
 raco rivet verify --production     Verify production trust/notarization requirements
 raco rivet verify --skip-launch-smoke  Verify without starting the GUI artifact
 raco rivet help                    Show CLI help
+raco rivet --version               Print the installed Rivet release version
 ```
 
 ## Project Structure
@@ -390,7 +391,7 @@ The maintained Taskboard also has platform-native [UI end-to-end gates](docs/nat
 - **Publisher credentials remain application-specific** — Rivet automates Authenticode and Developer ID/notarization flows, but certificates, PFX passwords, and Apple notary profiles are intentionally supplied by the application/CI environment rather than stored by Rivet.
 - **The public API is still pre-1.0** — protocol compatibility is versioned, but higher-level APIs may still evolve.
 
-Maintainers should follow the [API stability policy](docs/api-stability.md);
+Security reports follow [SECURITY.md](SECURITY.md). Maintainers should follow the [API stability policy](docs/api-stability.md);
 the repository snapshots every public export and tests the full Racket suite
 against the minimum supported Racket release.
 

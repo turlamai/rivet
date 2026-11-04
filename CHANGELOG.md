@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add `raco rivet --version` (also `version`, `-V`), so scripts, bug reports
+  and `doctor` output can identify the installed release as one stable line
+  instead of consulting the package database.
+
 - Portable ZIP update staging now rejects a signed archive with a lone
   regular-file or symlink root rather than replacing an installed application
   directory with a non-app file. A complete ZIP SHA-256 is deliberately
