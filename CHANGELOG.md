@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add an English/Chinese troubleshooting guide covering the first-run
+  diagnostics path, stale bytecode, missing native and embeddable-runtime
+  toolchains, packaged-versus-staged paths, signing and AppImage icon
+  failures, update feed/handoff recovery, acceptance failures and safe
+  cleanup. Link it from the documentation map.
+
 - Move the CLI help and version text into `rivet-cli/usage.rkt`, so tests can
   read the public help contract without executing the entry point. Add the
   implemented `entitlements --plist/--dev-overlay/--check-overlay`,

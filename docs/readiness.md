@@ -116,7 +116,8 @@ keep one normative English definition. See the central
 | README / Using Rivet / Getting started | Yes | Yes | Keep paired facts current |
 | Project configuration | Yes | Yes (2026-11-04) | Add the missing `linux-desktop-id` / `linux-binary-name` keys |
 | Release and updates | Yes | **No** | Translate the install/update/recovery journey |
-| Diagnostics and troubleshooting | Yes | **No** | Translate; include doctor/report/redaction and exit codes |
+| Diagnostics | Yes | **No** | Translate; include doctor/report/redaction and exit codes |
+| Troubleshooting and recovery | Yes | Yes (2026-11-04) | Keep commands and failure paths current |
 | System services | Yes | **No** | Translate the capability matrix, including the Partial rows above |
 | Production signing / package verification | Yes | **No** | Translate the operator path |
 | Runtime limits / large payloads / charts | Yes | **No** | Translate limits and workarounds |
@@ -204,10 +205,10 @@ They are ordered by user impact, not by repository convenience.
 - **Flagship acceptance manifest.** `examples/taskboard` has no
   `rivet-acceptance.rktd` even though the docs call it mandatory. Add one with
   contract, package and native-UI evidence and run it in the native jobs.
-- **Missing Chinese journeys.** Release/updates, diagnostics, runtime limits,
-  production signing and troubleshooting are English-only or absent; Chinese
-  getting-started links silently cross into English. Translate them and mark
-  remaining English-only links inline.
+- **Missing Chinese journeys.** Release/updates, diagnostics, runtime limits
+  and production signing are still English-only; Chinese getting-started links
+  silently cross into English. Translate them and mark remaining English-only
+  links inline. Troubleshooting landed on 2026-11-04.
 
 ### P2
 

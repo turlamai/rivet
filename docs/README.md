@@ -10,7 +10,8 @@ English pages are the normative technical source. Complete Simplified Chinese
 counterparts exist for the public entry journeys: [README](../README.zh-CN.md),
 [Using Rivet](USING.zh-CN.md), [Getting started](getting-started.zh-CN.md),
 [Continuous integration](ci.zh-CN.md), [API stability](api-stability.zh-CN.md),
-and [Apple release readiness](apple-release-readiness.zh-CN.md). Pages without
+[Apple release readiness](apple-release-readiness.zh-CN.md), and
+[Troubleshooting](troubleshooting.zh-CN.md). Pages without
 a `中文` link are currently English-only; they are not silently bilingual and
 their translation status is tracked as remaining work, starting with
 release/update, diagnostics, and system-service guides. Protocol
@@ -25,6 +26,7 @@ and architecture references stay English as the single normative definition.
 - [Getting started](getting-started.md) · [中文](getting-started.zh-CN.md)
 - [Project configuration](configuration.md) · [中文](configuration.zh-CN.md)
 - [Diagnostics and cleanup](diagnostics.md)
+- [Troubleshooting](troubleshooting.md) · [中文](troubleshooting.zh-CN.md)
 - [Continuous integration](ci.md) · [中文](ci.zh-CN.md)
 - [Agent-native development](agent-native.md)
 - [Product acceptance evidence](product-acceptance.md)
