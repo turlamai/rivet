@@ -1,5 +1,7 @@
 # Rivet API stability
 
+**English** · [简体中文](api-stability.zh-CN.md)
+
 Rivet is pre-1.0, but its public surface is deliberate. Every phase-0 export
 from `rivet`, `rivet/app-info`, `rivet/backend`, `rivet/keel`,
 `rivet/protocol`, `rivet/resources`, `rivet/system`, `rivet/chart`,

@@ -121,7 +121,7 @@ keep one normative English definition. See the central
 | System services | Yes | Yes (2026-11-04) | The guide must keep the Partial wiring rows visible |
 | Production signing / package verification | Yes | Both guides have Chinese counterparts (2026-11-04) | Keep operator facts current |
 | Runtime limits / large payloads / charts | Yes | All three guides have Chinese counterparts (2026-11-04) | Keep batch/format facts in sync |
-| Native UI testing / product acceptance | Partial | Native UI testing has a Chinese counterpart (2026-11-04); product acceptance English-only | Translate the product-acceptance guide |
+| Native UI testing / product acceptance | Yes | Both guides have Chinese counterparts (2026-11-04) | Keep evidence rules current |
 | Architecture / protocol / embedding / agent guidance | Yes | English-only by policy | Keep one normative source |
 | API reference (`rivet/scribblings`) | Yes | Not required | Fix the reference gaps below |
 | Docs site (`docs/index.html`) | Yes | Yes | Keep command examples in sync with the CLI |
@@ -206,12 +206,11 @@ They are ordered by user impact, not by repository convenience.
 - **Flagship acceptance manifest.** `examples/taskboard` has no
   `rivet-acceptance.rktd` even though the docs call it mandatory. Add one with
   contract, package and native-UI evidence and run it in the native jobs.
-- **Missing Chinese journeys.** Product acceptance and the platform-integration
-  guides are still English-only; Chinese getting-started links silently cross
-  into English. Translate them and mark remaining English-only links inline.
-  Troubleshooting, diagnostics, runtime limits, production signing,
-  release/updates, package verification, system services, large payloads,
-  charts and native-UI testing landed on 2026-11-04.
+- **Remaining English-only pages.** The platform-integration reference guides
+  (Windows host, Linux display, device communication, adoption/releasing) stay
+  English outside the public journey set; protocol and architecture remain the
+  single normative source. All public user journeys now have Chinese
+  counterparts.
 
 ### P2
 
@@ -258,10 +257,9 @@ They are ordered by user impact, not by repository convenience.
    promise because packaging already registers the schemes.
 2. **Generated app baseline** — single-instance acquisition, About/Quit, window
    state, CI workflow and release template in `raco rivet new`.
-3. **Translate the remaining public journeys** — large payloads, charts,
-   system services, native-UI testing and product acceptance. Release/update,
-   diagnostics, limits, signing, package verification and troubleshooting are
-   complete.
+3. **Platform-reference translations (optional)** — Windows host, Linux display
+   and device communication. Every public user journey is complete and
+   enforced by `rivet/tests/translation-coverage.rkt`.
 4. **Crash capture** — a default crash file/bundle on every platform. The
    rotating log sink and the redacted support bundle landed on 2026-11-04.
 5. **Menus, notifications, drag-and-drop, fonts** — native helpers with a

@@ -1,5 +1,7 @@
 # Continuous integration
 
+**English** · [简体中文](ci.zh-CN.md)
+
 Every first-party native host must compile in pull-request CI. A Racket-only
 test job, schema check, or package dry run does not prove that WinUI, SwiftUI,
 or GTK source still compiles. Waiting for a tagged release to perform the first

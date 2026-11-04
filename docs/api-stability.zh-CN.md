@@ -1,5 +1,7 @@
 # Rivet API 稳定性
 
+[English](api-stability.md) · **简体中文**
+
 Rivet 尚未到 1.0，但它的公开接口必须是有意设计的。`rivet`、
 `rivet/app-info`、`rivet/backend`、`rivet/keel`、`rivet/protocol`、
 `rivet/resources`、`rivet/system`、`rivet/chart`、`rivet/distribution` 与

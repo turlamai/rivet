@@ -17,12 +17,12 @@ counterparts exist for the public entry journeys: [README](../README.zh-CN.md),
 [Package verification](package-verification.zh-CN.md),
 [System services](system-services.zh-CN.md),
 [Large payloads](large-payloads.zh-CN.md), [Chart series](chart-series.zh-CN.md),
-[Native UI testing](native-ui-testing.zh-CN.md), and
-[Troubleshooting](troubleshooting.zh-CN.md). Pages without
-a `中文` link are currently English-only; they are not silently bilingual and
-their translation status is tracked as remaining work, starting with product
-acceptance and the platform-integration guides. Protocol
-and architecture references stay English as the single normative definition.
+[Native UI testing](native-ui-testing.zh-CN.md),
+[Product acceptance](product-acceptance.zh-CN.md), and
+[Troubleshooting](troubleshooting.zh-CN.md). Pages without a `中文` link are
+English-only platform-reference material; all public user journeys are
+complete. Protocol and architecture references stay English as the single
+normative definition.
 
 中文：英文页面是规范性技术来源。公开入门旅程已提供完整中文对照（见上方链接）；
 未标注“中文”的页面目前只有英文，不声称双语对等。翻译按“发布/更新 → 配置 →
@@ -36,7 +36,7 @@ and architecture references stay English as the single normative definition.
 - [Troubleshooting](troubleshooting.md) · [中文](troubleshooting.zh-CN.md)
 - [Continuous integration](ci.md) · [中文](ci.zh-CN.md)
 - [Agent-native development](agent-native.md)
-- [Product acceptance evidence](product-acceptance.md)
+- [Product acceptance evidence](product-acceptance.md) · [中文](product-acceptance.zh-CN.md)
 
 ## Understand contracts / 理解契约
 

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Add the Chinese product-acceptance guide covering the manifest, suite and
+  evidence rules, the in-process RVT1 backend recipe, capability classes,
+  the cross-platform matrix and verify-remote. Add
+  `rivet/tests/translation-coverage.rkt`, which requires every public journey
+  to have a non-trivial Chinese counterpart with reciprocal links; it also
+  caught and fixed the missing language headers on the CI and API-stability
+  pairs.
+
 - Slim the release tooling instead of adding another copy: one installer
   vocabulary in `rivet/distribution/identity.rkt` (feed vs all release
   assets) and one sidecar implementation in `rivet-cli/artifact-file.rkt`.
