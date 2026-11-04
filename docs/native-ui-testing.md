@@ -1,5 +1,7 @@
 # Native UI end-to-end testing
 
+**English** · [简体中文](native-ui-testing.zh-CN.md)
+
 Rivet keeps UI tests native for the same reason it keeps production UI native:
 the platform accessibility and interaction stacks are part of the product.
 The reference Taskboard is exercised through UI Automation on Windows,

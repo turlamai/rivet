@@ -17,10 +17,11 @@ counterparts exist for the public entry journeys: [README](../README.zh-CN.md),
 [Package verification](package-verification.zh-CN.md),
 [System services](system-services.zh-CN.md),
 [Large payloads](large-payloads.zh-CN.md), [Chart series](chart-series.zh-CN.md),
-and [Troubleshooting](troubleshooting.zh-CN.md). Pages without
+[Native UI testing](native-ui-testing.zh-CN.md), and
+[Troubleshooting](troubleshooting.zh-CN.md). Pages without
 a `中文` link are currently English-only; they are not silently bilingual and
-their translation status is tracked as remaining work, starting with
-acceptance and platform-integration guides. Protocol
+their translation status is tracked as remaining work, starting with product
+acceptance and the platform-integration guides. Protocol
 and architecture references stay English as the single normative definition.
 
 中文：英文页面是规范性技术来源。公开入门旅程已提供完整中文对照（见上方链接）；
@@ -63,7 +64,7 @@ and architecture references stay English as the single normative definition.
 - [Cross-product adoption inventory](adoption.md) — which products run which release/update contract parts
 - [Releasing the Rivet framework](releasing.md)
 - [Commercial desktop readiness](readiness.md) — capability, documentation, operations and open slices
-- [Native UI end-to-end testing](native-ui-testing.md)
+- [Native UI end-to-end testing](native-ui-testing.md) · [中文](native-ui-testing.zh-CN.md)
 - [Protocol fuzzing](fuzzing.md) and [performance benchmarks](benchmarks.md)
 - [Desktop closeout and mobile start plan](desktop-closeout-mobile-plan.md)
 

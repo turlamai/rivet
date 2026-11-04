@@ -121,7 +121,7 @@ keep one normative English definition. See the central
 | System services | Yes | Yes (2026-11-04) | The guide must keep the Partial wiring rows visible |
 | Production signing / package verification | Yes | Both guides have Chinese counterparts (2026-11-04) | Keep operator facts current |
 | Runtime limits / large payloads / charts | Yes | All three guides have Chinese counterparts (2026-11-04) | Keep batch/format facts in sync |
-| Native UI testing / product acceptance | Yes | **No** | Translate the evidence contract |
+| Native UI testing / product acceptance | Partial | Native UI testing has a Chinese counterpart (2026-11-04); product acceptance English-only | Translate the product-acceptance guide |
 | Architecture / protocol / embedding / agent guidance | Yes | English-only by policy | Keep one normative source |
 | API reference (`rivet/scribblings`) | Yes | Not required | Fix the reference gaps below |
 | Docs site (`docs/index.html`) | Yes | Yes | Keep command examples in sync with the CLI |
@@ -210,8 +210,8 @@ They are ordered by user impact, not by repository convenience.
   guides are still English-only; Chinese getting-started links silently cross
   into English. Translate them and mark remaining English-only links inline.
   Troubleshooting, diagnostics, runtime limits, production signing,
-  release/updates, package verification, system services, large payloads and
-  charts landed on 2026-11-04.
+  release/updates, package verification, system services, large payloads,
+  charts and native-UI testing landed on 2026-11-04.
 
 ### P2
 

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add the Chinese native-UI testing guide: the behavioral contract, native
+  accessibility identifiers, packaged-macOS launch/reap rules, the startup-
+  wedge sample, keyboard/IME/focus realities and snapshot hygiene. Commands,
+  limits and evidence rules are unchanged.
+
 - Add `raco rivet support-bundle`: one command that collects the doctor and
   project-inspect reports, the Rivet release, and explicitly named logs into
   a ZIP with a manifest. It recursively redacts the home directory and user
