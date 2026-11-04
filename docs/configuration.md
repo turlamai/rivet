@@ -1,5 +1,7 @@
 # Project configuration
 
+**English** · [简体中文](configuration.zh-CN.md)
+
 A Rivet application is configured by the `rivet.rktd` file at the project root.
 
 New projects created with `raco rivet new` include explicit release identity and deployment-target metadata. Projects created with Rivet 0.1 remain valid: missing optional fields receive backwards-compatible defaults.

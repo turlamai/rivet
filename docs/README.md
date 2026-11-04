@@ -13,7 +13,7 @@ counterparts exist for the public entry journeys: [README](../README.zh-CN.md),
 and [Apple release readiness](apple-release-readiness.zh-CN.md). Pages without
 a `中文` link are currently English-only; they are not silently bilingual and
 their translation status is tracked as remaining work, starting with
-release/update, configuration, diagnostics, and system-service guides. Protocol
+release/update, diagnostics, and system-service guides. Protocol
 and architecture references stay English as the single normative definition.
 
 中文：英文页面是规范性技术来源。公开入门旅程已提供完整中文对照（见上方链接）；
@@ -23,7 +23,7 @@ and architecture references stay English as the single normative definition.
 ## Build an application / 开发应用
 
 - [Getting started](getting-started.md) · [中文](getting-started.zh-CN.md)
-- [Project configuration](configuration.md)
+- [Project configuration](configuration.md) · [中文](configuration.zh-CN.md)
 - [Diagnostics and cleanup](diagnostics.md)
 - [Continuous integration](ci.md) · [中文](ci.zh-CN.md)
 - [Agent-native development](agent-native.md)

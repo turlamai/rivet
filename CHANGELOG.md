@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add a complete Simplified Chinese counterpart for the project configuration
+  guide, including every accepted `rivet.rktd` key, resource-layout rule,
+  data-directory convention, i18n contract and deployment target. The docs
+  map now links it and no longer lists configuration as an untranslated
+  public journey.
+
 - Add `raco rivet --version` (also `version`, `-V`), so scripts, bug reports
   and `doctor` output can identify the installed release as one stable line
   instead of consulting the package database.
