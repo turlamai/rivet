@@ -153,9 +153,14 @@
                              (build . 7)
                              (identifier . "dev.rivet.demo")
                              (linux-binary-name . "demo-app"))))
+    ;; The expected validation failure may log an icon warning first.
+    ;; Keep the assertion while isolating expected diagnostics from raco
+    ;; test --drdr's strict stderr contract.
+    (define appimage-stderr (open-output-string))
     (check-exn #rx"linux-icon"
                (lambda ()
-                 (stage-appdir! iconless package-dir)))
+                 (parameterize ([current-error-port appimage-stderr])
+                   (stage-appdir! iconless package-dir))))
 
     ;; deb and rpm install without an icon rather than failing, but the
     ;; desktop entry has to say so at build time.

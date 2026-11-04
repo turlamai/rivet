@@ -337,7 +337,20 @@
   (define resolved
     (if path-like?
         (path->complete-path candidate (rivet-project-root project))
-        (find-executable-path raw)))
+        (or (find-executable-path raw)
+            ;; On official package builders the current Racket executable is
+            ;; available via an absolute path but need not be on PATH. Only
+            ;; resolve the `racket` command this way; missing external tools
+            ;; must continue to fail explicitly.
+            (and (or (string=? raw "racket")
+                     (and (eq? (system-type 'os) 'windows)
+                          (string-ci=? raw "racket.exe")))
+                 (let* ([exe (find-system-path 'exec-file)]
+                        [name (and (path? exe) (file-name-from-path exe))])
+                   (and name
+                        (regexp-match? #px"(?i:^racket(?:\\.exe)?$)"
+                                       (path->string name))
+                        exe))))))
   (unless (and resolved (file-exists? resolved))
     (raise-arguments-error 'acceptance-report
                            "suite executable was not found"
