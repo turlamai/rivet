@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Portable ZIP update staging now rejects a signed archive with a lone
+  regular-file or symlink root rather than replacing an installed application
+  directory with a non-app file. A complete ZIP SHA-256 is deliberately
+  valid in the negative regression; the old installation stays intact.
+
+- Rivet release-doctor now reads the installed package's SemVer from its
+  own module-relative top-level metadata, with collection lookup as a
+  fallback. This fixes official multi-collection package builders that could
+  install Rivet but could not discover its release version; empty collection
+  search paths are covered by a regression without bypassing the release gate.
+
 - Portable installation consumes a bounded private copy reverified against
   the signed asset size and SHA-256, so a changed download is rejected before
   extraction or replacement. Pending backup/marker/journal state is refused
@@ -45,6 +56,12 @@
   uninstall (`REMOVE="ALL"`), when the target executable has been removed.
   The generated WiX source and its Racket regression test enforce the guard.
 
+- Framework source releases now publish one versioned Racket package ZIP and
+  its canonical SHA256SUMS manifest. A strict final-staging verifier rejects
+  unexpected files, mismatched digests, invalid names, symlinks, and missing
+  release notes before GitHub publication; ordinary CI runs negative tests.
+  Existing published release assets are not rewritten.
+
 - Windows MSI lifecycle CI now upgrades a real installed v1 while its native
   window/process are still live, using Installer Restart Manager rather than
   preemptively closing the application. It requires the upgrade to finish
@@ -58,6 +75,10 @@
   installed-only startup failures. This tests actual launch behavior, not
   interactive clicks in the Finish dialog.
 
+- State changes from an external Racket worker now notify native clients when
+  exactly one Rivet server is active, consistent with `emit-event!`. Ambiguous
+  multi-server routing fails before mutation, and local-only State still works
+  after the server exits. Covered by an RVT1 pipe regression.
 
 - Linux install-kind detection now queries actual dpkg/rpm ownership instead
   of treating every executable under `/opt` or `/usr` as package-managed.

@@ -256,9 +256,14 @@
          (make-filesystem-entry-reader #:dest staging-root #:exists 'error)
          #:preserve-attributes? #t)
   (define entries (directory-list staging-root #:build? #t))
-  (unless (= (length entries) 1)
+  ;; A signed archive is not necessarily a valid app. In particular, do
+  ;; not rename a single top-level *file* over the existing app directory.
+  ;; Also reject a symbolic-link root rather than trusting its target.
+  (unless (and (= (length entries) 1)
+               (directory-exists? (car entries))
+               (not (link-exists? (car entries))))
     (raise-arguments-error 'prepare-platform-installation
-                           "portable archive must contain exactly one root entry"
+                           "portable ZIP must contain exactly one real payload directory"
                            "entry-count" (length entries)))
   (car entries))
 

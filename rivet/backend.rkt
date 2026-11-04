@@ -610,7 +610,11 @@
   (define event-value
     (state-event-value name (typed->wire (state-info-type state) value)))
   (define event-payload (encode-state-event-payload event-value))
-  (define emitter (current-event-emitter))
+  ;; A worker born outside serve's parameterization must still notify native
+  ;; State observers when exactly one server is active, as emit-event! does.
+  ;; With multiple servers, reject an ambiguous route before the cell changes.
+  (define emitter (or (current-event-emitter)
+                      (unique-active-server-emitter)))
 
   (define update-lock (state-update-lock state))
   ;; Waiting for an earlier update-order lock is still safely cancellable: no
