@@ -277,23 +277,45 @@ When `rivet-schema.json` exists at the project root, `raco rivet build` and ever
 raco rivet new <name>              Create a Rivet application
 raco rivet doctor                  Inspect Racket and native toolchains
 raco rivet doctor --json           Emit machine-readable diagnostics
+raco rivet doctor --release        Run the release gate (freshness, schema, pins)
+raco rivet entitlements --json     Emit the channel entitlement manifest (macOS)
+raco rivet entitlements --check APP  Fail closed unless APP matches the manifest
 raco rivet inspect                 Show the project's edit and verification map
 raco rivet inspect --json          Emit the agent-readable project contract
+raco rivet acceptance              Run the platform's declared acceptance suites
+raco rivet acceptance --json       Emit bounded machine-readable acceptance evidence
+raco rivet acceptance --dry-run    Validate the manifest without launching anything
+raco rivet matrix <report>...      Aggregate per-platform acceptance reports
+raco rivet verify-remote ...       Trigger and fold per-platform acceptance legs
 raco rivet schema --json           Emit the current versioned API schema
 raco rivet schema --output <file>  Write a schema compatibility baseline
 raco rivet schema check <file>     Reject breaking changes from a baseline
 raco rivet schema check <file> --json  Emit a machine-readable compatibility report
+raco rivet generate                Regenerate Swift, C++, and Kotlin clients
+raco rivet generate --check        Fail if generated clients differ from the tree
 raco rivet clean                   Remove generated .rivet/build/dist artifacts
 raco rivet build                   Compile backend, generate clients, build native host
 raco rivet dev                     Build and run the current application
 raco rivet package                 Create and verify a development distributable
 raco rivet package --production    Create, sign, and verify a production distributable
+raco rivet package --skip-launch-smoke  Package without starting the GUI artifact
 raco rivet release                 Build installer, signed update manifest, SBOM, and notices
 raco rivet release --development   Exercise release flow without platform production signing
 raco rivet release --without-updates  Build the release set without an update manifest
+raco rivet release --update-payload <installer>:<glob>[:<component>]
+                                   Add a per-platform update payload to the feed
+raco rivet manifest-compose <inputs...> [--output <file>]
+                                   Compose update manifests
+raco rivet sign-manifest ...       Compose and sign a verified family update manifest
+raco rivet verify-release-assets ...  Verify signed release asset parity
+raco rivet i18n                    Verify shared/i18n parity and regenerate tables
+raco rivet measure                 Report packaged artifact sizes and launch survival
+raco rivet measure size --budget <file>  Fail when artifacts exceed budgets
+raco rivet apple-review ...        Inspect an actual Apple artifact
 raco rivet compliance              Generate SBOM/notices and run the license audit
 raco rivet verify                  Re-verify the current packaged artifact
 raco rivet verify --production     Verify production trust/notarization requirements
+raco rivet verify --skip-launch-smoke  Verify without starting the GUI artifact
 raco rivet help                    Show CLI help
 ```
 

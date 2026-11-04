@@ -30,8 +30,9 @@ nonzero exits, and missing evidence. Archive the JSON report on failure. See
 
 ## Copy-paste GitHub Actions workflow
 
-The following workflow pins Rivet 0.11.0. Update every Rivet package source and
-the Linux setup action to the same tag (or full commit) in one review. A direct
+The following workflow pins one concrete Rivet release: keep every
+`#v…` package source and the Linux setup action on the same tag (or full
+commit), and update them together in one review. A direct
 Git source is intentional: the Racket Package Catalog has one current entry
 for a package name and cannot select an older Rivet release.
 
