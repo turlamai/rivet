@@ -204,9 +204,11 @@ They are ordered by user impact, not by repository convenience.
 - **Documentation parity gate.** The test checks links and CI pins but not the
   CLI blocks or the must-translate list. Add a check that both READMEs expose
   the same commands/flags and that required journeys have `zh-CN` files.
-- **Flagship acceptance manifest.** `examples/taskboard` has no
-  `rivet-acceptance.rktd` even though the docs call it mandatory. Add one with
-  contract, package and native-UI evidence and run it in the native jobs.
+- **Flagship acceptance manifest (fixed 2026-11-05).** `examples/taskboard`
+  now commits `rivet-acceptance.rktd` with backend-contract, schema-contract
+  and native-build suites, validated by `acceptance --dry-run` in
+  `rivet/tests/taskboard-acceptance.rkt`. Package/native-UI evidence remains
+  with the framework workflow and #347.
 - **Remaining English-only pages.** The platform-integration reference guides
   (Windows host, Linux display, device communication, adoption/releasing) stay
   English outside the public journey set; protocol and architecture remain the

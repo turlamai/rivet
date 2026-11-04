@@ -138,6 +138,14 @@ Windows 关闭窗口时
 草稿处理、真实键盘/输入法/焦点追踪、缩放/无障碍与人工视觉评审也仍需证据。
 Racket 存储测试通过不代表生产级 UI 体验已经达标。
 
+## 验收契约
+
+`rivet-acceptance.rktd` 是可执行的完成定义：Racket backend 契约、已提交的 schema 门禁，
+以及 Windows、macOS、Linux 上的原生宿主构建。在本目录运行
+`raco rivet acceptance --json`；`--dry-run` 只校验 manifest 并解析命令，不执行构建。
+打包原生 UI 与视觉证据仍属于框架的 Native UI 工作流和 #347 开放门禁，不由本 manifest
+声称完成。
+
 ## 无障碍与性能契约
 
 三个 host 提供同一组稳定标识，包括 `task-list`、`task-title`、`advance-task`、

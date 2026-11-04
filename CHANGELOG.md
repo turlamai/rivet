@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Add `examples/taskboard/rivet-acceptance.rktd`: the maintained reference
+  now carries an executable definition of done (backend contract, schema
+  gate, native build on all desktop platforms). A new test runs
+  `raco rivet acceptance --dry-run` against the example, so the manifest and
+  its command resolution cannot rot silently. Packaged native-UI evidence
+  remains with the framework workflow and #347, as the README states.
+
 - Add `raco rivet new --with-updates`: generates `app/update.rkt` (managed
   check/download around `make-updater`, persistent rollout bucket, shared
   settings file) and `shared/update.rktd`, registered as an application
