@@ -25,6 +25,10 @@
   journal, restart/health and rollback transaction instead of a product-owned
   archive swap. Staging rejects malformed, escaping and ambiguous containers
   before moving the old installation; package-manager artifacts remain delegated.
+  `'portable` now selects both the portable ZIP and the tar.gz shape, so a
+  tar.gz-only feed stays reachable through `(current-install-kind)`, and
+  `select-update`/`make-updater` accept an explicit `'targz` kind to force
+  the archive when a feed publishes both shapes.
 
 - Branded macOS DMG packaging now verifies the backing image device has
   actually detached before conversion, even when Finder removes its mountpoint.

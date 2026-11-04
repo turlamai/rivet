@@ -119,10 +119,11 @@
     (raise-argument-error
      'make-updater "(or/c 'x64 'arm64)" architecture))
   (unless (or (not install-kind)
-              (memq install-kind '(portable msi appimage package-manager)))
+              (memq install-kind
+                    '(portable targz msi appimage package-manager)))
     (raise-argument-error
      'make-updater
-     "(or/c #f 'portable 'msi 'appimage 'package-manager)"
+     "(or/c #f 'portable 'targz 'msi 'appimage 'package-manager)"
      install-kind))
   (unless (and (string? key-id) (not (string=? key-id "")))
     (raise-argument-error 'make-updater "non-empty string?" key-id))

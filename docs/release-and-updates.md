@@ -210,7 +210,11 @@ environment still takes precedence. If package database ownership is unavailable
 keeps executables under `/opt` or `/usr` package-managed rather than
 attempting an unsafe replacement; other paths remain portable. Applications
 with a special installation model should pass their known installer kind
-explicitly. AppImage and portable installs only select their matching payload, while deb/rpm installations return `package-manager` and do not consume the AppImage feed. `prepare-platform-installation` turns a verified portable ZIP, Linux `targz` archive, or Linux AppImage into Rivet's first-party atomic replacement; pass its result to `execute-platform-installation!`. Linux tar.gz staging requires one real payload directory, rejects escaping paths/links and unsupported tar entry types, and propagates gzip/extraction failures before the old installation moves. It reuses the same transaction lock, journal, restart/health and rollback machinery as ZIP/AppImage; products retain payload-specific validation and readiness callbacks. The application supplies restart and health callbacks because it owns its process model and readiness signal. On Windows and macOS the default staged-payload verifier requires Authenticode or a deep strict code signature; development builds may inject an explicit verifier.
+explicitly. `'portable` accepts both the portable ZIP and the Linux tar.gz
+feed shape, so `(current-install-kind)` keeps working for a tar.gz-only
+feed. When a feed carries both shapes, pass `'targz` to force the archive:
+an unpacked ZIP and an unpacked tar.gz are the same directory tree to
+`current-install-kind`, so only the product knows which payload it prefers. AppImage and portable installs only select their matching payload, while deb/rpm installations return `package-manager` and do not consume the AppImage feed. `prepare-platform-installation` turns a verified portable ZIP, Linux `targz` archive, or Linux AppImage into Rivet's first-party atomic replacement; pass its result to `execute-platform-installation!`. Linux tar.gz staging requires one real payload directory, rejects escaping paths/links and unsupported tar entry types, and propagates gzip/extraction failures before the old installation moves. It reuses the same transaction lock, journal, restart/health and rollback machinery as ZIP/AppImage; products retain payload-specific validation and readiness callbacks. The application supplies restart and health callbacks because it owns its process model and readiness signal. On Windows and macOS the default staged-payload verifier requires Authenticode or a deep strict code signature; development builds may inject an explicit verifier.
 
 Applications that need an in-app progress UI should use `make-updater` instead
 of rebuilding this orchestration. `updater-check!` performs the authenticated
@@ -300,7 +304,7 @@ boundary. It verifies the Ed25519 wrapper before parsing, selects the artifact
 for the current install shape, enforces deadlines and byte limits, and verifies
 the signed size and SHA-256. Release manifests include both the portable ZIP
 and the native MSI on Windows, and both the portable ZIP and AppImage on Linux;
-pass `#:install-kind 'portable`, `'msi`, or `'appimage` so a host never derives
+pass `#:install-kind 'portable`, `'targz`, `'msi`, or `'appimage` so a host never derives
 or sidecar-trusts a sibling URL.
 
 Only the final OS handoff remains native, and Rivet ships that too:

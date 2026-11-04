@@ -49,6 +49,37 @@
      #:total-timeout total-timeout)))
 
 (define root (make-temporary-file "rivet-managed-updater-~a" 'directory))
+
+;; The managed surface accepts the explicit Linux tar.gz install kind that
+;; the platform adapter can stage, so a tar.gz product never falls back to
+;; the ZIP-only `portable` policy.
+(check-true
+ (updater?
+  (make-updater
+   #:application-id "dev.rivet.managed-test"
+   #:current-version "1.0.0"
+   #:platform 'linux
+   #:architecture 'x64
+   #:install-kind 'targz
+   #:public-key 'test-key
+   #:key-id "test-2026"
+   #:manifest-url "https://updates.example/update-stable.json"
+   #:data-directory root
+   #:rollout-bucket 17)))
+(check-exn exn:fail:contract?
+           (lambda ()
+             (make-updater
+              #:application-id "dev.rivet.managed-test"
+              #:current-version "1.0.0"
+              #:platform 'linux
+              #:architecture 'x64
+              #:install-kind 'tarball
+              #:public-key 'test-key
+              #:key-id "test-2026"
+              #:manifest-url "https://updates.example/update-stable.json"
+              #:data-directory root
+              #:rollout-bucket 17)))
+
 (dynamic-wind
   void
   (lambda ()

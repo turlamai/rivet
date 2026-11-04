@@ -837,10 +837,15 @@ The response status is checked before anything is saved, a declared
 Content-Length beyond the byte limit is rejected, the stream honors the
 stall deadline, and an expected SHA-256 is verified before the download is
 moved into place. A failed checksum leaves no output file.}
-@defproc[(select-update [config updater-config?] [manifest update-manifest?])
+@defproc[(select-update [config updater-config?] [manifest update-manifest?]
+                        [#:install-kind install-kind
+                         (or/c #f 'portable 'targz 'msi 'appimage 'package-manager) #f])
          (or/c #f update-candidate?)]{
-Applies identity, channel, version, minimum-version, rollout, platform, and
-architecture policy.}
+Applies identity, channel, version, minimum-version, rollout, platform,
+architecture, component, and install-kind policy. @racket['portable] accepts
+both the portable ZIP and the Linux tar.gz feed shape; @racket['targz] forces
+the archive when a feed publishes both, and the other kinds match their own
+installer.}
 @defproc[(download-update [config updater-config?]
                           [candidate update-candidate?]
                           [destination path-string?]
@@ -895,7 +900,7 @@ Returns the architecture symbol used by Rivet release manifests.}
           [#:architecture architecture
            (or/c 'x64 'arm64) (current-update-architecture)]
           [#:install-kind install-kind
-           (or/c #f 'portable 'msi 'appimage 'package-manager) #f]
+           (or/c #f 'portable 'targz 'msi 'appimage 'package-manager) #f]
           [#:public-key public-key any/c]
           [#:key-id key-id string?]
           [#:manifest-url manifest-url string?]
@@ -1003,15 +1008,19 @@ resolve under @filepath{/opt} or @filepath{/usr}, and everything else is
 portable. On Windows and macOS this always reports @racket['portable].
 Pass @racket[#:install-kind] from this procedure to
 @racket[select-update] or @racket[make-updater] so a machine never selects
-a payload its installation cannot own.}
+a payload its installation cannot own. @racket['portable] accepts both the
+portable ZIP and the Linux tar.gz shape, so a tar.gz-only feed remains
+reachable; pass @racket['targz] explicitly to force the archive when a feed
+publishes both shapes.}
 
 @defproc[(platform-installer-policy [platform symbol?]
                                     [installer symbol?])
          (or/c 'portable 'package-manager 'unsupported)]{
-Classifies the signed artifact. Portable ZIPs (and Linux AppImages) may use
-Rivet's atomic replacement adapter. MSI, MSIX, DMG, PKG, deb, and rpm remain
-owned by the native installer or package manager, so the portable adapter
-will not silently bypass elevation, receipts, or repository policy.}
+Classifies the signed artifact. Portable ZIPs, Linux tar.gz trees, and Linux
+AppImages may use Rivet's atomic replacement adapter. MSI, MSIX, DMG, PKG,
+deb, and rpm remain owned by the native installer or package manager, so the
+portable adapter will not silently bypass elevation, receipts, or repository
+policy.}
 
 @defproc[(verify-platform-payload! [platform symbol?]
                                    [payload path-string?])
