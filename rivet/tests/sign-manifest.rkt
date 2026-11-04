@@ -98,6 +98,25 @@
            'published-at "2026-10-16T00:00:00Z")))
 (check-true (file-exists? output))
 
+;; Without --output the feed follows the channel, matching `raco rivet release`
+;; (`dist/update-<channel>.json`) so per-leg manifests compose by one name.
+(define default-root (make-temporary-file "rivet-sign-default-~a" 'directory))
+(define default-output
+  (parameterize ([current-directory default-root])
+    (sign-manifest!
+     (list (requested-artifact 'macos 'arm64 'zip (path->string artifact)))
+     (hasheq 'application-id "dev.example"
+             'version "1.2.3"
+             'build 7
+             'channel 'beta
+             'base-url "https://dl.example/app/"
+             'key-id "release-2026"
+             'private-key (path->string private-key-path)
+             'public-key (path->string public-key-path)
+             'published-at "2026-10-16T00:00:00Z"))))
+(check-equal? (path->string default-output) "dist/update-beta.json")
+(check-true (file-exists? (build-path default-root "dist" "update-beta.json")))
+
 ;; The published feed verifies with the public half and carries the exact
 ;; artifact facts.
 (define manifest

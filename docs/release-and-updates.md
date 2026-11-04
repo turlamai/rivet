@@ -363,7 +363,7 @@ gate before `gh release upload`:
 
 ```sh
 raco rivet verify-release-assets \
-  --manifest dist/update-manifest.json \
+  --manifest dist/update-stable.json \
   --dir dist \
   --public-key /secure/updates-public.der \
   --key-id my-product-2026 \

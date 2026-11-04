@@ -34,6 +34,10 @@
   the `targz` installer, so the signed feed can carry a Linux portable
   tar.gz without a product-owned manifest script.
 
+- `raco rivet sign-manifest` now defaults to `dist/update-<channel>.json`,
+  the same feed name `raco rivet release` writes, instead of a separate
+  `dist/update-manifest.json` convention.
+
 - `raco rivet sign-manifest --sidecars` appends `.sha256` to the artifact
   name (`app.tar.gz.sha256`) instead of the ambiguous `app.tar_gz.sha256`
   form produced by `path-add-extension`, matching `release`'s portable
