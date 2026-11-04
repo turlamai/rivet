@@ -30,6 +30,15 @@
   `select-update`/`make-updater` accept an explicit `'targz` kind to force
   the archive when a feed publishes both shapes.
 
+- `raco rivet release --update-payload` and `raco rivet sign-manifest` accept
+  the `targz` installer, so the signed feed can carry a Linux portable
+  tar.gz without a product-owned manifest script.
+
+- `raco rivet sign-manifest --sidecars` appends `.sha256` to the artifact
+  name (`app.tar.gz.sha256`) instead of the ambiguous `app.tar_gz.sha256`
+  form produced by `path-add-extension`, matching `release`'s portable
+  sidecar naming and download-page conventions.
+
 - Branded macOS DMG packaging now verifies the backing image device has
   actually detached before conversion, even when Finder removes its mountpoint.
   It can convert an isolated copy if diskimages-helper retains the original

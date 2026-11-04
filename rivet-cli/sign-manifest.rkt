@@ -18,7 +18,7 @@
          parse-sign-manifest-arguments
          (struct-out requested-artifact))
 
-(define installer-symbols '(zip msi deb rpm appimage))
+(define installer-symbols '(zip targz msi deb rpm appimage))
 
 (struct requested-artifact (platform architecture installer path) #:transparent)
 
@@ -40,7 +40,7 @@
   (unless (memq installer installer-symbols)
     (raise-arguments-error
      who
-     "artifact installer must be zip, msi, deb, rpm, or appimage"
+     "artifact installer must be zip, targz, msi, deb, rpm, or appimage"
      "value" spec))
   (requested-artifact platform architecture installer (list-ref parts 3)))
 
@@ -107,7 +107,12 @@
           file-name))
 
 (define (write-sidecar! artifact-path)
-  (define sidecar (path-add-extension artifact-path #".sha256"))
+  ;; Append, never replace, the final extension: the family convention is
+  ;; `<artifact>.sha256` (what release and download pages publish), so an
+  ;; App-1.0.0-macos-arm64.zip sidecar is `App-1.0.0-macos-arm64.zip.sha256`,
+  ;; not the ambiguous `..._zip.sha256` that path-add-extension would create.
+  (define sidecar
+    (string->path (string-append (path->string artifact-path) ".sha256")))
   (call-with-output-file sidecar
     #:exists 'truncate/replace
     (lambda (out)
