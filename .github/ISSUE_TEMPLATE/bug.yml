@@ -1,0 +1,71 @@
+name: Bug report
+description: Report a reproducible defect in Rivet itself (not a product built with Rivet).
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not report suspected security vulnerabilities here. Use GitHub's
+        private vulnerability reporting (see SECURITY.md) instead.
+  - type: input
+    id: version
+    attributes:
+      label: Rivet version
+      description: Output of `raco rivet --version`, or the commit SHA for a linked checkout.
+      placeholder: rivet 0.13.0
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - macOS
+        - Windows
+        - Linux
+        - Multiple platforms
+    validations:
+      required: true
+  - type: input
+    id: racket
+    attributes:
+      label: Racket version
+      description: Output of `racket --version`.
+      placeholder: Welcome to Racket v9.3 [cs].
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction
+      description: Minimal project, exact commands, and the observed result.
+      placeholder: |
+        1. raco rivet new demo
+        2. raco rivet build
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: |
+        Paste `raco rivet doctor --json` output. Redact user paths, hostnames,
+        credentials and application data before posting.
+      render: json
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Confirmations
+      options:
+        - label: I am reporting a Rivet framework issue, not a product built with Rivet.
+          required: true
+        - label: I removed credentials, personal paths and application data from this report.
+          required: true

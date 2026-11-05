@@ -121,7 +121,11 @@ The Racket server associates each request with a custodian. Cancellation shuts d
 
 ## Shutdown
 
-Shutdown uses id 0 and an empty payload. After shutdown, the backend closes its protocol ports and the native host waits for its runtime/reader workers before teardown completes. An embedded backend instance is process-scoped and is not restartable after shutdown in the current runtime contract.
+Shutdown uses id 0 and an empty payload. Rivet's native clients always send
+that shape; the backend treats any type-7 frame as a shutdown request. After
+shutdown, `serve-fds` closes the ports it adapted, while `serve` leaves
+caller-owned ports open; the native host waits for its runtime/reader workers
+before teardown completes. An embedded backend instance is process-scoped and is not restartable after shutdown in the current runtime contract.
 
 ## Events
 

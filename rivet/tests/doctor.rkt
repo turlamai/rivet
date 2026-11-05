@@ -3,6 +3,7 @@
 (require json
          racket/file
          racket/port
+         racket/runtime-path
          rackunit
          "../../rivet-cli/codegen.rkt"
          "../../rivet-cli/doctor.rkt"
@@ -14,6 +15,7 @@
 (check-true (hash? report))
 (for ([key (in-list '(os
                       architecture
+                      rivet-version
                       supported
                       usable
                       ui
@@ -32,6 +34,8 @@
 (check-true (boolean? (hash-ref report 'supported)))
 (check-true (boolean? (hash-ref report 'usable)))
 (check-true (string? (hash-ref report 'racket-version)))
+(check-true (or (not (hash-ref report 'rivet-version))
+                (string? (hash-ref report 'rivet-version))))
 (check-true (hash? (hash-ref report 'tools)))
 (check-true (list? (hash-ref report 'warnings)))
 (check-true (list? (doctor-remediations report)))
@@ -149,6 +153,22 @@
 (check-equal? (hash-ref decoded 'supported) (hash-ref report 'supported))
 (check-equal? (hash-ref decoded 'usable) (hash-ref report 'usable))
 (check-equal? (hash-ref decoded 'racket-version) (hash-ref report 'racket-version))
+
+;; The official Racket package builder installs multi-collection packages into
+;; a package source root while compiling with a separate collection search
+;; configuration. Resolve Rivet's own release metadata without depending on
+;; the active collection search path or the installed package catalog.
+(define-runtime-path installed-release-info "../../info.rkt")
+(define release-text (file->string installed-release-info))
+(define release-match
+  (regexp-match #px"\\(define release-version \"([^\"]+)\"\\)" release-text))
+(check-true (and release-match (pair? (cdr release-match)))
+            "the source package must declare its SemVer release version")
+(define expected-release-version (cadr release-match))
+(check-equal? (installed-rivet-release-version) expected-release-version)
+(parameterize ([current-library-collection-paths '()])
+  (check-equal? (installed-rivet-release-version) expected-release-version
+                "an installed package must resolve its own version without collection lookups"))
 
 ;; ---- Release gate (issues #245 and #255) ----
 ;;

@@ -139,9 +139,15 @@ paths relative to the application resource root. Configurations returned by
 `EmbeddedRacketConfiguration.resolvedDefault` therefore carry that root as the
 backend working directory, and `EmbeddedRacketBackend.start` selects it before
 booting Racket. This is a process-wide directory change, consistent with the
-process-scoped, single-start embedded runtime. A manually constructed
-configuration can leave `workingDirectory` unset when it owns an alternative
-foreign-library lookup strategy.
+process-scoped, single-start embedded runtime.
+
+A manually constructed configuration may leave `workingDirectory` unset. If
+`core` follows the canonical `<root>/res/core.zo` layout, the backend derives
+`<root>` and selects it, so `define-runtime-path` files copied by
+`raco ctool` resolve against the bundle resources instead of the GUI process's
+current directory. An explicit `workingDirectory` always wins; a nonstandard
+`core` location keeps the caller's process directory for hosts that own an
+alternative foreign-library lookup strategy.
 
 On macOS, construct the normal staged or packaged layout without repeating
 path probes in every application:

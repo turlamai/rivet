@@ -1,5 +1,7 @@
 # Package verification
 
+**English** · [简体中文](package-verification.zh-CN.md)
+
 Rivet treats package verification as part of packaging rather than as an optional CI step.
 
 `raco rivet package` builds a Release/self-contained native application, assembles the distributable layout, signs the macOS development bundle when appropriate, and then verifies the result before reporting success. Packaging is always a clean native build: Windows uses MSBuild's `Rebuild` target, macOS recreates the SwiftPM scratch tree, and Linux recreates its CMake build tree. Incremental caches remain available to `raco rivet build` and `raco rivet dev`, but they can never decide which source revision enters a distributable.

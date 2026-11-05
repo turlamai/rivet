@@ -139,14 +139,6 @@
 (define primitive-types '(String Int64 Bool Bytes Void Any))
 (define reserved-type-names (append primitive-types '(List Optional)))
 
-(define (lookup-record-info type [failure #f])
-  (and (symbol? type)
-       (hash-ref record-registry type failure)))
-
-(define (lookup-enum-info type [failure #f])
-  (and (symbol? type)
-       (hash-ref enum-registry type failure)))
-
 (define (supported-type? type)
   (or (memq type primitive-types)
       (and (symbol? type) (hash-has-key? record-registry type))
@@ -610,7 +602,11 @@
   (define event-value
     (state-event-value name (typed->wire (state-info-type state) value)))
   (define event-payload (encode-state-event-payload event-value))
-  (define emitter (current-event-emitter))
+  ;; A worker born outside serve's parameterization must still notify native
+  ;; State observers when exactly one server is active, as emit-event! does.
+  ;; With multiple servers, reject an ambiguous route before the cell changes.
+  (define emitter (or (current-event-emitter)
+                      (unique-active-server-emitter)))
 
   (define update-lock (state-update-lock state))
   ;; Waiting for an earlier update-order lock is still safely cancellable: no
@@ -1279,7 +1275,17 @@
     void
     (lambda ()
       (with-handlers ([exn?
-                       (lambda (_e) (void))])
+                       (lambda (error)
+                         ;; The embedded host owns supervision; make the failure
+                         ;; visible through the diagnostic sink instead of
+                         ;; swallowing it silently.
+                         (diagnostic-sink
+                          (hasheq 'schema diagnostic-schema
+                                  'layer "racket-backend"
+                                  'event "serve-fds-exit"
+                                  'status "failure"
+                                  'last_protocol_event "none"
+                                  'message (safe-diagnostic-message error))))])
         (serve in
                out
                #:max-pending-requests max-pending-requests

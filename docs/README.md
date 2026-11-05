@@ -4,41 +4,66 @@ This page is the canonical map of Rivet documentation. Start with one path and
 follow links only when the work crosses that boundary; the root README remains
 a product overview rather than a second documentation index.
 
+## Language status / 语言状态
+
+English pages are the normative technical source. Complete Simplified Chinese
+counterparts exist for the public entry journeys: [README](../README.zh-CN.md),
+[Using Rivet](USING.zh-CN.md), [Getting started](getting-started.zh-CN.md),
+[Continuous integration](ci.zh-CN.md), [API stability](api-stability.zh-CN.md),
+[Apple release readiness](apple-release-readiness.zh-CN.md),
+[Diagnostics](diagnostics.zh-CN.md), [Runtime limits](runtime-limits.zh-CN.md),
+[Production signing](production-signing.zh-CN.md),
+[Release and updates](release-and-updates.zh-CN.md),
+[Package verification](package-verification.zh-CN.md),
+[System services](system-services.zh-CN.md),
+[Large payloads](large-payloads.zh-CN.md), [Chart series](chart-series.zh-CN.md),
+[Native UI testing](native-ui-testing.zh-CN.md),
+[Product acceptance](product-acceptance.zh-CN.md), and
+[Troubleshooting](troubleshooting.zh-CN.md). Pages without a `中文` link are
+English-only platform-reference material; all public user journeys are
+complete. Protocol and architecture references stay English as the single
+normative definition.
+
+中文：英文页面是规范性技术来源。公开入门旅程已提供完整中文对照（见上方链接）；
+未标注“中文”的页面目前只有英文，不声称双语对等。翻译按“发布/更新 → 配置 →
+诊断 → 系统服务”的顺序补齐；协议与架构规范保持单一英文定义。
+
 ## Build an application / 开发应用
 
 - [Getting started](getting-started.md) · [中文](getting-started.zh-CN.md)
-- [Project configuration](configuration.md)
-- [Diagnostics and cleanup](diagnostics.md)
+- [Project configuration](configuration.md) · [中文](configuration.zh-CN.md)
+- [Diagnostics and cleanup](diagnostics.md) · [中文](diagnostics.zh-CN.md)
+- [Troubleshooting](troubleshooting.md) · [中文](troubleshooting.zh-CN.md)
 - [Continuous integration](ci.md) · [中文](ci.zh-CN.md)
 - [Agent-native development](agent-native.md)
-- [Product acceptance evidence](product-acceptance.md)
+- [Product acceptance evidence](product-acceptance.md) · [中文](product-acceptance.zh-CN.md)
 
 ## Understand contracts / 理解契约
 
 - [Architecture](architecture.md) — process, runtime, UI, Android, and service boundaries
-- [RVT1 protocol](protocol.md) and [runtime limits](runtime-limits.md)
+- [RVT1 protocol](protocol.md) and [runtime limits](runtime-limits.md) · [中文](runtime-limits.zh-CN.md)
 - [Racket CS embedding](embedding.md)
 - [API stability](api-stability.md) · [中文](api-stability.zh-CN.md)
-- [Large payloads, pagination, and progress](large-payloads.md)
+- [Large payloads, pagination, and progress](large-payloads.md) · [中文](large-payloads.zh-CN.md)
 
 ## Native platform integration / 原生平台集成
 
-- [System services](system-services.md)
+- [System services](system-services.md) · [中文](system-services.zh-CN.md)
 - [Windows host integration](windows-native-window.md)
 - [Linux display policy](linux-display.md)
-- [Real-time chart series](chart-series.md)
+- [Real-time chart series](chart-series.md) · [中文](chart-series.zh-CN.md)
 - [Typed device communication](device-communication.md)
 - [Network device channel design](network-device-channel.md) — protocol, pairing, and selected Apple/Windows/Android transport foundations exist; product wiring and real-device qualification remain unverified
 
 ## Ship and maintain / 发布与维护
 
-- [Package verification](package-verification.md)
-- [Production signing](production-signing.md)
+- [Package verification](package-verification.md) · [中文](package-verification.zh-CN.md)
+- [Production signing](production-signing.md) · [中文](production-signing.zh-CN.md)
 - [Apple release readiness](apple-release-readiness.md) · [中文](apple-release-readiness.zh-CN.md) — channel-specific bundle preflight and App Store evidence boundaries
-- [Release and updates](release-and-updates.md)
-- [Cross-product adoption inventory](adoption.md) — which products run which release/update contract parts
+- [Release and updates](release-and-updates.md) · [中文](release-and-updates.zh-CN.md)
 - [Releasing the Rivet framework](releasing.md)
-- [Native UI end-to-end testing](native-ui-testing.md)
+- [Commercial desktop readiness](readiness.md) — capability, documentation, operations and open slices
+- [Native UI end-to-end testing](native-ui-testing.md) · [中文](native-ui-testing.zh-CN.md)
 - [Protocol fuzzing](fuzzing.md) and [performance benchmarks](benchmarks.md)
 - [Desktop closeout and mobile start plan](desktop-closeout-mobile-plan.md)
 

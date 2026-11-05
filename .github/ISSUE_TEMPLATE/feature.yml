@@ -1,0 +1,46 @@
+name: Feature request
+description: Propose a capability or documentation improvement for Rivet.
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What can a commercial desktop application not do today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed capability
+      description: API shape, platform behavior, and what stays product-owned.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Desktop platform integration
+        - Packaging, signing, install or update
+        - Racket backend or RVT1
+        - CLI or developer experience
+        - Documentation or examples
+        - CI, security or release engineering
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Existing workarounds, product-side options, or why no framework change is needed.
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: This is not a product-specific feature (prices, accounts, entitlements, product UI).
+          required: true
+        - label: I checked the documentation map and existing issues first.
+          required: true

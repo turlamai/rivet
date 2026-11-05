@@ -5,6 +5,7 @@
          racket/list
          racket/path
          racket/port
+         racket/runtime-path
          racket/string
          racket/system
          "codegen.rkt"
@@ -176,6 +177,7 @@
                 '())))
   (hash 'os (symbol->string os)
         'architecture (format "~a" arch)
+        'rivet-version (installed-rivet-release-version)
         'supported supported?
         'usable usable?
         'ui ui
@@ -330,6 +332,8 @@
      (printf "Rivet doctor\n\n")
      (printf "  OS: ~a\n" (hash-ref report 'os))
      (printf "  architecture: ~a\n" (hash-ref report 'architecture))
+     (printf "  Rivet: ~a\n"
+             (or (hash-ref report 'rivet-version #f) "unreleased source checkout"))
      (printf "  Racket: ~a\n" (hash-ref report 'racket-version))
      (display-path "Racket executable" (hash-ref report 'racket-executable))
      (display-path "raco" (hash-ref report 'raco))
@@ -394,17 +398,30 @@
        (set-box! found (caddr datum)))))
   (unbox found))
 
+;; The loaded CLI module belongs to the installed Rivet package even when
+;; the collection resolver is pointed at a cross-compiled build root, or when
+;; the package-builder runs with a different collection search path. Bind the
+;; package's info.rkt relative to this module rather than guessing from the
+;; active collection configuration alone.
+(define-runtime-path module-package-info "../info.rkt")
+
 (define (installed-rivet-release-version)
-  ;; Returns #f when rivet itself is not installed as a collection (the
-  ;; packaged CLI copies omit it); callers treat #f as "cannot check".
-  ;; collection-file-path resolves a sub-collection directory, so the
-  ;; package root that owns the release-version declaration is one level up.
-  (with-handlers ([exn:fail? (lambda (_) #f)])
-    (define collection-info (collection-file-path "info.rkt" "rivet"))
-    (define root-info
-      (simplify-path
-       (build-path (path-only collection-info) 'up "info.rkt")))
-    (and (file-exists? root-info) (read-info-release-version root-info))))
+  ;; Return #f if neither the actual module's package metadata nor an
+  ;; installed Rivet collection provides a release-version. In particular,
+  ;; copied standalone CLI sources without package metadata must not invent
+  ;; a version and silently pass the release doctor gate.
+  (define (read-candidate path)
+    (with-handlers ([exn:fail? (lambda (_) #f)])
+      (and path
+           (file-exists? path)
+           (let ([version (read-info-release-version path)])
+             (and (string? version) version)))))
+  (or (read-candidate module-package-info)
+      (read-candidate
+       (with-handlers ([exn:fail? (lambda (_) #f)])
+         (define collection-info (collection-file-path "info.rkt" "rivet"))
+         (simplify-path
+          (build-path (path-only collection-info) 'up "info.rkt"))))))
 
 ;; The distribution API surface is intentionally small, but hosts call it
 ;; from hand-written Racket where a stale keyword is a silent runtime failure

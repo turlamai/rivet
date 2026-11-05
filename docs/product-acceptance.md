@@ -1,5 +1,7 @@
 # Product acceptance evidence
 
+**English** · [简体中文](product-acceptance.zh-CN.md)
+
 `raco rivet acceptance` turns a product's definition of done into an
 executable, source-controlled contract. It complements RackUnit and each
 platform's native UI tools; it does not replace them or introduce a shared UI

@@ -16,6 +16,7 @@
          racket/port
          racket/set
          racket/string
+         "artifact-file.rkt"
          racket/system
          "../rivet/distribution/crypto.rkt"
          "linux-native-package.rkt"
@@ -67,14 +68,7 @@
            (appimage-architecture))))
 
 (define (write-appimage-checksum! output)
-  (define sidecar (string->path (string-append (path->string output) ".sha256")))
-  (call-with-output-file sidecar
-    #:exists 'truncate/replace
-    (lambda (out)
-      (fprintf out "~a  ~a~n"
-               (sha256-file/hex output)
-               (path->string (file-name-from-path output)))))
-  sidecar)
+  (write-sha256-sidecar! output))
 
 ;; Libraries that must remain the host system's own: the dynamic loader and
 ;; libc family, and the GL/Vulkan driver stack (the display driver owns it).

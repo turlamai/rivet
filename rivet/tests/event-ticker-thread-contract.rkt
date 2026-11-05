@@ -21,6 +21,20 @@
                (chart-batch 11)
                'emitted)))))
 
+(define-state external-chart-count : Int64 0)
+
+;; Created before serve: this worker cannot inherit its event parameter.
+(define start-external-state (make-semaphore 0))
+(define external-state-result (make-channel))
+(define external-state-writer
+  (thread (lambda ()
+            (semaphore-wait start-external-state)
+            (channel-put
+             external-state-result
+             (with-handlers ([exn:fail? exn-message])
+               (state-set! external-chart-count 17)
+               'updated)))))
+
 (define-rpc (start-chart-ticker : Void)
   ;; RPC workers inherit the reader's event parameter. Threads spawned here
   ;; inherit it again even after the initiating request returns.
@@ -46,6 +60,15 @@
 (check-equal? (decode-value (frame-payload outside-event))
               (list "chart-batch" 11))
 
+(semaphore-post start-external-state)
+(check-equal? (sync/timeout 2 external-state-result) 'updated)
+(thread-wait external-state-writer)
+(define state-notification (read-frame/timeout client-in))
+(check-equal? (frame-type state-notification) message:event)
+(check-equal? (decode-value (frame-payload state-notification))
+              (list "$state" (list "external-chart-count" 17)))
+(check-equal? (state-ref external-chart-count) 17)
+
 (write-frame
  (frame message:request 10 (encode-value (list "start-chart-ticker")))
  client-out)
@@ -61,3 +84,7 @@
 (check-equal? published (list "chart-batch" 22))
 (write-frame (frame message:shutdown 0 #"") client-out)
 (thread-wait server)
+
+;; Without an active server, State remains usable as local storage.
+(state-set! external-chart-count 18)
+(check-equal? (state-ref external-chart-count) 18)

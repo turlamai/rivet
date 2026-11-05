@@ -56,6 +56,8 @@ jobs:
       - name: Install Rivet
         shell: pwsh
         run: raco pkg install --auto --no-docs --name rivet --link "$PWD"
+      - name: Verify signed portable update transaction
+        run: raco test rivet/tests/platform-artifact-binding.rkt rivet/tests/platform-update-adapter.rkt rivet/tests/platform-targz-update.rkt
       - name: Check toolchain and JSON diagnostics
         shell: pwsh
         run: |
@@ -116,6 +118,8 @@ jobs:
         run: raco pkg install --auto --no-docs --name rivet --link "$PWD"
       - name: Verify default macOS DMG installation layout
         run: raco test rivet/tests/macos-installer.rkt
+      - name: Verify signed portable update transaction
+        run: raco test rivet/tests/platform-artifact-binding.rkt rivet/tests/platform-update-adapter.rkt rivet/tests/platform-targz-update.rkt
       - name: Check toolchain and JSON diagnostics
         shell: bash
         run: |
@@ -202,6 +206,8 @@ jobs:
         run: |
           set -euo pipefail
           raco pkg install --auto --no-docs --name rivet --link "$PWD"
+      - name: Verify signed portable update transaction
+        run: raco test rivet/tests/platform-artifact-binding.rkt rivet/tests/platform-update-adapter.rkt rivet/tests/platform-targz-update.rkt
       - name: Install GTK4 development files and rpm tooling
         run: |
           bash .github/scripts/apt-retry.sh --sudo update

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/turlamai/rivet/security/advisories/new
+    about: Report suspected vulnerabilities privately; never open a public issue.
+  - name: Documentation and guides
+    url: https://github.com/turlamai/rivet/blob/main/docs/README.md
+    about: Start from the documentation map before filing a usage question.

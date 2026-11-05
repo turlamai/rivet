@@ -34,15 +34,15 @@
    (define root (create-project! "AcceptanceDemo" temp-root))
    (define project (load-project root))
 
-   ;; The scaffold starts with explicit cross-platform contract/build
+   ;; The scaffold starts with explicit cross-platform contract/unit/build
    ;; requirements. New products cannot silently claim an empty green run.
    (define-values (path starter-suites starter-requirements)
      (load-acceptance-manifest project))
    (check-true (file-exists? path))
    (check-equal? (map acceptance-suite-id starter-suites)
-                 '(schema-contract native-build))
+                 '(schema-contract starter-smoke native-build))
    (check-equal? (map car starter-requirements)
-                 '(contract native-build))
+                 '(contract unit native-build))
 
    ;; A product can declare native commands per platform without introducing
    ;; a shared selector DSL. The orchestrator runs only the current leg.

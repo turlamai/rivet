@@ -39,6 +39,11 @@ cd hello-rivet
 hello-rivet/
 ├── rivet.rktd              # 应用标识、后端入口、最低系统版本
 ├── app/backend.rkt         # 三个平台共享的 Racket 业务逻辑
+├── tests/smoke.rkt         # 接入 acceptance 的起步单元测试
+├── rivet-acceptance.rktd   # 可执行的完成定义
+├── rivet-schema.json       # 需提交的 API 兼容性基线
+├── .github/workflows/native.yml  # Windows/macOS/Linux CI
+├── AGENTS.md               # 项目 Agent 契约
 ├── windows/                # WinUI 3 应用
 ├── macos-host/             # SwiftUI 应用
 └── linux/                  # GTK4 应用
@@ -200,6 +205,14 @@ raco rivet verify
 
 `package` 在成功返回之前会先验证开发发布物；`verify` 可以稍后再次审计已经生成的发布物。
 
+每个生成项目还会带有 `.github/workflows/native.yml`：它固定一个 Rivet 版本，
+在 Windows、两条 macOS runner 和 Linux 上运行 `doctor`、schema 门禁和
+`acceptance --json`，并归档每份验收报告。升级 Rivet 时请同步更新其中的 pin。
+Linux job 使用 Rivet 的 setup action 构建可嵌入的 Racket CS 运行时并安装 GTK4
+开发文件，因此干净 runner 无需额外 CI 配置即可编译宿主。首次执行 `release`
+之前，请在 `rivet.rktd` 中设置 `linux-icon`：缺少它时 AppImage 打包会失败关闭，
+生成的 README 也已列出这条前提。
+
 需要正式可信的发行包时：
 
 ```bash
@@ -208,6 +221,11 @@ raco rivet verify --production
 ```
 
 生产模式使用应用发布者自己的签名凭据。在 CI 中配置证书/Apple 凭据之前，请先阅读 [生产签名](production-signing.md)。
+
+`raco rivet new --with-updates` 还会生成 `app/update.rkt` 和
+`shared/update.rktd`：一个围绕托管 updater 的失败关闭检查/下载客户端，并把配置文件注册为
+应用资源。填入 feed URL、Ed25519 公钥和 key id 后它才能检查。它有意停在“已验证下载”；
+安装、重启、同意和回滚仍由原生宿主负责。
 
 完整产品发布还需要单独配置 Ed25519 更新签名密钥并执行 `raco rivet release`。它会继续生成安装包（MSI、DMG 或 Ed25519 签名的 Linux tarball）、签名 channel manifest、SBOM 和第三方许可声明。明确不提供在线更新通道的产品可使用 `raco rivet release --without-updates`；安装包签名与合规产物仍会生成。详见[发布与更新](release-and-updates.md)。
 

@@ -1,5 +1,7 @@
 # System services
 
+**English** · [简体中文](system-services.zh-CN.md)
+
 Commercial desktop features live in `rivet/system` and native platform adapters, not in RVT1. This boundary keeps the embedded transport small and makes UI-thread and lifecycle ownership explicit.
 
 ## Shared API
@@ -22,7 +24,7 @@ Linux reads asynchronously because Wayland transfers clipboard content from the 
 
 Every desktop adapter exposes first-party open, save, and folder-selection dialogs with filename-extension filters and optional open-file multi-selection. Cancellation is a normal empty result; actual platform or transfer failures remain distinguishable. Dialogs belong to the UI thread and may be parented to the native application window.
 
-The adapters return local filesystem paths only. Windows uses the Common Item Dialog (`IFileOpenDialog` / `IFileSaveDialog`), macOS uses asynchronous `NSOpenPanel` / `NSSavePanel`, and Linux uses `GtkFileChooserNative`, which delegates to the desktop portal when available. Linux reports a clear error if a provider returns a non-local resource instead of pretending its URI is a filesystem path.
+The adapters return local filesystem paths only. Windows uses the Common Item Dialog (`IFileOpenDialog` / `IFileSaveDialog`), macOS uses asynchronous `NSOpenPanel` / `NSSavePanel`, and Linux uses the GTK4 `GtkFileDialog` (GTK 4.10+), which delegates to the desktop portal when available. Linux reports a clear error if a provider returns a non-local resource instead of pretending its URI is a filesystem path.
 
 ## Windows
 
@@ -118,4 +120,4 @@ The Linux integration binary self-checks the adapter (`RivetIntegration --system
 
 `make-settings-store` returns an opaque handle that reads a JSON object and writes updates through an atomic replacement under a shared in-process semaphore and operating-system file lock. Operations refresh inside the transaction, so multiple handles and cooperating processes do not overwrite one another from stale caches. Snapshots and stored JSON trees are deeply immutable; callers cannot mutate cached state around synchronization. The persistent empty `.lock` sibling carries no transaction state. Use `settings-ref`, `settings-set!`, `settings-remove!`, and `settings-snapshot`. The application chooses the path, normally its platform Application Support/AppData directory (on Linux, a file under the XDG state or config directories). Secrets do not belong in settings; use secure storage.
 
-`rivet-log` emits structured records to `current-rivet-log-sink`. `call-with-crash-reporting` records an escaping Racket exception and invokes `current-rivet-crash-reporter` before re-raising it. Native fatal hooks are deliberately minimal: crash handlers must avoid allocations and network access, then let a helper submit the report on the next launch.
+`rivet-log` emits structured records to `current-rivet-log-sink`; `make-rotating-log-sink` is an optional bounded JSONL file sink with size rotation and private permissions, and `make-crash-file-reporter` turns uncaught Racket exceptions into the same bounded record. `call-with-crash-reporting` records an escaping Racket exception and invokes `current-rivet-crash-reporter` before re-raising it. Native fatal hooks are deliberately minimal: crash handlers must avoid allocations and network access, then let a helper submit the report on the next launch.

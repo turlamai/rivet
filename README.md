@@ -274,7 +274,7 @@ When `rivet-schema.json` exists at the project root, `raco rivet build` and ever
 ## CLI
 
 ```text
-raco rivet new <name>              Create a Rivet application
+raco rivet new <name> [--with-updates]  Create a Rivet application
 raco rivet doctor                  Inspect Racket and native toolchains
 raco rivet doctor --json           Emit machine-readable diagnostics
 raco rivet doctor --release        Run the release gate (freshness, schema, pins)
@@ -293,7 +293,9 @@ raco rivet schema check <file>     Reject breaking changes from a baseline
 raco rivet schema check <file> --json  Emit a machine-readable compatibility report
 raco rivet generate                Regenerate Swift, C++, and Kotlin clients
 raco rivet generate --check        Fail if generated clients differ from the tree
+raco rivet generate --check --json  Machine-readable freshness report
 raco rivet clean                   Remove generated .rivet/build/dist artifacts
+raco rivet support-bundle          Collect a redacted doctor/inspect/log ZIP
 raco rivet build                   Compile backend, generate clients, build native host
 raco rivet dev                     Build and run the current application
 raco rivet package                 Create and verify a development distributable
@@ -311,12 +313,15 @@ raco rivet verify-release-assets ...  Verify signed release asset parity
 raco rivet i18n                    Verify shared/i18n parity and regenerate tables
 raco rivet measure                 Report packaged artifact sizes and launch survival
 raco rivet measure size --budget <file>  Fail when artifacts exceed budgets
+raco rivet measure size --json      Machine-readable sizes and violations
+raco rivet measure startup --json   Machine-readable launch-survival result
 raco rivet apple-review ...        Inspect an actual Apple artifact
 raco rivet compliance              Generate SBOM/notices and run the license audit
 raco rivet verify                  Re-verify the current packaged artifact
 raco rivet verify --production     Verify production trust/notarization requirements
 raco rivet verify --skip-launch-smoke  Verify without starting the GUI artifact
 raco rivet help                    Show CLI help
+raco rivet --version               Print the installed Rivet release version (alias: version, -V)
 ```
 
 ## Project Structure
@@ -390,7 +395,7 @@ The maintained Taskboard also has platform-native [UI end-to-end gates](docs/nat
 - **Publisher credentials remain application-specific** — Rivet automates Authenticode and Developer ID/notarization flows, but certificates, PFX passwords, and Apple notary profiles are intentionally supplied by the application/CI environment rather than stored by Rivet.
 - **The public API is still pre-1.0** — protocol compatibility is versioned, but higher-level APIs may still evolve.
 
-Maintainers should follow the [API stability policy](docs/api-stability.md);
+Security reports follow [SECURITY.md](SECURITY.md). Maintainers should follow the [API stability policy](docs/api-stability.md);
 the repository snapshots every public export and tests the full Racket suite
 against the minimum supported Racket release.
 

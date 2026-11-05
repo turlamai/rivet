@@ -68,13 +68,6 @@
   (string-append prefix
                  (regexp-replace* #px"[^A-Za-z0-9_.]" value "_")))
 
-(define (relative-files root)
-  (sort
-   (for/list ([path (in-list (find-files file-exists? root))])
-     (find-relative-path root path))
-   string<?
-   #:key path->string))
-
 ;; ---------------------------------------------------------------------------
 ;; MSI license page
 

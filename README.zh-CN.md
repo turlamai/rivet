@@ -263,7 +263,7 @@ raco rivet schema check rivet-schema.json --json
 ## CLI
 
 ```text
-raco rivet new <name>              创建新的 Rivet 应用
+raco rivet new <name> [--with-updates]  创建新的 Rivet 应用
 raco rivet doctor                  检查 Racket 与 native 工具链
 raco rivet doctor --json           输出机器可读诊断
 raco rivet doctor --release        运行发布门禁（生成物新鲜度、schema、pin）
@@ -282,7 +282,9 @@ raco rivet schema check <file>     拒绝相对基线的破坏性变化
 raco rivet schema check <file> --json  输出机器可读的兼容性报告
 raco rivet generate                重新生成 Swift、C++ 与 Kotlin client
 raco rivet generate --check        生成物与源码树不一致时失败
+raco rivet generate --check --json 机器可读的新鲜度报告
 raco rivet clean                   删除 .rivet/build/dist 生成物
+raco rivet support-bundle          收集脱敏后的 doctor/inspect/日志 ZIP
 raco rivet build                   编译 backend、生成 client、构建 native host
 raco rivet dev                     构建并运行当前应用
 raco rivet package                 创建并验证开发发布物
@@ -300,12 +302,15 @@ raco rivet verify-release-assets ...  校验已签名发布资产的完整性
 raco rivet i18n                    校验 shared/i18n 对齐并重生成内嵌表
 raco rivet measure                 报告打包产物大小与启动存活
 raco rivet measure size --budget <file>  产物超出预算时失败
+raco rivet measure size --json     机器可读的大小与违规项
+raco rivet measure startup --json  机器可读的启动存活结果
 raco rivet apple-review ...        检查真实 Apple 产物
 raco rivet compliance              生成 SBOM/许可声明并执行 license audit
 raco rivet verify                  重新验证当前发布物
 raco rivet verify --production     验证生产签名/公证信任状态
 raco rivet verify --skip-launch-smoke  验证但不启动 GUI 产物
 raco rivet help                    显示帮助
+raco rivet --version               打印已安装的 Rivet 发布版本（别名 version、-V）
 ```
 
 ## 项目结构

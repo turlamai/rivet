@@ -38,6 +38,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Validate CI latency reporter
         run: python3 -m unittest discover -s .github/scripts -p 'test_ci_latency.py'
+      - name: Test source-release inventory validation
+        run: python3 -m unittest discover -s .github/scripts -p 'test_release_source_inventory.py'
       - name: Test release tag provenance validator
         shell: bash
         run: bash .github/scripts/test-release-tag.sh
@@ -369,6 +371,9 @@ jobs:
       - name: Install Rivet
         shell: pwsh
         run: raco pkg install --auto --no-docs --name rivet --link "$PWD"
+      - name: Verify signed portable update transaction
+        shell: pwsh
+        run: raco test rivet/tests/platform-artifact-binding.rkt rivet/tests/platform-update-adapter.rkt rivet/tests/platform-targz-update.rkt
       - name: Check toolchain and JSON diagnostics
         shell: pwsh
         run: |

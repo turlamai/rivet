@@ -4,7 +4,9 @@
 ;; updates. This module deliberately stays outside RVT1 and the embedded
 ;; runtime: an update is a distribution transaction, not an application RPC.
 
-(require file/unzip
+(require file/gunzip
+         file/untar
+         file/unzip
          racket/file
          racket/list
          racket/path
@@ -24,7 +26,7 @@
          execute-platform-installation!
          recover-platform-installation!)
 
-(struct platform-installation (plan health-check commit transaction-lock))
+(struct platform-installation (plan health-check commit transaction-lock preflight))
 
 (define (current-update-platform)
   (platform-symbol))
@@ -56,7 +58,7 @@
           [else 'unowned]))))
 
 (define (system-install-prefix? executable)
-  (define value (string-replace (path->string executable) "\\" "/"))
+  (define value (bytes->string/locale (path->bytes executable)))
   (or (string-prefix? value "/opt/")
       (string-prefix? value "/usr/")))
 
@@ -68,7 +70,19 @@
     [(not (eq? platform 'linux)) 'portable]
     [(and appimage (not (string=? (string-trim appimage) ""))) 'appimage]
     [else
-     (define normalized (simplify-path (path->complete-path executable) #f))
+     ;; Interpret Linux paths with Linux semantics even when the private
+     ;; policy probe runs on a Windows CI host. In particular, /opt must not
+     ;; acquire the host's drive letter before ownership/prefix checks.
+     (define linux-path
+       (bytes->path (if (path-for-some-system? executable)
+                        (path->bytes executable)
+                        (string->bytes/locale executable))
+                    'unix))
+     (define normalized
+       (simplify-path (if (complete-path? linux-path)
+                          linux-path
+                          (path->complete-path linux-path))
+                      #f))
      (case (ownership normalized)
        [(owned) 'package-manager]
        [(unowned) 'portable]
@@ -102,7 +116,7 @@
        [else 'unsupported])]
     [(linux)
      (case installer
-       [(zip appimage) 'portable]
+       [(zip targz appimage) 'portable]
        [(deb rpm) 'package-manager]
        [else 'unsupported])]
     [else 'unsupported]))
@@ -215,6 +229,27 @@
     (raise-argument-error who "complete-path?" path))
   (simplify-path path #f))
 
+;; Never unpack a mutable download path after an earlier verification. Copy
+;; at most the signed size plus one detection byte into an owner-created,
+;; same-filesystem snapshot, verify that exact snapshot, then consume it.
+(define (call-with-verified-artifact-snapshot candidate downloaded target consume)
+  (define snapshot
+    (make-temporary-file ".rivet-artifact-~a" #f (path-only target)))
+  (dynamic-wind
+    void
+    (lambda ()
+      (call-with-input-file downloaded
+        (lambda (in)
+          (call-with-output-file snapshot #:exists 'truncate/replace
+            (lambda (out)
+              (copy-port
+               (make-limited-input-port
+                in (add1 (update-artifact-size (update-candidate-artifact candidate))) #f)
+               out)))))
+      (verify-update-artifact! candidate snapshot)
+      (consume snapshot))
+    (lambda () (when (file-exists? snapshot) (delete-file snapshot)))))
+
 (define (stage-zip! downloaded staging-root)
   (make-directory staging-root)
   (unzip downloaded
@@ -238,6 +273,47 @@
   (copy-file downloaded staged)
   (file-or-directory-permissions staged #o755)
   staged)
+
+;; Linux products ship tar.gz portable payloads as well as ZIP/AppImage.
+;; Decompress synchronously so gzip failures propagate to the transaction;
+;; extraction uses Racket's non-permissive path and link checks, never a shell.
+;; Keep the temporary tar outside the extracted entries, on the target volume.
+(define (stage-targz! downloaded staging-root)
+  (make-directory staging-root)
+  (define tar-path (build-path staging-root "archive.tar"))
+  (define contents (build-path staging-root "contents"))
+  (with-handlers ([exn?
+                   (lambda (error)
+                     (with-handlers ([exn:fail? void])
+                       (delete-directory/files staging-root))
+                     (raise error))])
+    (make-directory contents)
+    (dynamic-wind
+      void
+      (lambda ()
+        (call-with-input-file downloaded
+          (lambda (in)
+            (call-with-output-file tar-path
+              #:exists 'error
+              (lambda (out) (gunzip-through-ports in out)))))
+        (untar tar-path #:dest contents #:permissive? #f
+               #:filter
+               (lambda (_entry _destination type _size _link _time _mode)
+                 (unless (memq type '(file dir link extended-header
+                                          extended-header-for-next
+                                          gnu-long-name gnu-long-link))
+                   (raise-arguments-error 'prepare-platform-installation
+                                          "unsupported portable tar entry"
+                                          "type" type))
+                 #t))
+        (define entries (directory-list contents #:build? #t))
+        (unless (and (= (length entries) 1)
+                     (directory-exists? (car entries))
+                     (not (link-exists? (car entries))))
+          (raise-arguments-error 'prepare-platform-installation
+                                 "portable tar archive must contain exactly one payload directory"))
+        (car entries))
+      (lambda () (when (file-exists? tar-path) (delete-file tar-path))))))
 
 (define (prepare-platform-installation
          candidate downloaded-path
@@ -301,6 +377,13 @@
     (or verify-staged
         (lambda (payload) (verify-platform-payload! platform payload))))
 
+  (define (preflight)
+    (when (or (path-present? backup) (path-present? no-previous-marker))
+      (raise-arguments-error
+       'platform-update-install
+       "an unfinished installation must be recovered before starting another"
+       "backup" backup)))
+
   (define (install downloaded-input)
     (unless (equal? (normalize-target 'platform-update-install downloaded-input)
                     downloaded)
@@ -312,17 +395,17 @@
       (raise-arguments-error 'platform-update-install
                              "verified update artifact does not exist"
                              "artifact" downloaded))
-    (when (or (path-present? backup) (path-present? no-previous-marker))
-      (raise-arguments-error
-       'platform-update-install
-       "an unfinished installation must be recovered before starting another"
-       "backup" backup))
+    (preflight)
     (when (path-present? staging-root) (remove-path! staging-root))
     (make-parent-directory* target)
     (define staged-payload
-      (case installer
-        [(zip) (stage-zip! downloaded staging-root)]
-        [(appimage) (stage-appimage! downloaded staging-root)]))
+      (call-with-verified-artifact-snapshot
+       candidate downloaded target
+       (lambda (snapshot)
+         (case installer
+           [(zip) (stage-zip! snapshot staging-root)]
+           [(targz) (stage-targz! snapshot staging-root)]
+           [(appimage) (stage-appimage! snapshot staging-root)]))))
     (verifier staged-payload)
     (if (path-present? target)
         (rename-file-or-directory target backup)
@@ -360,7 +443,8 @@
                       #:rollback rollback)
    health-check
    commit
-   (sibling-path target ".rivet-update.lock")))
+   (sibling-path target ".rivet-update.lock")
+   preflight))
 
 (define (execute-platform-installation! installation
                                         #:journal-path [journal-path #f])
@@ -371,6 +455,14 @@
    'execute-platform-installation!
    installation
    (lambda ()
+     ;; Refuse an existing transaction before the new plan can write its
+     ;; journal or invoke rollback against somebody else's preserved backup.
+     ((platform-installation-preflight installation))
+     (when (and journal-path (path-present? journal-path))
+       (raise-arguments-error
+        'execute-platform-installation!
+        "an unfinished installation journal must be recovered before starting another"
+        "journal" journal-path))
      (execute-install-plan!
       (platform-installation-plan installation)
       #:health-check (platform-installation-health-check installation)
@@ -392,4 +484,5 @@
 
 (module+ test-support
   (provide detect-install-kind
+           stage-targz!
            call-with-platform-installation-lock))
