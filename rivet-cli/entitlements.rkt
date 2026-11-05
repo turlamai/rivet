@@ -181,8 +181,6 @@
                            "effective" effective))
   app)
 
-(define (->symbol v) (if (symbol? v) v (string->symbol (format "~a" v))))
-
 (define (name v) (if (symbol? v) (symbol->string v) (format "~a" v)))
 
 (define (arch-name arch)

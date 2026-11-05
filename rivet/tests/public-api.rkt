@@ -32,6 +32,13 @@
       define-record define-rpc define-state emit-event! enum-case enum-schema
       event-schema record-ref record-schema rpc-schema serve serve-fds
       state-ref state-schema state-set! state?))
+    (rivet/chart
+     (chart-batch-decode chart-batch-encode chart-batch-first-index
+      chart-batch-magic chart-batch-sample-count chart-series-append!
+      chart-series-appended chart-series-capacity chart-series-count
+      chart-series-drain-batch! chart-series-dropped chart-series-id
+      chart-series-latest chart-series-reset! chart-series-window
+      chart-series? make-chart-series))
     (rivet/keel
      (backend-schema->app-schema current-backend-app-schema))
     (rivet/protocol
@@ -45,7 +52,8 @@
     (rivet/system
      (acquire-single-instance! autostart-enabled? call-with-crash-reporting
       current-rivet-crash-reporter current-rivet-log-sink
-      current-system-adapter install-crash-hook! make-settings-store
+      current-system-adapter install-crash-hook! make-crash-file-reporter
+      make-rotating-log-sink make-settings-store
       register-activation-handler! rivet-log secure-store-ref
       secure-store-remove! secure-store-set! set-autostart!
       set-tray-menu! settings-ref settings-remove! settings-set!
@@ -69,7 +77,8 @@
       make-updater-runtime mark-silent-checked!
       install-plan-backup-path install-plan-candidate
       install-plan-downloaded-path install-plan-install install-plan-restart
-      install-plan-rollback install-plan? installer-extension make-install-plan
+      feed-installer-symbol? install-plan-rollback install-plan?
+      installer-extension installer-symbol? make-install-plan
       manifest->payload-bytes manifest-schema-version payload-bytes->manifest
       make-updater platform-installation? platform-installer-policy
       platform-symbol prepare-platform-installation read-ed25519-private-key
@@ -112,7 +121,8 @@
       verify-update-artifact! version-compare version<=? version<? version=?
       version>=? version>? version? write-signed-manifest))
     (rivet/distribution/identity
-     (architecture-symbol installer-extension platform-symbol rfc3339-now))
+     (architecture-symbol feed-installer-symbol? installer-extension
+      installer-symbol? platform-symbol rfc3339-now))
     (rivet/testing
      (ephemeral-http-listener fake-request fake-request-body
       fake-request-headers fake-request-method fake-request-path fake-request?

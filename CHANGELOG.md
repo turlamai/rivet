@@ -2,6 +2,208 @@
 
 ## Unreleased
 
+- macOS embedding now derives the backend working directory from a canonical
+  `<root>/res/core.zo` layout when a manually constructed configuration
+  leaves `workingDirectory` unset. This makes `raco ctool` runtime-path
+  slots resolve against the bundle resources instead of the GUI process's
+  current directory (#414). An explicit `workingDirectory` still wins, and a
+  nonstandard core location keeps the caller's process directory. Packaged
+  app verification on a real macOS install is still required before closing
+  the issue.
+
+- Align the backend/protocol reference with the implementation: note
+  `rivet/backend` from the aggregate module, document `rivet/testing`, state
+  that `message:hello` is backend-to-native, describe `emit-event!`'s
+  unique-server fallback, document `serve-fds` port closing, and specify the
+  closed `rivet-schema.json` format. `serve-fds` now reports a backend
+  failure to its diagnostic sink instead of discarding it silently; the
+  embedded host still owns supervision. Protocol shutdown wording now
+  matches the implemented leniency for type-7 frames.
+
+- Add `examples/taskboard/rivet-acceptance.rktd`: the maintained reference
+  now carries an executable definition of done (backend contract, schema
+  gate, native build on all desktop platforms). A new test runs
+  `raco rivet acceptance --dry-run` against the example, so the manifest and
+  its command resolution cannot rot silently. Packaged native-UI evidence
+  remains with the framework workflow and #347, as the README states.
+
+- Add `raco rivet new --with-updates`: generates `app/update.rkt` (managed
+  check/download around `make-updater`, persistent rollout bucket, shared
+  settings file) and `shared/update.rktd`, registered as an application
+  resource. It fails closed until the feed URL, Ed25519 public key and key id
+  are filled in, and deliberately stops at a verified download; native
+  installation/restart/consent remain product work. Covered by
+  `rivet/tests/scaffold-updates.rkt`, with both languages documented.
+
+- Add `--json` to `raco rivet measure size|startup` and to
+  `raco rivet generate --check`, so CI branches on one structured object
+  instead of scraping human lines. The size report includes structured
+  violations and keeps the budget exit status. Fix a real measure bug found
+  while testing it: `run-measure` used a relative `dynamic-require` for
+  `project.rkt`, which resolves against the user's project directory and
+  broke `raco rivet measure` exactly where it is meant to run.
+
+- Document the `rivet.rktd` validation rules (identifier, resources,
+  device-rpcs, localizations, Linux naming and icon/installer extensions) in
+  both configuration guides, the 0/1/2 exit-status vocabulary in both
+  diagnostics guides, and the `make-chart-series` 2^24 capacity bound in the
+  manual. Withdraw the audit claim that the chart decoder can return a
+  negative first index: it reads that field as unsigned.
+
+- Add `make-crash-file-reporter` to `rivet/system`: a bounded JSONL reporter
+  for uncaught Racket exceptions, reusing the rotating log sink and adding
+  the exception message. It is the documented one-line default for
+  `current-rivet-crash-reporter`; native fatal signals and restart policy
+  remain the platform adapter's responsibility. Documented in both
+  diagnostics guides and both system-services guides.
+
+- Generated projects now start with a real test: `tests/smoke.rkt` checks the
+  starter `greeting` helper, and `rivet-acceptance.rktd` declares a
+  `starter-smoke` unit suite that runs `raco test tests/`. Before this,
+  `raco rivet acceptance` could be green without executing any behavior.
+  `rivet/tests/scaffold-ci.rkt` asserts the file, the suite and that the test
+  passes; getting-started now lists the generated contract files.
+
+- Add the Chinese product-acceptance guide covering the manifest, suite and
+  evidence rules, the in-process RVT1 backend recipe, capability classes,
+  the cross-platform matrix and verify-remote. Add
+  `rivet/tests/translation-coverage.rkt`, which requires every public journey
+  to have a non-trivial Chinese counterpart with reciprocal links; it also
+  caught and fixed the missing language headers on the CI and API-stability
+  pairs.
+
+- Slim the release tooling instead of adding another copy: one installer
+  vocabulary in `rivet/distribution/identity.rkt` (feed vs all release
+  assets) and one sidecar implementation in `rivet-cli/artifact-file.rkt`.
+  `sign-manifest`, `release`, `appimage` and `verify-release-assets` now
+  share them, which also fixes `sign-manifest --sidecars` producing
+  `app_zip.sha256` instead of `app.zip.sha256`. Delete four unreferenced
+  definitions (`->symbol`, `relative-files`, `lookup-record-info`,
+  `lookup-enum-info`) and the stale cross-product adoption snapshot that
+  duplicated the central portfolio and product repositories.
+
+- Add the Chinese native-UI testing guide: the behavioral contract, native
+  accessibility identifiers, packaged-macOS launch/reap rules, the startup-
+  wedge sample, keyboard/IME/focus realities and snapshot hygiene. Commands,
+  limits and evidence rules are unchanged.
+
+- Add `raco rivet support-bundle`: one command that collects the doctor and
+  project-inspect reports, the Rivet release, and explicitly named logs into
+  a ZIP with a manifest. It recursively redacts the home directory and user
+  name, caps each log at 2 MiB (8 MiB total) with truncation recorded, refuses
+  to follow symlinked or directory log arguments, and supports `--json` for
+  automation. Documented in both diagnostics guides and both troubleshooting
+  guides; covered by `rivet/tests/support-bundle.rkt`.
+
+- Document the implemented `#:trusted-keys` keyword on `make-updater` and
+  `fetch-update-manifest`, `#:diagnostic-sink` on `serve`/`serve-fds`, and
+  `#:install-kind` on `select-update`. Add `rivet/tests/manual-keywords.rkt`,
+  which parses each Scribble signature and compares its keywords with the
+  live procedure's accepted keywords in both directions.
+
+- Add `make-rotating-log-sink` to `rivet/system`: an optional bounded JSONL
+  file sink with size-based rotation, a configurable archive count, private
+  `#o600` permissions on Unix, per-sink serialized appends, and a non-fatal
+  error hook. GUI applications no longer need to hand-write log rotation or
+  send users to a terminal; covered by `rivet/tests/logging.rkt` and listed
+  in the public-API snapshot, diagnostics guide (both languages) and system
+  services guide.
+
+- Add the Chinese chart-series guide covering the ring buffer, RVC1 batch format,
+  throughput envelope, host widgets, integration checklist and ticker
+  ownership. Correct the English multi-server error quote to the exact
+  message the backend raises.
+
+- Add Chinese counterparts for the system-services and large-payload guides.
+  The system-services translation also corrects the Linux file-dialog claim:
+  the adapter uses the GTK4 `GtkFileDialog` (GTK 4.10+), not
+  `GtkFileChooserNative`. The large-payload translation keeps the pagination,
+  tree-windowing, typed progress and deliberate-cancellation-gap conventions
+  unchanged.
+
+- Add a complete Simplified Chinese counterpart for the package-verification
+  guide: clean packaging, the five-second launch smoke, per-platform layout
+  and dependency checks, production trust checks, and the Linux tarball
+  re-derivation. The readiness translation table now marks the ship journey
+  complete.
+
+- Add a complete Simplified Chinese counterpart for the release-and-updates
+  guide: release modes, platform matrices, asset-parity gate, the update trust
+  chain, key rotation, the managed API, both native host handoffs, and the
+  fail-closed rules. Commands, flags, limits and security semantics are
+  unchanged; the readiness translation table now marks the journey complete.
+
+- Add complete Simplified Chinese counterparts for the diagnostics, runtime
+  limits and production-signing guides, with reciprocal language links and
+  documentation-map entries. Commands, API names, limits, environment
+  variables and fail-closed behavior are unchanged from the normative English
+  text; the readiness page records the remaining English-only journeys.
+
+- Add an English/Chinese troubleshooting guide covering the first-run
+  diagnostics path, stale bytecode, missing native and embeddable-runtime
+  toolchains, packaged-versus-staged paths, signing and AppImage icon
+  failures, update feed/handoff recovery, acceptance failures and safe
+  cleanup. Link it from the documentation map.
+
+- Move the CLI help and version text into `rivet-cli/usage.rkt`, so tests can
+  read the public help contract without executing the entry point. Add the
+  implemented `entitlements --plist/--dev-overlay/--check-overlay`,
+  `acceptance --suite/--manifest`, `measure startup/--artifact/--seconds` and
+  `verify-remote` flags to `raco rivet help`, and add
+  `rivet/tests/cli-help.rkt`: every command must appear in help and in both
+  READMEs, and every listed automation flag must exist.
+
+- `doctor --json` now reports `rivet-version` (the same release identity as
+  `raco rivet --version`), and the human output prints it. The diagnostics
+  reference also documents `project-readiness`, the warning object shape and
+  the stable warning codes `missing-schema-baseline` and
+  `invalid-winui-window-icon-path`.
+
+- `raco rivet new` now generates `.github/workflows/native.yml`: a pinned
+  Windows/macOS/Linux contract that runs `doctor`, the schema gate and
+  `acceptance --json`, installs GTK4 and the embeddable Racket CS runtime on
+  Linux, and archives every report. The generated README lists the CI pin and
+  the `linux-icon` prerequisite for AppImage releases, and getting-started
+  explains both. Covered by `rivet/tests/scaffold-ci.rkt`.
+
+- Add `docs/readiness.md`, a living commercial-readiness contract for the
+  desktop framework. It records the verified 2026-11-04 gaps instead of
+  implying parity: activation delivery, single-instance wiring, menus,
+  window-state restore, notification actions, crash capture, printing,
+  drag-and-drop, fonts, support bundles, generated CI/updater wiring and
+  the remaining Chinese journeys, with evidence and an ordered slice list.
+
+- Document `linux-desktop-id` and `linux-binary-name` in the project
+  configuration guide and its Chinese counterpart, including defaults and
+  validation, and correct the stale "Rivet 0.2 supports protocol 1" wording.
+
+- Protect `rivet/chart` with the public-API snapshot and the API-stability
+  policy, and state that Rivet supports Racket CS 9.0+ with an explicit
+  deprecation/replacement window after 1.0.
+
+- Document the `version` and `-V` aliases of `raco rivet --version` in both
+  README languages and in the CLI help.
+
+- Add a complete Simplified Chinese counterpart for the project configuration
+  guide, including every accepted `rivet.rktd` key, resource-layout rule,
+  data-directory convention, i18n contract and deployment target. The docs
+  map now links it and no longer lists configuration as an untranslated
+  public journey.
+
+- Add `raco rivet --version` (also `version`, `-V`), so scripts, bug reports
+  and `doctor` output can identify the installed release as one stable line
+  instead of consulting the package database.
+
+- Publish the repository's contribution surface: issue forms for bugs and
+  capabilities, a pull-request evidence checklist, a code of conduct, and
+  weekly Dependabot updates for GitHub Actions. `SECURITY.md` now records
+  supported versions, the private reporting route, response expectations,
+  the trust boundary, and the no-telemetry posture.
+
+- The documentation map now states its language status explicitly: which
+  public journeys have complete Chinese counterparts and which pages are
+  English-only, instead of implying whole-repository parity.
+
 - Portable ZIP update staging now rejects a signed archive with a lone
   regular-file or symlink root rather than replacing an installed application
   directory with a non-app file. A complete ZIP SHA-256 is deliberately

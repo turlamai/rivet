@@ -1,5 +1,7 @@
 # Runtime limits
 
+**English** · [简体中文](runtime-limits.zh-CN.md)
+
 Rivet runs trusted application code in-process, but the runtime still applies bounded protocol and request limits so an application bug cannot grow work queues without bound.
 
 ## Pending requests

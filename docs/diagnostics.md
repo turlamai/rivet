@@ -1,6 +1,23 @@
 # Diagnostics and cleanup
 
+**English** · [简体中文](diagnostics.zh-CN.md)
+
 Rivet's CLI exposes both human-readable and machine-readable toolchain diagnostics. The goal is to make native build failures inspectable without guessing which Racket runtime or platform tool was selected.
+
+## Exit status
+
+Rivet uses a small, stable exit-code vocabulary:
+
+| Code | Meaning |
+| --- | --- |
+| `0` | The command completed successfully. |
+| `1` | The command failed: usage error, invalid project, missing toolchain, failed build/package/verify, failed acceptance suite, failed matrix, or an incompatible schema baseline. |
+| `2` | `raco rivet apple-review` only: required platform evidence is missing (as opposed to an observed blocker, which exits 1). |
+
+`doctor` exits 0 when the toolchain is usable and 1 otherwise. `acceptance`
+exits nonzero if any required suite fails, times out, or misses evidence.
+Unknown commands print usage and exit 1. A command's own report is the
+authoritative detail; the code is for branching, not for guessing the failure.
 
 ## `raco rivet doctor`
 
@@ -42,6 +59,8 @@ The command writes a single JSON object to standard output and uses the same suc
 
 - `os`
 - `architecture`
+- `rivet-version` — the installed Rivet release (`null` for an unversioned
+  source checkout; `raco rivet --version` prints the same identity)
 - `supported`
 - `usable`
 - `racket-executable`
@@ -49,9 +68,13 @@ The command writes a single JSON object to standard output and uses the same suc
 - `racket-version`
 - `runtime`
 - `runtime-error`
+- `project-readiness` — `root` and `schema-baseline-configured` when run inside a
+  project
+- `warnings` — stable `code`, `severity`, `message` and `remediation` entries;
+  known codes are `missing-schema-baseline` and `invalid-winui-window-icon-path`
 - `tools`
 
-`runtime` contains the exact runtime artifact paths described above. `tools` contains platform-specific executable paths. Optional production tools such as Windows `signtool` or macOS notarization tools may be absent while normal development packaging remains usable.
+`runtime` contains the exact runtime artifact paths described above. `tools` contains platform-specific executable paths. A warning code is part of the automation contract: consumers may key on it, so do not rename one without a changelog entry and a compatibility note. Optional production tools such as Windows `signtool` or macOS notarization tools may be absent while normal development packaging remains usable.
 
 JSON mode is intentionally data-only: it does not mix the human-readable banner or remediation prose into standard output. Automation should inspect `usable`, `runtime-error`, and `tools` and decide how to present or provision missing dependencies for its own environment.
 
@@ -80,6 +103,69 @@ raco rivet build
 ```
 
 For automated diagnostics, substitute `raco rivet doctor --json` and archive the resulting JSON with the failing build logs.
+
+## Application log sink
+
+`rivet-log` sends structured records to `current-rivet-log-sink`; the default
+writes JSONL to standard error. A GUI process usually has no terminal and, on
+Windows, the first stderr write can allocate a console window, so a commercial
+application should install a file sink:
+
+```racket
+(require rivet/system)
+
+(current-rivet-log-sink
+ (make-rotating-log-sink (build-path data-directory "logs" "app.log")
+                         #:max-bytes (* 5 1024 1024)
+                         #:max-files 3))
+```
+
+The sink appends one JSON object per line, rotates before a record would exceed
+`#:max-bytes`, keeps at most `#:max-files` archives (`.1` is newest), creates
+the parent directory, and sets the active file to `#:permissions` (`#o600` by
+default) on Unix. Appends are serialized on a per-sink semaphore, so callbacks
+from multiple Racket threads cannot interleave a record. I/O errors go to the
+optional `#:on-error` procedure instead of killing the application; the default
+ignores them, which is appropriate for logging but means a full disk is silent
+unless you supply a reporter. Settings are not a log: keep secrets out of log
+fields, since the sink does not redact application data.
+
+Uncaught Racket exceptions are reported through `current-rivet-crash-reporter`;
+the default is a no-op. A bounded crash file is one line away:
+
+```racket
+(current-rivet-crash-reporter
+ (make-crash-file-reporter (build-path data-directory "logs" "crash.log")))
+```
+
+`make-crash-file-reporter` reuses the rotating sink and adds the exception
+message to the record. It covers exceptions that reach
+`call-with-crash-reporting`; native fatal signals remain the platform
+adapter's crash/shutdown hook, which must stay allocation- and
+network-free.
+
+## `raco rivet support-bundle`
+
+A bug report should not require a user to assemble paths by hand, and it must
+not hand over their home directory. One command collects the facts Rivet
+already knows plus explicitly named logs:
+
+```text
+raco rivet support-bundle --output rivet-support.zip --log ~/Library/Logs/app.log --json
+```
+
+The ZIP contains `doctor.json`, `inspect.json` when run inside a project,
+`manifest.json`, and each `--log` file under `logs/`. Every string is
+recursively redacted: the local home directory becomes `~` and the user name
+becomes `<user>`. The command caps each log at 2 MiB and the total log payload
+at 8 MiB; a truncated entry is marked in the manifest. Symbolic-link and
+directory log arguments are reported as notes instead of being followed.
+
+`--json` prints the same summary as the manifest (path, entries, redactions,
+notes) for automation. Review the ZIP before sharing it: the bundle reduces
+local identity, but it is not a guarantee that application log content is
+free of sensitive data. Rivet never copies `rivet.rktd`, source files, or
+arbitrary project files into the bundle.
 
 ## Embedded runtime diagnostics
 

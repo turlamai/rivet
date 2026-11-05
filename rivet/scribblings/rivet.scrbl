@@ -91,6 +91,10 @@ packaged dependency-closure, and clean-machine checks.
 
 @defmodule[rivet]
 
+The backend declaration and serving surface is also available without the
+aggregate module as @racketmodname[rivet/backend]; require whichever is
+smaller for the application.
+
 @subsection{RPCs, Events, State, Records, and Enums}
 
 State descriptors and the registry records behind RPCs, Events, Records, and
@@ -141,8 +145,10 @@ state through generated APIs, and successful changes emit Rivet's reserved
 state event. State values cannot have type @racket[Void].}
 
 @defproc[(emit-event! [name (or/c symbol? string?)] [value any/c]) void?]{
-Emits an already registered event value on the active server connection. The
-procedure reports an error when no server is active on the current thread.}
+Emits an already registered event value on the active server connection. Inside
+a request it prefers that request's server. On an independent worker thread it
+uses the unique active server, and errors only when no server is active or when
+more than one is active and the destination would be ambiguous.}
 
 @defproc[(state? [value any/c]) boolean?]{Reports whether @racket[value] is an
 opaque State descriptor produced by @racket[define-state].}
@@ -196,7 +202,8 @@ Projects the declarations currently registered in the backend.
 @defproc[(serve [in input-port?]
                 [out output-port?]
                 [#:max-pending-requests max-pending-requests exact-positive-integer? 1024]
-                [#:max-outgoing-frames max-outgoing-frames exact-positive-integer? 64])
+                [#:max-outgoing-frames max-outgoing-frames exact-positive-integer? 64]
+                [#:diagnostic-sink diagnostic-sink procedure? void])
          void?]{
 Runs the RVT1 backend over binary ports. Requests execute concurrently within
 the configured bound, while outgoing responses and events use bounded
@@ -205,9 +212,14 @@ backpressure.}
 @defproc[(serve-fds [input-fd exact-integer?]
                     [output-fd exact-integer?]
                     [#:max-pending-requests max-pending-requests exact-positive-integer? 1024]
-                    [#:max-outgoing-frames max-outgoing-frames exact-positive-integer? 64])
+                    [#:max-outgoing-frames max-outgoing-frames exact-positive-integer? 64]
+                    [#:diagnostic-sink diagnostic-sink procedure?
+                                       (current-rivet-diagnostic-sink)])
          void?]{
-Adapts native file descriptors to binary ports and calls @racket[serve].}
+Adapts native file descriptors to binary ports, calls @racket[serve], and
+closes both adapted ports on exit. A backend failure is reported to
+@racket[diagnostic-sink] and does not escape: the embedded host owns
+supervision and process teardown.}
 
 @defparam[current-rivet-diagnostic-sink sink procedure?]{
 Receives each structured diagnostic record emitted by the backend. The
@@ -288,7 +300,8 @@ The maximum number of value nodes, including the root, decoded or encoded
 per payload.}
 
 @defthing[message:hello exact-positive-integer? #:value 1]{
-The host greeting message type.}
+The backend greeting message type, sent by the backend before it reads any
+request. The native host must observe it before sending a request.}
 @defthing[message:request exact-positive-integer? #:value 2]{
 A client request; the identifier correlates it with a response.}
 @defthing[message:response exact-positive-integer? #:value 3]{
@@ -303,6 +316,17 @@ Cancels a pending request by identifier.}
 Requests orderly backend shutdown.}
 
 @subsection{Application Resources}
+
+@defmodule[rivet/testing]
+
+Test-only helpers for exercising code that performs HTTP:
+@racket[ephemeral-http-listener] starts a bounded loopback listener,
+@racket[serve-http!] accepts one request, and
+@racket[fake-request], @racket[fake-request?], @racket[fake-request-body],
+@racket[fake-request-headers], @racket[fake-request-method] and
+@racket[fake-request-path] construct and inspect a deterministic request.
+They are stable enough for product tests but are not a production HTTP
+server.
 
 @defmodule[rivet/resources]
 
@@ -345,12 +369,12 @@ in RivetUI; the three implementations are pinned by shared golden bytes in
 their test suites. @secref["top"] links the full convention guide.
 
 @defproc[(make-chart-series [id string?]
-                            [#:capacity capacity exact-positive-integer? 16384])
+                            [#:capacity capacity (integer-in 1 16777216) 16384])
          chart-series?]{
-Creates a series ring buffer. Capacity is the retained sample count; when
-the ring overflows, the oldest samples are evicted and the drop is reported
-through @racket[chart-series-dropped] and through the next batch's absolute
-first index.}
+Creates a series ring buffer. Capacity is the retained sample count, from 1
+through 2^24 (16,777,216); when the ring overflows, the oldest samples are
+evicted and the drop is reported through @racket[chart-series-dropped] and
+through the next batch's absolute first index.}
 
 @defproc[(chart-series? [value any/c]) boolean?]{
 Predicate for chart series values.}
@@ -537,6 +561,28 @@ Sends a structured record to @racket[current-rivet-log-sink] and returns it.}
                                     [#:context context hash? (hasheq)]) any/c]{
 Reports an uncaught Racket exception through
 @racket[current-rivet-crash-reporter], then re-raises it.}
+
+@defproc[(make-crash-file-reporter [path path-string?]
+                                    [#:max-bytes max-bytes exact-positive-integer? (* 1024 1024)]
+                                    [#:max-files max-files exact-positive-integer? 3])
+         (-> hash? any/c void?)]{
+Returns a value for @racket[current-rivet-crash-reporter] that writes the
+structured crash record plus the exception message to a bounded JSONL file.
+Native fatal signals remain the platform adapter's responsibility.}
+
+@defproc[(make-rotating-log-sink [path path-string?]
+                                 [#:max-bytes max-bytes exact-positive-integer? (* 5 1024 1024)]
+                                 [#:max-files max-files exact-positive-integer? 3]
+                                 [#:permissions permissions exact-positive-integer? #o600]
+                                 [#:on-error on-error procedure? void])
+         (-> hash? void?)]{
+Returns a file sink for @racket[current-rivet-log-sink]. Each record is one
+JSON object per line; before a record would exceed @racket[max-bytes] the
+active file rotates, and at most @racket[max-files] archives are retained
+(@filepath{.1} is newest). Appends are serialized per sink, the parent
+directory is created, and Unix permissions are set on the active file.
+I/O failures go to @racket[on-error] instead of escaping the logger. The sink
+does not redact application fields; keep secrets out of log records.}
 
 @section{Distribution and Secure Updates}
 
@@ -725,6 +771,16 @@ Returns the canonical filename extension for @racket['zip], @racket['targz],
 @racket['msi], @racket['msix], @racket['exe], @racket['dmg], @racket['pkg],
 @racket['deb], @racket['rpm], or @racket['appimage].}
 
+@defproc[(installer-symbol? [value any/c]) boolean?]{
+Returns true when @racket[value] is any release-asset installer kind accepted by
+@racket[installer-extension].}
+
+@defproc[(feed-installer-symbol? [value any/c]) boolean?]{
+Returns true when @racket[value] is a kind a signed update feed may carry:
+@racket['zip], @racket['targz], @racket['msi], @racket['deb], @racket['rpm],
+or @racket['appimage]. It returns false for formats Rivet does not self-update,
+such as @racket['msix] and @racket['dmg].}
+
 @defproc[(rfc3339-now [seconds real? (current-seconds)]) string?]{
 Formats @racket[seconds] in UTC at second precision, using the RFC 3339 form
 stored in a manifest's @racket[published-at] field.}
@@ -814,6 +870,7 @@ rollout bucket, and maximum download size.
 @defproc[(fetch-update-manifest [manifest-url string?]
                                 [public-key any/c]
                                 [#:key-id key-id (or/c #f string?) #f]
+                                [#:trusted-keys trusted-keys (or/c #f (listof (cons/c string? bytes?))) #f]
                                 [#:maximum-bytes maximum-bytes exact-positive-integer? (* 1024 1024)]
                                 [#:connect-timeout-seconds connect-timeout-seconds (real-in 0.001 3600) 30]
                                 [#:idle-timeout-seconds idle-timeout-seconds (real-in 0.001 3600) 60])
@@ -903,6 +960,7 @@ Returns the architecture symbol used by Rivet release manifests.}
            (or/c #f 'portable 'targz 'msi 'appimage 'package-manager) #f]
           [#:public-key public-key any/c]
           [#:key-id key-id string?]
+          [#:trusted-keys trusted-keys (listof (cons/c string? bytes?)) '()]
           [#:manifest-url manifest-url string?]
           [#:data-directory data-directory path-string?]
           [#:rollout-bucket rollout-bucket (integer-in 0 99)]

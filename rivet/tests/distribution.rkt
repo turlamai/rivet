@@ -39,6 +39,10 @@
            (lambda () (architecture-symbol 'riscv64)))
 (check-equal? (installer-extension 'zip) ".zip")
 (check-equal? (installer-extension 'targz) ".tar.gz")
+(check-true (installer-symbol? 'msix))
+(check-false (installer-symbol? 'tgz))
+(check-true (feed-installer-symbol? 'targz))
+(check-false (feed-installer-symbol? 'msix))
 (check-equal? (installer-extension 'appimage) ".AppImage")
 (check-exn #rx"unsupported installer kind"
            (lambda () (installer-extension 'unknown)))

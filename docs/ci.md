@@ -1,5 +1,7 @@
 # Continuous integration
 
+**English** · [简体中文](ci.zh-CN.md)
+
 Every first-party native host must compile in pull-request CI. A Racket-only
 test job, schema check, or package dry run does not prove that WinUI, SwiftUI,
 or GTK source still compiles. Waiting for a tagged release to perform the first
@@ -29,6 +31,10 @@ nonzero exits, and missing evidence. Archive the JSON report on failure. See
 [product acceptance evidence](product-acceptance.md).
 
 ## Copy-paste GitHub Actions workflow
+
+`raco rivet new` writes this contract to `.github/workflows/native.yml` with the
+installed Rivet release pinned; the block below is for existing projects and
+for reviewing what the generated file runs.
 
 The following workflow pins one concrete Rivet release: keep every
 `#v…` package source and the Linux setup action on the same tag (or full

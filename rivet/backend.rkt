@@ -139,14 +139,6 @@
 (define primitive-types '(String Int64 Bool Bytes Void Any))
 (define reserved-type-names (append primitive-types '(List Optional)))
 
-(define (lookup-record-info type [failure #f])
-  (and (symbol? type)
-       (hash-ref record-registry type failure)))
-
-(define (lookup-enum-info type [failure #f])
-  (and (symbol? type)
-       (hash-ref enum-registry type failure)))
-
 (define (supported-type? type)
   (or (memq type primitive-types)
       (and (symbol? type) (hash-has-key? record-registry type))
@@ -1283,7 +1275,17 @@
     void
     (lambda ()
       (with-handlers ([exn?
-                       (lambda (_e) (void))])
+                       (lambda (error)
+                         ;; The embedded host owns supervision; make the failure
+                         ;; visible through the diagnostic sink instead of
+                         ;; swallowing it silently.
+                         (diagnostic-sink
+                          (hasheq 'schema diagnostic-schema
+                                  'layer "racket-backend"
+                                  'event "serve-fds-exit"
+                                  'status "failure"
+                                  'last_protocol_event "none"
+                                  'message (safe-diagnostic-message error))))])
         (serve in
                out
                #:max-pending-requests max-pending-requests

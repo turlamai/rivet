@@ -1,5 +1,7 @@
 # Production signing
 
+**English** · [简体中文](production-signing.zh-CN.md)
+
 Rivet keeps development packaging and production trust credentials deliberately separate.
 
 - `raco rivet package` creates the normal self-contained development distributable. macOS uses ad-hoc signing so the bundle can be validated locally.

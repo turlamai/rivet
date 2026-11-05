@@ -39,6 +39,11 @@ The generated project contains:
 hello-rivet/
 ├── rivet.rktd              # app identity, backend entry point, deployment targets
 ├── app/backend.rkt         # shared Racket application logic
+├── tests/smoke.rkt         # starter unit test wired into acceptance
+├── rivet-acceptance.rktd   # executable definition of done
+├── rivet-schema.json       # committed API compatibility baseline
+├── .github/workflows/native.yml  # Windows/macOS/Linux CI
+├── AGENTS.md               # project agent contract
 ├── windows/                # WinUI 3 application
 ├── macos-host/             # SwiftUI application
 └── linux/                  # GTK4 application
@@ -201,6 +206,15 @@ raco rivet verify
 
 `package` verifies the generated development distributable before reporting success. `verify` can audit it again later.
 
+Every generated project also ships `.github/workflows/native.yml`: it pins one
+Rivet release, runs `doctor`, the schema gate and `acceptance --json` on
+Windows, both macOS runner lines and Linux, and archives each acceptance
+report. Keep that pin in sync when you upgrade Rivet. The Linux job builds the
+embeddable Racket CS runtime with Rivet's setup action and installs GTK4
+development files, so a clean runner can compile the host without bespoke CI.
+Before the first `release`, set `linux-icon` in `rivet.rktd`: AppImage packaging
+fails closed without it, and the generated README now lists that prerequisite.
+
 For a publisher-trusted production artifact:
 
 ```bash
@@ -209,6 +223,13 @@ raco rivet verify --production
 ```
 
 Production mode uses application-owned signing credentials. See [production signing](production-signing.md) before configuring secrets in CI.
+
+`raco rivet new --with-updates` additionally writes `app/update.rkt` and
+`shared/update.rktd`: a fail-closed check/download client around the managed
+updater, with the config file registered as an application resource. Fill in
+the feed URL, Ed25519 public key and key id before it can check. It stops at a
+verified download on purpose; installation, restart, consent and rollback stay
+in the native host.
 
 For a complete product release, configure a separate Ed25519 update key and run `raco rivet release`. It adds installer creation (MSI, DMG, or the Ed25519-signed Linux tarball), the signed channel manifest, SBOM, and third-party notices. A product that intentionally has no update channel uses `raco rivet release --without-updates`; installer signing and compliance artifacts are still produced. See [release and updates](release-and-updates.md).
 

@@ -157,6 +157,16 @@ open.** Windows close-while-dirty, real keyboard/IME
 and focus traces, scaling/accessibility and human visual review also require
 evidence. A successful Racket storage test is not a production UX certificate.
 
+## Acceptance contract
+
+`rivet-acceptance.rktd` is the executable definition of done: the Racket
+backend contract, the committed schema gate and the native host build on
+Windows, macOS and Linux. Run `raco rivet acceptance --json` from this
+directory; `--dry-run` validates the manifest and resolves the commands
+without building. Packaged native-UI and visual evidence remain the
+framework's Native UI workflow and the open #347 gates, not a claim of this
+manifest.
+
 ## Accessibility and performance contracts
 
 The three hosts expose the same stable identifiers, including `task-list`,

@@ -1,5 +1,7 @@
 # Project configuration
 
+**English** · [简体中文](configuration.zh-CN.md)
+
 A Rivet application is configured by the `rivet.rktd` file at the project root.
 
 New projects created with `raco rivet new` include explicit release identity and deployment-target metadata. Projects created with Rivet 0.1 remain valid: missing optional fields receive backwards-compatible defaults.
@@ -40,7 +42,7 @@ Example:
 - `backend` — relative path to the Racket backend module.
 - `module` — backend module name used by the embedded runtime.
 - `entry` — exported backend entry function.
-- `protocol` — Rivet project protocol version. Rivet 0.2 supports protocol `1`.
+- `protocol` — Rivet project protocol version. Current Rivet supports protocol `1`.
 
 ## Release metadata
 
@@ -122,6 +124,16 @@ strings. Only declare languages the application itself already ships.
 - `windows-icon` — an optional project-relative `.ico` file compiled into newly generated Windows hosts. A build without the key warns: the exe then ships without an embedded icon.
 - `macos-icon` — an optional project-relative `.icns` file copied into the app bundle and declared through `CFBundleIconFile`. A package without the key warns: the bundle then ships without a Dock/Finder icon.
 - `linux-icon` — an optional project-relative `.png` file installed as the desktop icon (`/usr/share/pixmaps`, referenced by the generated `.desktop` entry) and used as the AppImage top-level icon. AppImage packaging fails closed without it; deb and rpm warn and install without a desktop icon when the key is omitted.
+- `linux-desktop-id` — an optional reverse-DNS basename for the installed `.desktop`
+  file, for example `org.example.MyApp`. It defaults to the project name for
+  compatibility with earlier installers. On Wayland this basename is the portal
+  identity, so set it when the app uses GNOME `GlobalShortcuts` or another
+  identity-sensitive portal. The value must match
+  `^[A-Za-z][A-Za-z0-9_-]*(\.[A-Za-z][A-Za-z0-9_-]*)+$`.
+- `linux-binary-name` — an optional installed executable name, for example
+  `fulcrum`. It defaults to `RivetHost` so existing projects build unchanged,
+  and must match `^[A-Za-z0-9][A-Za-z0-9._-]*$`. The value flows through build,
+  package, verify, the launch smoke and the generated `.desktop` entry.
 - `linux-formats` — an optional subset of `("deb" "rpm" "appimage")` selecting which native Linux installer formats `raco rivet release` builds. The default builds all three; the signed tar.gz update payload is always produced regardless.
 - `macos-resource-files` — a list of unique project-relative files copied verbatim into the macOS bundle's `Contents/Resources` root before signing. The motivating consumer is `InternetAccessPolicy.plist`: Little Snitch-class firewalls read it from the Resources root and surface its per-host purpose and deny consequences to the user. Names collide fail closed against rivet-managed bundle files (the packaged icon).
 - `dmg-background` — an optional project-relative `.png` used as the DMG window background. Declaring it switches `raco rivet release` to the branded drag-to-install layout: the volume carries an `/Applications` symlink and the DMG window gets a fixed 660x400 geometry with both icons placed. Render the PNG at 1320x800 (2x of the window) so it stays sharp on Retina displays; the aspect ratio must match the window, and the packager downsamples the staged copy to 660x400 because Finder draws the backdrop at native pixel size without scaling it (anything else crops the layout). Keep the bottom ~28pt of the artwork clear (the window bounds include the title bar) and leave the icon-label spans free. Without the key the DMG stays a plain single-folder image.
@@ -232,6 +244,33 @@ The project configuration is the application-level source of truth:
 - `raco rivet build` passes `windows-min-version` to MSBuild through `RIVET_WINDOWS_MIN_VERSION`; the generated WinUI project uses that value as `WindowsTargetPlatformMinVersion`.
 
 Do not edit deployment targets directly in generated `Package.swift` or `RivetHost.vcxproj` files. Change `rivet.rktd` so build, package, verification, CI, and future tooling all observe the same value.
+
+## Validation rules
+
+`rivet.rktd` is validated when the project loads; a bad value is an error, not a
+silent default. The non-obvious constraints are:
+
+- `name`, `module`, `entry`, `display-name`, `publisher` and `version` are
+  non-empty strings; `protocol` must be the integer `1`.
+- `identifier` matches `^[A-Za-z0-9][A-Za-z0-9.-]*$`; use it for the
+  reverse-DNS bundle/application ID, not for the human publisher.
+- `build` is a positive signed 64-bit integer.
+- `url-schemes` are RFC 3986 scheme names (`^[A-Za-z][A-Za-z0-9+.-]*$`).
+- `file-associations` entries need an `extension` matching
+  `^\.[A-Za-z0-9][A-Za-z0-9._-]*$`.
+- `resources` and `macos-resource-files` are unique project-relative paths;
+  `resources` rejects `.git`, `.rivet`, `build`, `dist` and symbolic links, and
+  `macos-resource-files` rejects `..` segments.
+- `device-rpcs` are unique symbols using `[A-Za-z0-9._-]`, at most 124 UTF-8
+  bytes per name.
+- `macos-localizations` is a non-empty, duplicate-free BCP 47 list such as
+  `"zh-Hans"` and `"en"`.
+- `windows-installer-bitmaps` accepts only the `banner` and `dialog` keys, each
+  a project-relative `.bmp`.
+- `linux-desktop-id` is reverse-DNS; `linux-binary-name` uses
+  `[A-Za-z0-9._-]` and cannot be empty.
+- Icon and installer-art keys enforce their extensions (`.ico`, `.icns`,
+  `.png`, `.rtf`, `.bmp`) and are project-relative.
 
 ## Compatibility
 

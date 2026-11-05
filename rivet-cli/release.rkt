@@ -10,6 +10,7 @@
          "../rivet/distribution/identity.rkt"
          "../rivet/distribution/manifest.rkt"
          "appimage.rkt"
+         "artifact-file.rkt"
          "compliance.rkt"
          "installer.rkt"
          "package.rkt"
@@ -47,12 +48,7 @@
   (when (file-exists? zip-path) (delete-file zip-path))
   (parameterize ([current-directory (path-only package)])
     (zip zip-path (path->string (file-name-from-path package))))
-  (call-with-output-file (string-append (path->string zip-path) ".sha256")
-    #:exists 'truncate/replace
-    (lambda (out)
-      (fprintf out "~a  ~a~n"
-              (sha256-file/hex zip-path)
-              (path->string (file-name-from-path zip-path)))))
+  (write-sha256-sidecar! zip-path)
   zip-path)
 
 (define (update-artifact-for-file update-config payload platform architecture installer)
@@ -109,7 +105,7 @@
                            "--update-payload expects <installer>:<glob>[:<component>]"
                            "value" spec))
   (define installer (string->symbol (list-ref parts 0)))
-  (unless (memq installer '(zip targz msi deb rpm appimage))
+  (unless (feed-installer-symbol? installer)
     (raise-arguments-error who
                            "update payload installer must be zip, targz, msi, deb, rpm, or appimage"
                            "value" spec))

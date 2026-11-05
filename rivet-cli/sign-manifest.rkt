@@ -12,13 +12,12 @@
          racket/string
          "../rivet/distribution/crypto.rkt"
          "../rivet/distribution/identity.rkt"
-         "../rivet/distribution/manifest.rkt")
+         "../rivet/distribution/manifest.rkt"
+         "artifact-file.rkt")
 
 (provide sign-manifest!
          parse-sign-manifest-arguments
          (struct-out requested-artifact))
-
-(define installer-symbols '(zip targz msi deb rpm appimage))
 
 (struct requested-artifact (platform architecture installer path) #:transparent)
 
@@ -37,7 +36,7 @@
   (unless (memq architecture '(x64 arm64))
     (raise-arguments-error who "artifact architecture must be x64 or arm64"
                            "value" spec))
-  (unless (memq installer installer-symbols)
+  (unless (feed-installer-symbol? installer)
     (raise-arguments-error
      who
      "artifact installer must be zip, targz, msi, deb, rpm, or appimage"
@@ -105,21 +104,6 @@
   (format "~a/~a"
           (string-trim base-url "/" #:right? #t)
           file-name))
-
-(define (write-sidecar! artifact-path)
-  ;; Append, never replace, the final extension: the family convention is
-  ;; `<artifact>.sha256` (what release and download pages publish), so an
-  ;; App-1.0.0-macos-arm64.zip sidecar is `App-1.0.0-macos-arm64.zip.sha256`,
-  ;; not the ambiguous `..._zip.sha256` that path-add-extension would create.
-  (define sidecar
-    (string->path (string-append (path->string artifact-path) ".sha256")))
-  (call-with-output-file sidecar
-    #:exists 'truncate/replace
-    (lambda (out)
-      (fprintf out "~a  ~a\n"
-               (sha256-file/hex artifact-path)
-               (path->string (file-name-from-path artifact-path)))))
-  sidecar)
 
 (define (sign-manifest! artifacts options)
   (define application-id (require-option 'sign-manifest options 'application-id))
@@ -190,5 +174,5 @@
                                   #:key-id key-id)))))
   (when (hash-ref options 'sidecars? #f)
     (for ([artifact (in-list artifacts)])
-      (write-sidecar! (string->path (requested-artifact-path artifact)))))
+      (write-sha256-sidecar! (string->path (requested-artifact-path artifact)))))
   output)

@@ -161,6 +161,12 @@ RKT
     (call-with-output-file windows-header
       #:exists 'truncate
       (lambda (out) (display "// hand-edited stamp\n" out)))
+    (define fresh-json (check-report->json fresh-report))
+    (check-true (hash-ref fresh-json 'fresh?))
+    (check-equal? (hash-ref fresh-json 'stale) '())
+    (check-equal? (hash-ref fresh-json 'missing) '())
+    (check-true (andmap string? (hash-ref fresh-json 'fresh)))
+
     (define stale-report (check-generated-clients project))
     (check-equal? (hash-ref stale-report 'stale) (list windows-header))
 

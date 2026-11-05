@@ -66,6 +66,12 @@ explicit `schema check --json` step in CI for a focused report. Projects
 without a baseline remain buildable during development, but `doctor` and
 `inspect` report them as not release-ready.
 
+The baseline is a closed JSON object: `format` is `"rivet-schema"`,
+`format-version` is currently `1`, `rvt-protocol` is `1`, and
+`device-rpcs`, `rpcs`, `events`, `states`, `records` and `enums` are arrays of
+declarations. It is generated output: edit the backend declarations and
+regenerate, never hand-edit the baseline to make a check pass.
+
 `doctor --json` is the host-side complement. It reports the exact Racket CS
 runtime, boot files, compiler/build tools, native dependency probes, and a
 top-level `usable` result. It exits unsuccessfully when the current machine is
