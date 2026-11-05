@@ -199,12 +199,16 @@ require `rivet/distribution`。`fetch-update-manifest` 在解析前校验，`sel
 所有权，而不是假设 `/opt` 或 `/usr` 下每个二进制都由操作系统安装；复制到这些目录的便携
 应用仍保持便携。AppImage 的运行时环境仍然优先。包数据库所有权不可用时，检测器会保守地把
 `/opt` 或 `/usr` 下的可执行文件视为包管理器安装，而不是尝试不安全替换；其他路径保持便携。
-有特殊安装模型的应用应显式传入已知安装器类型。AppImage 和便携安装只选择各自匹配的
-payload，deb/rpm 安装返回 `package-manager` 且不消费 AppImage feed。
-`prepare-platform-installation` 把已验证的便携 ZIP 或 Linux AppImage 变成 Rivet 的第一方
-原子替换；把结果传给 `execute-platform-installation!`。应用提供重启和健康回调，因为它拥有
-进程模型和就绪信号。Windows 和 macOS 上默认暂存负载校验器要求 Authenticode 或深度严格
-代码签名；开发构建可注入显式校验器。
+有特殊安装模型的应用应显式传入已知安装器类型。`'portable` 同时接受便携 ZIP 和 Linux
+tar.gz feed 形态，因此 `(current-install-kind)` 对 tar.gz-only feed 仍然可用；feed 同时发布
+两种形态时，传 `'targz` 强制归档。AppImage 和便携安装只选择各自匹配的 payload，deb/rpm
+安装返回 `package-manager` 且不消费 AppImage feed。`prepare-platform-installation` 把已验证
+的便携 ZIP、Linux `targz` 归档或 Linux AppImage 变成 Rivet 的第一方原子替换；把结果传给
+`execute-platform-installation!`。Linux tar.gz 暂存要求恰好一个真实负载目录，拒绝逃逸
+路径/链接和不支持的 tar 条目类型，并在旧安装移动前传播 gzip/解包失败。它与 ZIP/AppImage
+复用同一事务锁、journal、重启/健康和回滚机制；产品保留负载特定校验和就绪回调。应用提供
+重启和健康回调，因为它拥有进程模型和就绪信号。Windows 和 macOS 上默认暂存负载校验器要求
+Authenticode 或深度严格代码签名；开发构建可注入显式校验器。
 
 需要应用内进度 UI 的应用应使用 `make-updater`，而不是重新实现这套编排。`updater-check!`
 执行已认证检查和选择，`updater-download!` 启动一个有界后台 worker，`updater-state` 返回
@@ -300,8 +304,8 @@ Windows 和 Linux 使用同一个已认证客户端，而不是用 C++ 重写 ma
 `make-updater` 是共享信任和传输边界。它在解析前校验 Ed25519 wrapper，选择当前安装形态的
 产物，执行时限和字节限制，并校验签名大小和 SHA-256。发布 manifest 在 Windows 上同时包含
 便携 ZIP 和原生 MSI，在 Linux 上同时包含便携 ZIP 和 AppImage；传
-`#:install-kind 'portable`、`'msi` 或 `'appimage`，让宿主绝不推导或 sidecar 信任 sibling
-URL。
+`#:install-kind 'portable`、`'targz`、`'msi` 或 `'appimage`，让宿主绝不推导或 sidecar
+信任 sibling URL。
 
 只有最终操作系统 handoff 保持原生，而 Rivet 也提供它：
 
