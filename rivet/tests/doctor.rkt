@@ -83,6 +83,9 @@
 (check-true
  (for/or ([fix (in-list windows-fixes)])
    (regexp-match? #rx"Windows C\\+\\+ toolchain" (car fix))))
+(check-true
+ (for/or ([fix (in-list windows-fixes)])
+   (regexp-match? #rx"UniversalBuildTools" (cdr fix))))
 
 (define incomplete-macos
   (hash 'os "macosx"

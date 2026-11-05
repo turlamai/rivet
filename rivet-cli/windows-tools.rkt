@@ -9,7 +9,7 @@
 (provide (struct-out windows-toolchain)
          discover-windows-toolchain)
 
-(struct windows-toolchain (msbuild cl lib dumpbin signtool vswhere) #:transparent)
+(struct windows-toolchain (msbuild cl lib dumpbin signtool vswhere app-type-props) #:transparent)
 
 (define (existing-file path)
   (and path (file-exists? path) (simplify-path path #t)))
@@ -110,6 +110,18 @@
            (define candidate (build-path bin-root entry "x64" filename))
            (existing-file candidate)))))
 
+(define (windows-store-app-type-in-installation root)
+  (and root
+       (let ([vc-targets (build-path root "MSBuild" "Microsoft" "VC")])
+         (and (directory-exists? vc-targets)
+              (for/first ([version (in-list (directory-list vc-targets))])
+                (define props
+                  (build-path vc-targets version
+                              "Application Type" "Windows Store" "10.0"))
+                (and (directory-exists? props)
+                     (pair? (directory-list props))
+                     props))))))
+
 (define (discover-windows-toolchain)
   (define vswhere (candidate-vswhere))
 
@@ -159,10 +171,21 @@
     (or (existing-file (find-executable-path "signtool.exe"))
         (candidate-windows-kit-tool "signtool.exe")))
 
-  (windows-toolchain msbuild cl lib dumpbin signtool vswhere))
+  ;; WinUI 3 hosts use the Windows Store application-type props. Visual
+  ;; Studio Build Tools omits them unless the UWP build-tools workload is
+  ;; installed, even when MSVC and the Windows SDK are present (#422).
+  (define installation-root
+    (or vc-root
+        (and vswhere
+             (vswhere-installation-root vswhere "Microsoft.Component.MSBuild"))))
+  (define app-type
+    (windows-store-app-type-in-installation installation-root))
+
+  (windows-toolchain msbuild cl lib dumpbin signtool vswhere app-type))
 
 (module+ test-support
   (provide msbuild-in-installation
            prefer-64-bit-msbuild
            vc-toolset-in-installation
+           windows-store-app-type-in-installation
            sorted-child-directories))

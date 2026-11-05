@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `raco rivet doctor` now checks the Windows Store application-type MSBuild props required by the WinUI 3 host. Build Tools without the C++ UWP workload no longer reports `usable: true`; the warning names `Microsoft.VisualStudio.Workload.UniversalBuildTools`, because MSVC plus a Windows SDK alone fails with a misleading MSB8036 SDK error (#422).
+
 ## 0.14.0
 
 - macOS embedding now derives the backend working directory from a canonical

@@ -67,6 +67,17 @@
        (build-path fallback-root "MSBuild" "18.0" "Bin" "amd64" "MSBuild.exe")))
     (check-equal? (msbuild-in-installation fallback-root) newest-msbuild)
 
+    ;; WinUI 3 needs the Windows Store application-type props; MSVC and the
+    ;; SDK alone are not enough (#422).
+    (define app-type-root (build-path temp-root "app-type"))
+    (define app-type-dir
+      (build-path app-type-root "MSBuild" "Microsoft" "VC" "v170"
+                  "Application Type" "Windows Store" "10.0"))
+    (touch (build-path app-type-dir "Microsoft.Cpp.WindowsStore.Common.props"))
+    (check-equal? (windows-store-app-type-in-installation app-type-root)
+                  app-type-dir)
+    (check-false (windows-store-app-type-in-installation fallback-root))
+
     (define children
       (sorted-child-directories (build-path fallback-root "MSBuild")))
     (check-equal? (map file-name-from-path children)
