@@ -236,6 +236,24 @@ jobs:
           set -euo pipefail
           diagnostics=/tmp/rivet-debian-diagnostics
           mkdir -p "$diagnostics"
+          # Installer-owned files live under /opt. User-owned data and config
+          # deliberately live in disposable external XDG roots.
+          export XDG_DATA_HOME="$diagnostics/xdg-data"
+          export XDG_CONFIG_HOME="$diagnostics/xdg-config"
+          data_sentinel="$XDG_DATA_HOME/dev.rivet.acceptance/user-data.txt"
+          config_sentinel="$XDG_CONFIG_HOME/dev.rivet.acceptance/preferences.txt"
+          mkdir -p "$(dirname "$data_sentinel")" "$(dirname "$config_sentinel")"
+          printf '%s' 'retained-document' > "$data_sentinel"
+          printf '%s' 'retained-settings' > "$config_sentinel"
+          assert_user_state() {
+            if [[ ! -f "$data_sentinel" ]] ||
+               [[ "$(cat "$data_sentinel")" != retained-document ]] ||
+               [[ ! -f "$config_sentinel" ]] ||
+               [[ "$(cat "$config_sentinel")" != retained-settings ]]; then
+              echo "native package transaction changed XDG data or settings" >&2
+              return 1
+            fi
+          }
           deb_v1="$(find /tmp/rivet-installers/v1 -type f -name '*.deb' -print -quit)"
           deb_v2="$(find /tmp/rivet-installers/v2 -type f -name '*.deb' -print -quit)"
           test -n "$deb_v1"
@@ -251,6 +269,7 @@ jobs:
           test -f /usr/share/pixmaps/Smoke.png
           desktop-file-validate /usr/share/applications/Smoke.desktop
           test "$(cat /opt/Smoke/app/assets/nested/product.txt)" = packaged-resource-v1
+          assert_user_state
 
           # A truncated upgrade candidate must fail before the package manager
           # mutates the working installation.
@@ -263,12 +282,14 @@ jobs:
           fi
           test "$(dpkg-query --show --showformat='${Version}' "$deb_package")" = "0.1.0-1"
           test "$(cat /opt/Smoke/app/assets/nested/product.txt)" = packaged-resource-v1
+          assert_user_state
 
           apt-get install --yes "$deb_v2" >"$diagnostics/apt-upgrade-v2.log" 2>&1
           dpkg-query --show --showformat='${Package} ${Version} ${Architecture}\n' \
             "$deb_package" >"$diagnostics/installed-version-v2.txt"
           test "$(dpkg-query --show --showformat='${Version}' "$deb_package")" = "0.2.0-2"
           test "$(cat /opt/Smoke/app/assets/nested/product.txt)" = packaged-resource-v2
+          assert_user_state
 
           if apt-get install --yes "$deb_v1" \
               >"$diagnostics/apt-downgrade-attempt.log" 2>&1; then
@@ -277,6 +298,7 @@ jobs:
           fi
           test "$(dpkg-query --show --showformat='${Version}' "$deb_package")" = "0.2.0-2"
           test "$(cat /opt/Smoke/app/assets/nested/product.txt)" = packaged-resource-v2
+          assert_user_state
 
           export XDG_RUNTIME_DIR=/tmp/rivet-debian-wayland-runtime
           export WAYLAND_DISPLAY=wayland-rivet-debian
@@ -343,6 +365,7 @@ jobs:
           test ! -e /opt/Smoke/RivetHost
           test ! -e /usr/share/applications/Smoke.desktop
           test ! -e /usr/share/pixmaps/Smoke.png
+          assert_user_state
           trap - EXIT
       - name: Upload Debian diagnostics
         if: always()
@@ -371,6 +394,24 @@ jobs:
           set -euo pipefail
           diagnostics=/tmp/rivet-fedora-diagnostics
           mkdir -p "$diagnostics"
+          # Installer-owned files live under /opt. User-owned data and config
+          # deliberately live in disposable external XDG roots.
+          export XDG_DATA_HOME="$diagnostics/xdg-data"
+          export XDG_CONFIG_HOME="$diagnostics/xdg-config"
+          data_sentinel="$XDG_DATA_HOME/dev.rivet.acceptance/user-data.txt"
+          config_sentinel="$XDG_CONFIG_HOME/dev.rivet.acceptance/preferences.txt"
+          mkdir -p "$(dirname "$data_sentinel")" "$(dirname "$config_sentinel")"
+          printf '%s' 'retained-document' > "$data_sentinel"
+          printf '%s' 'retained-settings' > "$config_sentinel"
+          assert_user_state() {
+            if [[ ! -f "$data_sentinel" ]] ||
+               [[ "$(cat "$data_sentinel")" != retained-document ]] ||
+               [[ ! -f "$config_sentinel" ]] ||
+               [[ "$(cat "$config_sentinel")" != retained-settings ]]; then
+              echo "native package transaction changed XDG data or settings" >&2
+              return 1
+            fi
+          }
           rpm_v1="$(find /tmp/rivet-installers/v1 -type f -name '*.rpm' -print -quit)"
           rpm_v2="$(find /tmp/rivet-installers/v2 -type f -name '*.rpm' -print -quit)"
           test -n "$rpm_v1"
@@ -386,6 +427,7 @@ jobs:
           test -f /usr/share/pixmaps/Smoke.png
           desktop-file-validate /usr/share/applications/Smoke.desktop
           test "$(cat /opt/Smoke/app/assets/nested/product.txt)" = packaged-resource-v1
+          assert_user_state
 
           cp "$rpm_v2" /tmp/corrupt-upgrade.rpm
           truncate --size 64 /tmp/corrupt-upgrade.rpm
@@ -396,12 +438,14 @@ jobs:
           fi
           test "$(rpm -q --qf '%{VERSION}-%{RELEASE}' "$rpm_package")" = "0.1.0-1"
           test "$(cat /opt/Smoke/app/assets/nested/product.txt)" = packaged-resource-v1
+          assert_user_state
 
           dnf install --assumeyes "$rpm_v2" >"$diagnostics/dnf-upgrade-v2.log" 2>&1
           rpm -q --qf '%{NAME} %{VERSION}-%{RELEASE} %{ARCH}\n' "$rpm_package" \
             >"$diagnostics/installed-version-v2.txt"
           test "$(rpm -q --qf '%{VERSION}-%{RELEASE}' "$rpm_package")" = "0.2.0-2"
           test "$(cat /opt/Smoke/app/assets/nested/product.txt)" = packaged-resource-v2
+          assert_user_state
 
           # DNF treats an explicitly selected older local RPM as an authorized
           # rollback. Prove that its transaction restores the complete v1
@@ -410,11 +454,13 @@ jobs:
             >"$diagnostics/dnf-rollback-v1.log" 2>&1
           test "$(rpm -q --qf '%{VERSION}-%{RELEASE}' "$rpm_package")" = "0.1.0-1"
           test "$(cat /opt/Smoke/app/assets/nested/product.txt)" = packaged-resource-v1
+          assert_user_state
 
           dnf install --assumeyes "$rpm_v2" \
             >"$diagnostics/dnf-reupgrade-v2.log" 2>&1
           test "$(rpm -q --qf '%{VERSION}-%{RELEASE}' "$rpm_package")" = "0.2.0-2"
           test "$(cat /opt/Smoke/app/assets/nested/product.txt)" = packaged-resource-v2
+          assert_user_state
 
           export XDG_RUNTIME_DIR=/tmp/rivet-fedora-wayland-runtime
           export WAYLAND_DISPLAY=wayland-rivet-fedora
@@ -480,6 +526,7 @@ jobs:
           test ! -e /opt/Smoke/RivetHost
           test ! -e /usr/share/applications/Smoke.desktop
           test ! -e /usr/share/pixmaps/Smoke.png
+          assert_user_state
           trap - EXIT
       - name: Upload Fedora diagnostics
         if: always()
