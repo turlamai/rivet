@@ -30,12 +30,26 @@ public struct EmbeddedRacketConfiguration: Sendable {
     public var racketBoot: URL
     public var core: URL
     /// Resource root used to resolve relative foreign-library paths staged by
-    /// `raco ctool`. `nil` preserves the caller's process working directory.
+    /// `raco ctool`. `nil` lets the backend derive `<root>` from a canonical
+    /// `<root>/res/core.zo` layout; a nonstandard `core` location keeps the
+    /// caller's process working directory.
     public var workingDirectory: URL?
     public var moduleName: String
     public var entryName: String
     public var maxPendingRequests: Int
     public var diagnosticSink: RivetDiagnosticSink
+
+    /// The directory selected before booting Racket. An explicit
+    /// `workingDirectory` always wins. Otherwise a canonical
+    /// `<root>/res/core.zo` layout derives `<root>`, which is the packaged
+    /// `Contents/Resources` or the staged development root; a nonstandard
+    /// `core` path preserves the caller's process working directory.
+    var resolvedWorkingDirectory: URL? {
+        if let workingDirectory { return workingDirectory }
+        let res = core.standardizedFileURL.deletingLastPathComponent()
+        guard res.lastPathComponent == "res" else { return nil }
+        return res.deletingLastPathComponent()
+    }
 
     public init(
         executable: URL,
@@ -199,7 +213,7 @@ public final class EmbeddedRacketBackend: @unchecked Sendable {
         diagnose(layer: "abi-bridge", event: "backend-init", status: "begin")
 
         do {
-            if let workingDirectory = configuration.workingDirectory,
+            if let workingDirectory = configuration.resolvedWorkingDirectory,
                !FileManager.default.changeCurrentDirectoryPath(workingDirectory.path) {
                 throw EmbeddedBackendError.workingDirectoryFailed(workingDirectory.path)
             }

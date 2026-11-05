@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- macOS embedding now derives the backend working directory from a canonical
+  `<root>/res/core.zo` layout when a manually constructed configuration
+  leaves `workingDirectory` unset. This makes `raco ctool` runtime-path
+  slots resolve against the bundle resources instead of the GUI process's
+  current directory (#414). An explicit `workingDirectory` still wins, and a
+  nonstandard core location keeps the caller's process directory. Packaged
+  app verification on a real macOS install is still required before closing
+  the issue.
+
 - Align the backend/protocol reference with the implementation: note
   `rivet/backend` from the aggregate module, document `rivet/testing`, state
   that `message:hello` is backend-to-native, describe `emit-event!`'s
