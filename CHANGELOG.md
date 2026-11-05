@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.14.0 — 2026-11-05
+
 - macOS embedding now derives the backend working directory from a canonical
   `<root>/res/core.zo` layout when a manually constructed configuration
   leaves `workingDirectory` unset. This makes `raco ctool` runtime-path
