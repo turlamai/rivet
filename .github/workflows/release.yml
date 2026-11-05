@@ -91,6 +91,10 @@ jobs:
           if [[ "$archive" != "$destination" ]]; then
             mv "$archive" "$destination"
           fi
+          # raco pkg create also emits an unversioned .CHECKSUM sidecar; the
+          # public inventory is exactly the versioned ZIP, SHA256SUMS and
+          # release notes.
+          rm -f "$(dirname "$destination")"/*.CHECKSUM
           (cd dist && sha256sum "rivet-${RIVET_VERSION}.zip" > SHA256SUMS)
           awk -v version="$RIVET_VERSION" '
             $0 == "## " version { capture = 1; next }
