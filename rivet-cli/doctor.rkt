@@ -141,8 +141,7 @@
                (and (hash-ref report 'msbuild)
                     (hash-ref report 'cl)
                     (hash-ref report 'lib)
-                    (hash-ref report 'dumpbin)
-                    (hash-ref report 'app-type)))]
+                    (hash-ref report 'dumpbin)))]
       [(macosx)
        (define report (macos-tools-report))
        (values #t
@@ -166,8 +165,15 @@
       [else
        (values #f "unsupported" (hash) #f)]))
 
-  (define usable? (and supported? racket-exe raco runtime essential-tools? #t))
   (define project (find-project))
+  ;; WinUI 3 needs the Windows Store application-type props. Gate on a
+  ;; Rivet project: a bare repo checkout has nothing to build, and the
+  ;; filesystem probe is layout-sensitive on preview Visual Studio installs.
+  (define usable?
+    (and supported? racket-exe raco runtime essential-tools?
+         (or (not (eq? os 'windows))
+             (not project)
+             (windows-toolchain-app-type-props windows-tools))))
   (define project-readiness
     (and project
          (let* ([baseline (project-path project "rivet-schema.json")]
@@ -185,7 +191,7 @@
         '()))
   (define warnings
     (append schema-warnings
-            (if windows-tools
+            (if (and windows-tools project)
                 (windows-application-type-warnings windows-tools)
                 '())
             (if project
