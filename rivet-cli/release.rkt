@@ -109,9 +109,9 @@
                            "--update-payload expects <installer>:<glob>[:<component>]"
                            "value" spec))
   (define installer (string->symbol (list-ref parts 0)))
-  (unless (memq installer '(zip msi deb rpm appimage))
+  (unless (memq installer '(zip targz msi deb rpm appimage))
     (raise-arguments-error who
-                           "update payload installer must be zip, msi, deb, rpm, or appimage"
+                           "update payload installer must be zip, targz, msi, deb, rpm, or appimage"
                            "value" spec))
   (define component
     (and (= (length parts) 3)

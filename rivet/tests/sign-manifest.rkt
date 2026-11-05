@@ -52,6 +52,14 @@
 (check-equal? (hash-ref parsed-options 'build) 7)
 (check-equal? (hash-ref parsed-options 'channel) 'stable)
 
+(define-values (targz-artifacts _targz-options)
+  (parse-sign-manifest-arguments
+   (list "--application-id" "dev.example"
+         "--version" "1.2.3" "--build" "7" "--channel" "stable"
+         "--base-url" "https://dl.example/app/"
+         "--key-id" "release-2026"
+         "--artifact" "linux:x64:targz:App-1.2.3-linux-x64.tar.gz")))
+(check-equal? (requested-artifact-installer (car targz-artifacts)) 'targz)
 (check-exn #rx"--artifact expects"
            (lambda () (parse-sign-manifest-arguments (list "--artifact" "macos:arm64:zip"))))
 (check-exn #rx"artifact installer must be"
@@ -90,6 +98,25 @@
            'published-at "2026-10-16T00:00:00Z")))
 (check-true (file-exists? output))
 
+;; Without --output the feed follows the channel, matching `raco rivet release`
+;; (`dist/update-<channel>.json`) so per-leg manifests compose by one name.
+(define default-root (make-temporary-file "rivet-sign-default-~a" 'directory))
+(define default-output
+  (parameterize ([current-directory default-root])
+    (sign-manifest!
+     (list (requested-artifact 'macos 'arm64 'zip (path->string artifact)))
+     (hasheq 'application-id "dev.example"
+             'version "1.2.3"
+             'build 7
+             'channel 'beta
+             'base-url "https://dl.example/app/"
+             'key-id "release-2026"
+             'private-key (path->string private-key-path)
+             'public-key (path->string public-key-path)
+             'published-at "2026-10-16T00:00:00Z"))))
+(check-equal? (path->string default-output) "dist/update-beta.json")
+(check-true (file-exists? (build-path default-root "dist" "update-beta.json")))
+
 ;; The published feed verifies with the public half and carries the exact
 ;; artifact facts.
 (define manifest
@@ -104,9 +131,12 @@
 (check-equal? (update-artifact-size entry) 2048)
 (check-equal? (update-artifact-sha256 entry) (sha256-file/hex artifact))
 
-;; Sidecars landed next to the artifact in bsdtar's conventional format.
-(define sidecar (path-add-extension artifact #".sha256"))
+;; Sidecars are appended (`<artifact>.sha256`), matching release and the
+;; documented download-page convention, not path-add-extension's `_zip` form.
+(define sidecar (string->path (string-append (path->string artifact) ".sha256")))
 (check-true (file-exists? sidecar))
+(check-false
+ (file-exists? (path-add-extension artifact #".sha256")))
 (check-regexp-match
  #px"^[0-9a-f]{64}  App-1\\.2\\.3-macos-arm64\\.zip"
  (file->string sidecar))

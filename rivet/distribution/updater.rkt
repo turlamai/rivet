@@ -263,12 +263,18 @@
             destination)))
        (lambda () (close-input-port in))))))
 
-(define install-kinds '(portable msi appimage package-manager))
+;; `portable` is the policy class for any self-replacing tree, so it covers
+;; both the portable ZIP and the Linux tar.gz feed shape a product may ship.
+;; `targz` names that archive shape explicitly: an unpacked zip and an
+;; unpacked tar.gz are the same directory tree to `current-install-kind`, so
+;; only the product can say which payload its feed should prefer/force.
+(define install-kinds '(portable targz msi appimage package-manager))
 
 (define (artifact-matches-install-kind? artifact install-kind)
   (or (not install-kind)
       (case install-kind
-        [(portable) (eq? (update-artifact-installer artifact) 'zip)]
+        [(portable) (memq (update-artifact-installer artifact) '(zip targz))]
+        [(targz) (eq? (update-artifact-installer artifact) 'targz)]
         [(msi) (eq? (update-artifact-installer artifact) 'msi)]
         [(appimage) (eq? (update-artifact-installer artifact) 'appimage)]
         [(package-manager)
@@ -277,7 +283,7 @@
 (define (select-update config manifest #:install-kind [install-kind #f])
   (unless (or (not install-kind) (memq install-kind install-kinds))
     (raise-argument-error 'select-update
-                          "(or/c #f 'portable 'msi 'appimage 'package-manager)"
+                          "(or/c #f 'portable 'targz 'msi 'appimage 'package-manager)"
                           install-kind))
   (cond
     [(not (string=? (updater-config-application-id config)

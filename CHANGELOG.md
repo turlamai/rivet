@@ -13,6 +13,36 @@
   install Rivet but could not discover its release version; empty collection
   search paths are covered by a regression without bypassing the release gate.
 
+- Portable installation consumes a bounded private copy reverified against
+  the signed asset size and SHA-256, so a changed download is rejected before
+  extraction or replacement. Pending backup/marker/journal state is refused
+  before a new transaction starts, preserving the current install and prior
+  recovery evidence instead of rolling back an unrelated backup.
+  Linux ownership-policy probes also preserve Unix path semantics on Windows
+  hosts, so system-prefix fallback cannot lose `/opt` or `/usr` to a drive.
+
+- Linux portable `targz` updates can use the shared platform installation,
+  journal, restart/health and rollback transaction instead of a product-owned
+  archive swap. Staging rejects malformed, escaping and ambiguous containers
+  before moving the old installation; package-manager artifacts remain delegated.
+  `'portable` now selects both the portable ZIP and the tar.gz shape, so a
+  tar.gz-only feed stays reachable through `(current-install-kind)`, and
+  `select-update`/`make-updater` accept an explicit `'targz` kind to force
+  the archive when a feed publishes both shapes.
+
+- `raco rivet release --update-payload` and `raco rivet sign-manifest` accept
+  the `targz` installer, so the signed feed can carry a Linux portable
+  tar.gz without a product-owned manifest script.
+
+- `raco rivet sign-manifest` now defaults to `dist/update-<channel>.json`,
+  the same feed name `raco rivet release` writes, instead of a separate
+  `dist/update-manifest.json` convention.
+
+- `raco rivet sign-manifest --sidecars` appends `.sha256` to the artifact
+  name (`app.tar.gz.sha256`) instead of the ambiguous `app.tar_gz.sha256`
+  form produced by `path-add-extension`, matching `release`'s portable
+  sidecar naming and download-page conventions.
+
 - Branded macOS DMG packaging now verifies the backing image device has
   actually detached before conversion, even when Finder removes its mountpoint.
   It can convert an isolated copy if diskimages-helper retains the original

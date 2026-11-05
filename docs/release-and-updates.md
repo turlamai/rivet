@@ -181,6 +181,17 @@ openssl genpkey -algorithm Ed25519 -outform DER -out update-private.der
 openssl pkey -inform DER -in update-private.der -pubout -outform DER -out update-public.der
 ```
 
+At installation time the portable adapter creates a private same-volume
+snapshot of the download, copies no more than the signed size plus one
+overflow-detection byte, and verifies that snapshot's exact size and SHA-256
+before ZIP/tar.gz/AppImage staging consumes it. Replacing the caller's download
+after an earlier download verification cannot authorize different install bytes.
+The snapshot is removed on success or error; the caller's downloaded file is
+preserved. Before starting a new transaction or writing its journal, the adapter
+refuses existing backup/first-install markers and existing journals. Recover the
+previous transaction explicitly; refusal must not roll an unrelated backup over
+the current installation or erase its recovery record.
+
 Embed only `update-public.der` (or its bytes) in the native host. Key rotation is explicit through `key_id` and is a supported, tested dual-trust window (issue #370):
 
 1. Ship a client release whose updater carries the **next** key id and public key as an additional trusted key, still primary-trusting the current one — `make-updater` takes `#:trusted-keys` as a list of `(cons key-id public-key-bytes)`; RivetUpdate on macOS takes `additionalTrustedKeys` (`[String: String]`, key id → base64 public key).
@@ -199,7 +210,11 @@ environment still takes precedence. If package database ownership is unavailable
 keeps executables under `/opt` or `/usr` package-managed rather than
 attempting an unsafe replacement; other paths remain portable. Applications
 with a special installation model should pass their known installer kind
-explicitly. AppImage and portable installs only select their matching payload, while deb/rpm installations return `package-manager` and do not consume the AppImage feed. `prepare-platform-installation` turns a verified portable ZIP or Linux AppImage into Rivet's first-party atomic replacement; pass its result to `execute-platform-installation!`. The application supplies restart and health callbacks because it owns its process model and readiness signal. On Windows and macOS the default staged-payload verifier requires Authenticode or a deep strict code signature; development builds may inject an explicit verifier.
+explicitly. `'portable` accepts both the portable ZIP and the Linux tar.gz
+feed shape, so `(current-install-kind)` keeps working for a tar.gz-only
+feed. When a feed carries both shapes, pass `'targz` to force the archive:
+an unpacked ZIP and an unpacked tar.gz are the same directory tree to
+`current-install-kind`, so only the product knows which payload it prefers. AppImage and portable installs only select their matching payload, while deb/rpm installations return `package-manager` and do not consume the AppImage feed. `prepare-platform-installation` turns a verified portable ZIP, Linux `targz` archive, or Linux AppImage into Rivet's first-party atomic replacement; pass its result to `execute-platform-installation!`. Linux tar.gz staging requires one real payload directory, rejects escaping paths/links and unsupported tar entry types, and propagates gzip/extraction failures before the old installation moves. It reuses the same transaction lock, journal, restart/health and rollback machinery as ZIP/AppImage; products retain payload-specific validation and readiness callbacks. The application supplies restart and health callbacks because it owns its process model and readiness signal. On Windows and macOS the default staged-payload verifier requires Authenticode or a deep strict code signature; development builds may inject an explicit verifier.
 
 Applications that need an in-app progress UI should use `make-updater` instead
 of rebuilding this orchestration. `updater-check!` performs the authenticated
@@ -289,7 +304,7 @@ boundary. It verifies the Ed25519 wrapper before parsing, selects the artifact
 for the current install shape, enforces deadlines and byte limits, and verifies
 the signed size and SHA-256. Release manifests include both the portable ZIP
 and the native MSI on Windows, and both the portable ZIP and AppImage on Linux;
-pass `#:install-kind 'portable`, `'msi`, or `'appimage` so a host never derives
+pass `#:install-kind 'portable`, `'targz`, `'msi`, or `'appimage` so a host never derives
 or sidecar-trusts a sibling URL.
 
 Only the final OS handoff remains native, and Rivet ships that too:
@@ -348,7 +363,7 @@ gate before `gh release upload`:
 
 ```sh
 raco rivet verify-release-assets \
-  --manifest dist/update-manifest.json \
+  --manifest dist/update-stable.json \
   --dir dist \
   --public-key /secure/updates-public.der \
   --key-id my-product-2026 \
