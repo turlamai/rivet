@@ -192,6 +192,7 @@
   (define installation-roots
     (filter values
             (list vc-root
+                  (getenv "VSINSTALLDIR")
                   (and vswhere
                        (vswhere-installation-root
                         vswhere "Microsoft.Component.MSBuild"))
