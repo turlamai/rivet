@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up minimum supported Racket CS
-        uses: Bogdanp/setup-racket@2466913449df77df2bad149d1f2fc4e1ea4795dd # v1.15
+        uses: Bogdanp/setup-racket@8889db76ff6cdc86df8aa09fdd1729cd090b7144 # v1.16
         with:
           architecture: x64
           distribution: full
@@ -49,7 +49,7 @@ jobs:
       - name: Test Apple release preflight without publisher credentials
         run: python3 .github/scripts/test-apple-review-preflight.py
       - name: Set up Racket CS
-        uses: Bogdanp/setup-racket@2466913449df77df2bad149d1f2fc4e1ea4795dd # v1.15
+        uses: Bogdanp/setup-racket@8889db76ff6cdc86df8aa09fdd1729cd090b7144 # v1.16
         with:
           architecture: x64
           distribution: full
@@ -139,7 +139,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up Racket CS
-        uses: Bogdanp/setup-racket@2466913449df77df2bad149d1f2fc4e1ea4795dd # v1.15
+        uses: Bogdanp/setup-racket@8889db76ff6cdc86df8aa09fdd1729cd090b7144 # v1.16
         with:
           architecture: ${{ runner.arch == 'ARM64' && 'arm64' || 'x64' }}
           distribution: full
@@ -245,7 +245,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up Racket CS
-        uses: Bogdanp/setup-racket@2466913449df77df2bad149d1f2fc4e1ea4795dd # v1.15
+        uses: Bogdanp/setup-racket@8889db76ff6cdc86df8aa09fdd1729cd090b7144 # v1.16
         with:
           architecture: x64
           distribution: full
@@ -299,7 +299,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up Racket CS
-        uses: Bogdanp/setup-racket@2466913449df77df2bad149d1f2fc4e1ea4795dd # v1.15
+        uses: Bogdanp/setup-racket@8889db76ff6cdc86df8aa09fdd1729cd090b7144 # v1.16
         with:
           architecture: x64
           distribution: full
@@ -621,7 +621,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up Racket CS
-        uses: Bogdanp/setup-racket@2466913449df77df2bad149d1f2fc4e1ea4795dd # v1.15
+        uses: Bogdanp/setup-racket@8889db76ff6cdc86df8aa09fdd1729cd090b7144 # v1.16
         with:
           architecture: ${{ runner.arch == 'ARM64' && 'arm64' || 'x64' }}
           distribution: full
