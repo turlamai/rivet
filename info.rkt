@@ -4,7 +4,7 @@
 ;; Racket package versions reject a trailing ".0" component. Release tags and
 ;; native artifacts remain three-component SemVer via `release-version`.
 (define version "0.13")
-(define release-version "0.13.0")
+(define release-version "0.14.0")
 (define pkg-desc "Native application foundation for Racket")
 (define pkg-authors '(turlamai))
 (define license 'MIT)

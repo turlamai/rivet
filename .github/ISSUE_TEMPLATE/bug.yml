@@ -13,7 +13,7 @@ body:
     attributes:
       label: Rivet version
       description: Output of `raco rivet --version`, or the commit SHA for a linked checkout.
-      placeholder: rivet 0.13.0
+      placeholder: rivet 0.14.0
     validations:
       required: true
   - type: dropdown
