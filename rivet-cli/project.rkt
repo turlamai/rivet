@@ -55,6 +55,25 @@
                     (string-downcase name)
                     "-")))
 
+;; Installer paths, .desktop entries, MSI identities and package metadata
+;; all consume name/display-name/publisher. Validate before writing any output.
+;; The internal slug is ASCII and contains no separators or shell/metacharacter
+;; ambiguity; human-facing labels may use Unicode but not control/newline chars.
+(define (installer-safe-slug? value)
+  ;; An end-of-line regex anchor can accept a terminal newline: reject all
+  ;; control/line separators as well as enforcing the ASCII slug shape.
+  (and (single-line-package-label? value)
+       (regexp-match? #px"^[A-Za-z0-9][A-Za-z0-9._-]*$" value)))
+
+(define (single-line-package-label? value)
+  (and (string? value)
+       (positive? (string-length value))
+       (for/and ([ch (in-string value)])
+         (define code (char->integer ch))
+         (and (>= code 32)
+              (not (= code 127))
+              (not (member code '(#x85 #x2028 #x2029)))))))
+
 (define (macos-version-string? value)
   (and (string? value)
        (regexp-match? #px"^[0-9]+\\.[0-9]+(?:\\.[0-9]+)?$" value)))
@@ -115,7 +134,8 @@
   (define non-empty-string?
     (lambda (v) (and (string? v) (positive? (string-length v)))))
 
-  (required 'name non-empty-string? "non-empty string")
+  (required 'name installer-safe-slug?
+            "installer-safe ASCII slug (letters/digits first, then letters/digits/._-)")
   (define backend
     (required 'backend
               (lambda (v)
@@ -145,8 +165,10 @@
                    (positive? v)
                    (<= v #x7fffffffffffffff)))
             "positive signed 64-bit integer")
-  (optional 'display-name non-empty-string? "non-empty string")
-  (optional 'publisher non-empty-string? "non-empty publisher string")
+  (optional 'display-name single-line-package-label?
+            "non-empty single-line display name without control characters")
+  (optional 'publisher single-line-package-label?
+            "non-empty single-line publisher string without control characters")
   (optional 'identifier
             (lambda (v)
               (and (string? v)
@@ -318,17 +340,28 @@
   (apply build-path (rivet-project-root project) pieces))
 
 (define (project-name project)
-  (project-ref project 'name))
+  (define value (project-ref project 'name))
+  ;; Direct rivet-project constructors must not bypass load-project validation.
+  (unless (installer-safe-slug? value)
+    (raise-arguments-error 'project-name "unsafe installer project slug"
+                           "name" value))
+  value)
 
 (define (project-display-name project)
-  (project-ref project
-               'display-name
-               (lambda () (project-name project))))
+  (define value
+    (project-ref project 'display-name (lambda () (project-name project))))
+  (unless (single-line-package-label? value)
+    (raise-arguments-error 'project-display-name
+                           "unsafe installer display name" "display-name" value))
+  value)
 
 (define (project-publisher project)
-  (project-ref project
-               'publisher
-               (lambda () (project-display-name project))))
+  (define value
+    (project-ref project 'publisher (lambda () (project-display-name project))))
+  (unless (single-line-package-label? value)
+    (raise-arguments-error 'project-publisher
+                           "unsafe installer publisher" "publisher" value))
+  value)
 
 (define (project-version project)
   (project-ref project

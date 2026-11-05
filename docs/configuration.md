@@ -38,7 +38,7 @@ Example:
 
 ## Required settings
 
-- `name` — application/project name.
+- `name` — installer-safe ASCII project slug: first character must be a letter or digit; following characters may be letters, digits, `.`, `_` or `-`. Use `display-name` for spaces or localized user-facing names. Separators, `..` path traversal, and control characters are rejected before packaging.
 - `backend` — relative path to the Racket backend module.
 - `module` — backend module name used by the embedded runtime.
 - `entry` — exported backend entry function.
@@ -47,7 +47,7 @@ Example:
 ## Release metadata
 
 - `display-name` — user-visible application name. Defaults to `name` for legacy projects.
-- `publisher` — human-readable publisher used by Windows installer metadata and Apps & Features. Defaults to `display-name` for legacy projects; do not use the reverse-DNS `identifier` here.
+- `publisher` — human-readable publisher used by Windows installer metadata and Apps & Features. Defaults to `display-name` for legacy projects; do not use the reverse-DNS `identifier` here. Both `publisher` and `display-name` accept Unicode but reject CR/LF, tabs and other control or line-separator characters, preventing malformed installer and Linux desktop metadata.
 - `version` — application release version. Defaults to `0.1.0` for legacy projects.
 - `build` — positive signed 64-bit integer build number. Defaults to `1` for legacy projects.
 - `identifier` — application/bundle identifier. Legacy projects derive `dev.rivet.<name>`.
