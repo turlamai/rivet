@@ -107,7 +107,7 @@
   (define installer (string->symbol (list-ref parts 0)))
   (unless (feed-installer-symbol? installer)
     (raise-arguments-error who
-                           "update payload installer must be zip, msi, deb, rpm, or appimage"
+                           "update payload installer must be zip, targz, msi, deb, rpm, or appimage"
                            "value" spec))
   (define component
     (and (= (length parts) 3)

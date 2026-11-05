@@ -371,6 +371,9 @@ jobs:
       - name: Install Rivet
         shell: pwsh
         run: raco pkg install --auto --no-docs --name rivet --link "$PWD"
+      - name: Verify signed portable update transaction
+        shell: pwsh
+        run: raco test rivet/tests/platform-artifact-binding.rkt rivet/tests/platform-update-adapter.rkt rivet/tests/platform-targz-update.rkt
       - name: Check toolchain and JSON diagnostics
         shell: pwsh
         run: |

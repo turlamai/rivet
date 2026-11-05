@@ -39,7 +39,7 @@
   (unless (feed-installer-symbol? installer)
     (raise-arguments-error
      who
-     "artifact installer must be zip, msi, deb, rpm, or appimage"
+     "artifact installer must be zip, targz, msi, deb, rpm, or appimage"
      "value" spec))
   (requested-artifact platform architecture installer (list-ref parts 3)))
 
@@ -112,10 +112,13 @@
   (define channel (require-option 'sign-manifest options 'channel))
   (define base-url (require-option 'sign-manifest options 'base-url))
   (define key-id (require-option 'sign-manifest options 'key-id))
+  ;; One feed name across the release surface: `raco rivet release` writes
+  ;; `dist/update-<channel>.json`, and a per-leg hand-signed manifest must use
+  ;; the same name so the matrix compose step and product clients agree.
   (define output
     (string->path
      (or (hash-ref options 'output #f)
-         "dist/update-manifest.json")))
+         (format "dist/update-~a.json" channel))))
   (when (null? artifacts)
     (raise-arguments-error 'sign-manifest
                            "at least one --artifact is required"))

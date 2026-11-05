@@ -111,6 +111,13 @@
 
 (check-exn #rx"--update-payload expects"
            (lambda () (parse-update-payload-spec/t 'test "zip")))
+;; Linux portable tar.gz is a first-class feed shape now, so release must be
+;; able to name it on the command line; `tgz` remains a typo, not an alias.
+(define-values (targz-installer targz-pattern targz-component)
+  (parse-update-payload-spec/t 'test "targz:dist/x.tar.gz:cli"))
+(check-equal? targz-installer 'targz)
+(check-equal? targz-pattern "dist/x.tar.gz")
+(check-equal? targz-component 'cli)
 (check-exn #rx"update payload installer must be"
            (lambda () (parse-update-payload-spec/t 'test "tgz:dist/x.tar.gz")))
 (check-exn #rx"update payload component must be"

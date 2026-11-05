@@ -105,9 +105,12 @@
 (define linux-appimage
   (update-artifact 'linux 'x64 "https://updates.example/app.AppImage"
                    (make-string 64 #\c) 4 'appimage '() #f))
+(define linux-targz
+  (update-artifact 'linux 'x64 "https://updates.example/app.tar.gz"
+                   (make-string 64 #\e) 4 'targz '() #f))
 (define linux-manifest
   (struct-copy update-manifest sample-manifest
-               [artifacts (list linux-zip linux-appimage)]))
+               [artifacts (list linux-zip linux-appimage linux-targz)]))
 (check-eq? (update-candidate-artifact
             (select-update linux-config linux-manifest
                            #:install-kind 'portable))
@@ -116,6 +119,20 @@
             (select-update linux-config linux-manifest
                            #:install-kind 'appimage))
            linux-appimage)
+;; A Linux portable tar.gz installation names its archive shape explicitly:
+;; the updater cannot infer zip-vs-targz from an unpacked application tree.
+(check-eq? (update-candidate-artifact
+            (select-update linux-config linux-manifest
+                           #:install-kind 'targz))
+           linux-targz)
+;; A tar.gz-only feed remains reachable through the documented
+;; `(current-install-kind)` value: `portable` covers the policy class.
+(check-eq? (update-candidate-artifact
+            (select-update linux-config
+                           (struct-copy update-manifest linux-manifest
+                                        [artifacts (list linux-targz)])
+                           #:install-kind 'portable))
+           linux-targz)
 (check-false (select-update linux-config linux-manifest
                             #:install-kind 'package-manager))
 (check-exn exn:fail:contract?
