@@ -110,6 +110,21 @@
            (define candidate (build-path bin-root entry "x64" filename))
            (existing-file candidate)))))
 
+(define (visual-studio-root-from-tool tool)
+  ;; vswhere does not know every preview layout (VS 18 initially), but the
+  ;; tool path still contains `Microsoft Visual Studio\<version>\<edition>`.
+  (and tool
+       (let* ([parts (explode-path tool)]
+              [index
+               (for/first ([part (in-list parts)]
+                           [index (in-naturals)]
+                           #:when (equal? (path->string part)
+                                          "Microsoft Visual Studio"))
+                 index)])
+         (and index
+              (< (+ index 2) (length parts))
+              (apply build-path (take parts (+ index 3)))))))
+
 (define (windows-store-app-type-in-installation root)
   (and root
        (let ([vc-targets (build-path root "MSBuild" "Microsoft" "VC")])
@@ -174,12 +189,17 @@
   ;; WinUI 3 hosts use the Windows Store application-type props. Visual
   ;; Studio Build Tools omits them unless the UWP build-tools workload is
   ;; installed, even when MSVC and the Windows SDK are present (#422).
-  (define installation-root
-    (or vc-root
-        (and vswhere
-             (vswhere-installation-root vswhere "Microsoft.Component.MSBuild"))))
+  (define installation-roots
+    (filter values
+            (list vc-root
+                  (and vswhere
+                       (vswhere-installation-root
+                        vswhere "Microsoft.Component.MSBuild"))
+                  (visual-studio-root-from-tool cl)
+                  (visual-studio-root-from-tool msbuild))))
   (define app-type
-    (windows-store-app-type-in-installation installation-root))
+    (for/or ([root (in-list installation-roots)])
+      (windows-store-app-type-in-installation root)))
 
   (windows-toolchain msbuild cl lib dumpbin signtool vswhere app-type))
 
@@ -187,5 +207,6 @@
   (provide msbuild-in-installation
            prefer-64-bit-msbuild
            vc-toolset-in-installation
+           visual-studio-root-from-tool
            windows-store-app-type-in-installation
            sorted-child-directories))
