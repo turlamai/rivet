@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Linux production releases can now attach detached GPG signatures to the
+  tarball, deb, rpm and AppImage via `RIVET_LINUX_GPG_KEY`, with optional
+  `RIVET_LINUX_GPG_PASSPHRASE` and `RIVET_LINUX_GPG_HOMEDIR`. The sidecars are
+  `<artifact>.asc` and complement the existing Ed25519 tarball/feed signature;
+  unset behavior is unchanged.
+
 ## 0.14.0
 
 - macOS embedding now derives the backend working directory from a canonical

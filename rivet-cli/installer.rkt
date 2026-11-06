@@ -29,6 +29,36 @@
                            "executable" executable
                            "arguments" arguments)))
 
+(define (run-sensitive! who executable description args)
+  ;; Never include argv in the error: a GPG passphrase may be in it.
+  (unless executable (error who "required executable was not found"))
+  (unless (apply system* executable args)
+    (error who "~a failed; sensitive command arguments were omitted" description)))
+
+(define (gpg-detach-sign! artifact settings)
+  (define gpg (find-executable-path "gpg"))
+  (unless gpg
+    (error 'create-linux-installer!
+           "RIVET_LINUX_GPG_KEY is set but gpg was not found"))
+  (define signature
+    (string->path (string-append (path->string artifact) ".asc")))
+  (when (file-exists? signature) (delete-file signature))
+  (define args
+    (append
+     (list "--batch" "--yes" "--armor" "--detach-sign")
+     (let ([homedir (linux-gpg-signing-homedir settings)])
+       (if homedir (list "--homedir" homedir) '()))
+     (let ([passphrase (linux-gpg-signing-passphrase settings)])
+       (if passphrase
+           (list "--pinentry-mode" "loopback" "--passphrase" passphrase)
+           '()))
+     (list "--local-user" (linux-gpg-signing-key settings)
+           "--output" (path->string signature)
+           (path->string artifact))))
+  (run-sensitive! 'create-linux-installer! gpg
+                  "Linux GPG artifact signing" args)
+  signature)
+
 (define (xml-escape value)
   (regexp-replace*
    #px"[&<>\"]" value
@@ -635,6 +665,7 @@
 
 (define (create-linux-installer! project package production?)
   (define output (linux-installer-path project))
+  (define gpg-settings (and production? (load-linux-gpg-signing)))
   (make-directory* (project-path project "dist"))
   ;; The archive root keeps the verified package's own name so extraction is
   ;; self-contained, mirroring the DMG's top-level application directory.
@@ -657,16 +688,22 @@
       #:exists 'truncate/replace
       (lambda (out)
         (displayln (bytes->base64-string signature) out))))
+  (when gpg-settings
+    (gpg-detach-sign! output gpg-settings))
   ;; Native system installer formats ride along with the signed tar.gz:
   ;; deb/rpm integrate with the distribution package manager, while AppImage
   ;; carries its own GTK4 dependency closure and becomes the signed in-place
   ;; update payload when enabled.
   ;; `fmt`, not `format`: the builtin stays reachable inside the branches.
   (for ([fmt (in-list (project-linux-formats project))])
-    (case fmt
-      [("deb") (create-deb! project package)]
-      [("rpm") (create-rpm! project package)]
-      [("appimage") (create-appimage! project package)]))
+    (define artifact
+      (case fmt
+        [("deb") (create-deb! project package)]
+        [("rpm") (create-rpm! project package)]
+        [("appimage") (create-appimage! project package)]
+        [else #f]))
+    (when (and gpg-settings artifact (path? artifact))
+      (gpg-detach-sign! artifact gpg-settings)))
   output)
 
 (define (create-installer! project package #:production? [production? #f])
@@ -688,3 +725,7 @@
            convert-released-dmg!
            whole-image-device
            disk-image-device-listed?))
+
+
+(module+ test-support
+  (provide gpg-detach-sign!))

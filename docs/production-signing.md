@@ -81,7 +81,21 @@ Set:
 - `RIVET_LINUX_SIGN_KEY_ID` — public identifier for the signing key.
 - `RIVET_LINUX_SIGN_PUBLIC_KEY` — path to the matching DER-encoded public key, required by `raco rivet verify --production`.
 
-Generate the key pair outside the repository with the same openssl flow as the update key. `raco rivet release` also produces `.deb`, `.rpm`, and AppImage artifacts from the verified package payload. The detached Ed25519 signature currently covers the deterministic tarball; the native formats are verified structurally but do not receive separate Rivet artifact signatures. Repository metadata trust, such as apt or dnf repository signing, remains the responsibility of the repository operator and is separate from Rivet's tarball signature.
+Generate the key pair outside the repository with the same openssl flow as the update key. `raco rivet release` also produces `.deb`, `.rpm`, and AppImage artifacts from the verified package payload. The detached Ed25519 signature covers the deterministic tarball; the native formats are verified structurally.
+
+Production releases can additionally attach **detached GPG signatures** beside every Linux artifact. Set:
+
+- `RIVET_LINUX_GPG_KEY` — GPG key id or fingerprint in the release keyring.
+- `RIVET_LINUX_GPG_PASSPHRASE` — optional; when set, GPG runs with loopback pinentry.
+- `RIVET_LINUX_GPG_HOMEDIR` — optional custom GPG home.
+
+When the key is set, `raco rivet release` writes `<artifact>.asc` for the tarball, deb, rpm and AppImage alongside the Ed25519 `.sig` (the tarball has both). Verify a direct download with:
+
+```bash
+gpg --verify my-app-1.0.0-linux-x86_64.deb.asc my-app-1.0.0-linux-x86_64.deb
+```
+
+The GPG sidecar is for direct-download verification. Repository metadata trust, such as apt or dnf repository signing, remains the responsibility of the repository operator and is separate from Rivet's artifact signatures.
 
 The deterministic tarball is Rivet's strongest independently reproducible
 Linux artifact. Native packages and AppImage also receive structural, payload,

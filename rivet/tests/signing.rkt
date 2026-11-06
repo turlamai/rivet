@@ -13,7 +13,10 @@
     #"RIVET_MACOS_NOTARY_PROFILE"
     #"RIVET_LINUX_SIGN_PRIVATE_KEY"
     #"RIVET_LINUX_SIGN_KEY_ID"
-    #"RIVET_LINUX_SIGN_PUBLIC_KEY"))
+    #"RIVET_LINUX_SIGN_PUBLIC_KEY"
+    #"RIVET_LINUX_GPG_KEY"
+    #"RIVET_LINUX_GPG_PASSPHRASE"
+    #"RIVET_LINUX_GPG_HOMEDIR"))
 
 (define (with-signing-env entries thunk)
   (define env (environment-variables-copy (current-environment-variables)))
@@ -162,3 +165,17 @@
     (list (cons #"RIVET_LINUX_SIGN_PUBLIC_KEY" (path->bytes public-key)))
     load-linux-production-verification)
    (path->string public-key)))
+
+
+(check-false (with-signing-env '() load-linux-gpg-signing))
+
+(when (find-executable-path "gpg")
+  (let ([settings
+         (with-signing-env
+          (list (cons #"RIVET_LINUX_GPG_KEY" #"release@example.invalid")
+                (cons #"RIVET_LINUX_GPG_PASSPHRASE" #"secret")
+                (cons #"RIVET_LINUX_GPG_HOMEDIR" #"/tmp/gnupg"))
+          load-linux-gpg-signing)])
+    (check-equal? (linux-gpg-signing-key settings) "release@example.invalid")
+    (check-equal? (linux-gpg-signing-passphrase settings) "secret")
+    (check-equal? (linux-gpg-signing-homedir settings) "/tmp/gnupg")))

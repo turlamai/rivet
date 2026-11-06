@@ -104,9 +104,24 @@ Linux 没有操作系统级代码签名门禁，因此 Rivet 在安装器层定�
   --production` 需要它。
 
 在仓库之外用与更新密钥相同的 openssl 流程生成密钥对。`raco rivet release` 还会从已验证
-的包负载产出 `.deb`、`.rpm` 和 AppImage 产物。分离的 Ed25519 签名目前覆盖确定性 tarball；
-原生格式只做结构校验，不会单独获得 Rivet 产物签名。apt/dnf 仓库签名等仓库元数据信任仍由
-仓库运营方负责，与 Rivet 的 tarball 签名分离。
+的包负载产出 `.deb`、`.rpm` 和 AppImage 产物；确定性 tarball 由分离 Ed25519 签名覆盖，
+原生格式做结构校验。
+
+生产发布还可以为每个 Linux 产物附加**分离 GPG 签名**。设置：
+
+- `RIVET_LINUX_GPG_KEY` — release keyring 中的 GPG key id 或指纹；
+- `RIVET_LINUX_GPG_PASSPHRASE` — 可选；设置后 GPG 使用 loopback pinentry；
+- `RIVET_LINUX_GPG_HOMEDIR` — 可选的自定义 GPG home。
+
+设置 key 后，`raco rivet release` 会为 tarball、deb、rpm 和 AppImage 写出 `<artifact>.asc`，
+与 Ed25519 `.sig` 并存（tarball 两者都有）。直接下载后可验证：
+
+```bash
+gpg --verify my-app-1.0.0-linux-x86_64.deb.asc my-app-1.0.0-linux-x86_64.deb
+```
+
+GPG 侧车用于直接下载校验；apt/dnf 等仓库元数据签名仍由仓库运营方负责，与 Rivet 的产物签名
+是两件事。
 
 确定性 tarball 是 Rivet 最强的可独立复现 Linux 产物。原生包和 AppImage 也会接受结构、
 负载、元数据和依赖校验。应用必须在其声明的发行版生命周期内补齐真实的包管理器安装、
