@@ -5,16 +5,24 @@
 (provide (struct-out windows-signing)
          (struct-out macos-signing)
          (struct-out linux-signing)
+         (struct-out linux-gpg-signing)
          load-windows-production-signing
          load-macos-production-signing
          load-linux-production-signing
-         load-linux-production-verification)
+         load-linux-production-verification
+         load-linux-gpg-signing)
 
 (struct windows-signing (certificate-sha1 pfx pfx-password timestamp-url)
   #:transparent)
 (struct macos-signing (identity notary-profile)
   #:transparent)
 (struct linux-signing (private-key key-id)
+  #:transparent)
+;; Optional detached GPG signatures for the native Linux artifacts. This is
+;; separate from the mandatory Ed25519 tarball/feed signature: GPG sidecars
+;; let direct-download users verify a deb/rpm/AppImage with the key their
+;; distribution or publisher already publishes.
+(struct linux-gpg-signing (key passphrase homedir)
   #:transparent)
 
 (define (non-empty-env name)
@@ -87,3 +95,16 @@
                            "configured Linux verification key does not exist"
                            "RIVET_LINUX_SIGN_PUBLIC_KEY" public-key))
   public-key)
+
+
+(define (load-linux-gpg-signing)
+  ;; Optional: unset means only the Ed25519 tarball signature is produced.
+  (define key (non-empty-env "RIVET_LINUX_GPG_KEY"))
+  (and key
+       (begin
+         (unless (find-executable-path "gpg")
+           (error 'load-linux-gpg-signing
+                  "RIVET_LINUX_GPG_KEY is set but gpg was not found"))
+         (linux-gpg-signing key
+                            (getenv "RIVET_LINUX_GPG_PASSPHRASE")
+                            (non-empty-env "RIVET_LINUX_GPG_HOMEDIR")))))
