@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Launch smoke no longer hangs when the application spawns a descendant that
+  inherits stdout/stderr. Capture threads get a short grace, then Rivet closes
+  its read ends; a pipe held open by a surviving child can no longer stall
+  `raco rivet package`/`release` forever.
+
 - `raco rivet doctor` now checks the Windows Store application-type MSBuild
   props required by the WinUI 3 host. It asks `vswhere -find` for the actual
   installed layout, so preview Visual Studio directory names do not matter.

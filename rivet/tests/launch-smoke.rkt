@@ -52,3 +52,18 @@
  exn:fail:contract?
  (lambda ()
    (launch-smoke! racket-executable #:seconds 0)))
+
+
+;; A descendant may inherit the pipes after the direct child exits. Closing
+;; our read ends must bound the wait instead of hanging release forever.
+(unless (eq? (system-type 'os) 'windows)
+  (define started (current-inexact-milliseconds))
+  (check-exn
+   exn:fail?
+   (lambda ()
+     (launch-smoke!
+      "/bin/sh"
+      #:arguments '("-c" "sleep 5 & echo started")
+      #:seconds 0.1
+      #:who 'test-launch-smoke!)))
+  (check-true (< (- (current-inexact-milliseconds) started) 3000)))

@@ -95,6 +95,8 @@
   (define smoke-directory
     (simplify-path (path->complete-path working-directory) #t))
   (define process #f)
+  (define stdout-port #f)
+  (define stderr-port #f)
   (define stdout-thread #f)
   (define stderr-thread #f)
   (define stdout-result (box (cons #"" #f)))
@@ -106,8 +108,19 @@
         (with-handlers ([exn:fail? void])
           (subprocess-kill process #t)))
       (subprocess-wait process))
-    (when stdout-thread (thread-wait stdout-thread))
-    (when stderr-thread (thread-wait stderr-thread)))
+    ;; A descendant can inherit the child's pipes and keep them open after
+    ;; the direct child exits or is killed. Give normal capture a short grace,
+    ;; then close our read ends to unblock the threads; waiting forever would
+    ;; hang `release`.
+    (define workers (filter values (list stdout-thread stderr-thread)))
+    (for ([worker (in-list workers)])
+      (sync/timeout 1 worker))
+    (for ([port (in-list (list stdout-port stderr-port))])
+      (when (and port (input-port? port) (not (port-closed? port)))
+        (with-handlers ([exn:fail? void])
+          (close-input-port port))))
+    (for ([worker (in-list workers)])
+      (sync/timeout 1 worker)))
 
   (with-handlers
       ([exn:fail?
@@ -118,6 +131,8 @@
       (parameterize ([current-directory smoke-directory])
         (apply subprocess #f #f #f executable-path arguments)))
     (set! process child)
+    (set! stdout-port child-stdout)
+    (set! stderr-port child-stderr)
     (close-output-port child-stdin)
     (set! stdout-thread
           (thread (lambda () (capture-port! child-stdout stdout-result))))
