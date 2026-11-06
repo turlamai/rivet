@@ -48,13 +48,13 @@
 (call-with-output-file (build-path package "RivetHost.exe")
   #:exists 'truncate/replace (lambda (out) (display "fake-exe" out)))
 
-(define (wix-source-for overrides)
+(define (wix-source-for overrides #:windows-arm64? [windows-arm64? #f])
   (define project
     (rivet-project package-root
                    (hash-union (hasheq 'name "Smoke") overrides)))
   (define source (build-path package-root ".rivet" "installer" "product.wxs"))
   (make-parent-directory* source)
-  (write-wix-source! project package source)
+  (write-wix-source! project package source #:windows-arm64? windows-arm64?)
   (file->string source))
 
 (define (hash-union a b)
@@ -131,6 +131,14 @@
  #rx"<Publish Dialog=\"ExitDialog\" Control=\"Finish\" Event=\"DoAction\" Value=\"LaunchApplication\" Condition=\"WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT [(]REMOVE = &quot;ALL&quot;[)]\" Order=\"2\" />"
  plain-source
  "the checkbox must launch after install/repair but never after full uninstall")
+;; WiX 5's Util extension has no ARM64 WixShellExec CA; ARM64 must use the
+;; no-binary Directory/ExeCommand action.
+(define arm64-source (wix-source-for (hasheq) #:windows-arm64? #t))
+(check-false (regexp-match? #rx"WixShellExecTarget" arm64-source))
+(check-false (regexp-match? #rx"Wix4UtilCA" arm64-source))
+(check-regexp-match
+ #rx"<CustomAction Id=\"LaunchApplication\" Directory=\"INSTALLFOLDER\" ExeCommand=\"\\[INSTALLFOLDER\\]RivetHost.exe\" Execute=\"immediate\" Impersonate=\"yes\" Return=\"asyncNoWait\" />"
+ arm64-source)
 (check-regexp-match #rx"<WixVariable Id=\"WixUILicenseRtf\" Value=\"[^\"]+license[.]rtf\" />"
                     plain-source
                     "the license page always resolves to an RTF")
