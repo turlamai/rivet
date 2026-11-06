@@ -67,6 +67,32 @@
        (build-path fallback-root "MSBuild" "18.0" "Bin" "amd64" "MSBuild.exe")))
     (check-equal? (msbuild-in-installation fallback-root) newest-msbuild)
 
+    ;; vswhere -find is the layout-independent probe used by doctor.
+    (define app-type-root (build-path temp-root "app-type"))
+    (define app-type-dir
+      (build-path app-type-root "MSBuild" "Microsoft" "VC" "v170"
+                  "Application Type" "Windows Store" "10.0"))
+    (touch (build-path app-type-dir "Microsoft.Cpp.WindowsStore.Common.props"))
+    (check-equal? (windows-store-app-type-in-installation app-type-root)
+                  app-type-dir)
+    (check-false (windows-store-app-type-in-installation fallback-root))
+    (check-equal?
+     (visual-studio-root-from-tool
+      (build-path temp-root "Program Files" "Microsoft Visual Studio"
+                  "18" "Enterprise" "VC" "Tools" "MSVC" "14.51"
+                  "bin" "Hostx64" "x64" "cl.exe"))
+     (build-path temp-root "Program Files" "Microsoft Visual Studio"
+                 "18" "Enterprise"))
+    (unless (eq? (system-type 'os) 'windows)
+      (define fake-vswhere (build-path temp-root "vswhere"))
+      (call-with-output-file fake-vswhere
+        #:exists 'truncate/replace
+        (lambda (out)
+          (fprintf out "#! /bin/sh\nprintf '%s\\n' '~a'\n"
+                   (path->string app-type-dir))))
+      (file-or-directory-permissions fake-vswhere #o755)
+      (check-equal? (vswhere-app-type-props fake-vswhere) app-type-dir))
+
     (define children
       (sorted-child-directories (build-path fallback-root "MSBuild")))
     (check-equal? (map file-name-from-path children)

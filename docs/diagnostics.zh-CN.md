@@ -46,7 +46,9 @@ Rivet 使用一小套稳定的退出码：
 
 例如，不完整的 Windows C++ 环境会指向 Visual Studio 2022 / Build Tools 的
 `Desktop development with C++` 工作负载和 Windows SDK；Windows App SDK 是项目包，
-Rivet 会在构建时还原。不完整的 macOS 环境会指向 `xcode-select --install`，必要时
+Rivet 会在构建时还原。在 Rivet 项目内，doctor 还会检查 Windows Store application-type
+的 MSBuild props；缺失时指向 `Microsoft.VisualStudio.Workload.UniversalBuildTools`，
+因为只有 MSVC 和 SDK 无法构建 WinUI 3 宿主。不完整的 macOS 环境会指向 `xcode-select --install`，必要时
 还会提示选择 Xcode developer directory。Linux 诊断会检查 CMake、pkg-config、
 C++20、GTK 4.10 或更新版本、`ldd` 以及可嵌入的静态 Racket CS 库。运行时发现失败时，
 Rivet 会要求完整的 Racket CS 发行版和同一安装的 `raco`。

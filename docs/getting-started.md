@@ -69,7 +69,7 @@ If something required is missing, `doctor` prints a **Fix next** section with th
 
 Typical requirements are:
 
-- **Windows:** Racket CS, Visual Studio 2022 or Build Tools with Desktop development with C++, and a Windows SDK. Rivet restores the Windows App SDK package during the native build.
+- **Windows:** Racket CS, Visual Studio 2022 or Build Tools with Desktop development with C++, the C++ Universal Windows Platform tools (`Microsoft.VisualStudio.Workload.UniversalBuildTools`), and a Windows SDK. The WinUI 3 host imports MSBuild's Windows Store application-type props; without that workload MSB8036 can misleadingly report a missing SDK. Rivet restores the Windows App SDK package during the native build.
 - **macOS:** Racket CS plus the Apple developer command-line/Xcode toolchain.
 - **Linux:** CMake, pkg-config, a C++20 toolchain, GTK 4.10+ development files, zlib, LZ4, curses, and an embeddable static `libracketcs.a`. Set `RIVET_RACKET_LIBRARY` and `RIVET_RACKET_BOOT_DIR` when those artifacts are outside the active Racket installation.
 

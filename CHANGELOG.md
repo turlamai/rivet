@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- `raco rivet doctor` now checks the Windows Store application-type MSBuild
+  props required by the WinUI 3 host. It asks `vswhere -find` for the actual
+  installed layout, so preview Visual Studio directory names do not matter.
+  Inside a Rivet project, missing props make the toolchain unusable and the
+  remediation names `Microsoft.VisualStudio.Workload.UniversalBuildTools`;
+  a bare checkout keeps the layout-sensitive probe out of the usable gate
+  (#422).
+
 - Linux production releases can now attach detached GPG signatures to the
   tarball, deb, rpm and AppImage via `RIVET_LINUX_GPG_KEY`, with optional
   `RIVET_LINUX_GPG_PASSPHRASE` and `RIVET_LINUX_GPG_HOMEDIR`. The sidecars are

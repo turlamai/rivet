@@ -9,7 +9,7 @@
 (provide (struct-out windows-toolchain)
          discover-windows-toolchain)
 
-(struct windows-toolchain (msbuild cl lib dumpbin signtool vswhere) #:transparent)
+(struct windows-toolchain (msbuild cl lib dumpbin signtool vswhere app-type-props) #:transparent)
 
 (define (existing-file path)
   (and path (file-exists? path) (simplify-path path #t)))
@@ -48,6 +48,43 @@
          (define candidate (string-trim line))
          (and (not (string=? candidate ""))
               (existing-directory (string->path candidate))))))
+
+(define (vswhere-app-type-props vswhere)
+  ;; `-find` searches the installed Visual Studio layout itself, so preview
+  ;; version directory names (VS 18's v180, x86/x64 roots) do not matter.
+  (and vswhere
+       (first-existing-directory-line
+        (capture-command
+         vswhere
+         (list "-latest" "-products" "*" "-find"
+               "MSBuild\\Microsoft\\VC\\**\\Application Type\\Windows Store\\10.0")))))
+
+(define (visual-studio-root-from-tool tool)
+  ;; vswhere does not know every preview layout, but the tool path still
+  ;; contains `Microsoft Visual Studio\<version>\<edition>`.
+  (and tool
+       (let* ([parts (explode-path tool)]
+              [index
+               (for/first ([part (in-list parts)]
+                           [index (in-naturals)]
+                           #:when (equal? (path->string part)
+                                          "Microsoft Visual Studio"))
+                 index)])
+         (and index
+              (< (+ index 2) (length parts))
+              (apply build-path (take parts (+ index 3)))))))
+
+(define (windows-store-app-type-in-installation root)
+  (and root
+       (let ([vc-targets (build-path root "MSBuild" "Microsoft" "VC")])
+         (and (directory-exists? vc-targets)
+              (for/first ([version (in-list (directory-list vc-targets))])
+                (define props
+                  (build-path vc-targets version
+                              "Application Type" "Windows Store" "10.0"))
+                (and (directory-exists? props)
+                     (pair? (directory-list props))
+                     props))))))
 
 (define (vswhere-installation-root vswhere component)
   (first-existing-directory-line
@@ -159,10 +196,31 @@
     (or (existing-file (find-executable-path "signtool.exe"))
         (candidate-windows-kit-tool "signtool.exe")))
 
-  (windows-toolchain msbuild cl lib dumpbin signtool vswhere))
+  ;; WinUI 3 hosts use the Windows Store application-type props. Visual
+  ;; Studio Build Tools omits them unless the C++ UWP workload is installed,
+  ;; even when MSVC and the Windows SDK are present (#422). Ask vswhere where
+  ;; the files actually are, then fall back to scanning the known roots.
+  (define installation-roots
+    (filter values
+            (list vc-root
+                  (getenv "VSINSTALLDIR")
+                  (and vswhere
+                       (vswhere-installation-root
+                        vswhere "Microsoft.Component.MSBuild"))
+                  (visual-studio-root-from-tool cl)
+                  (visual-studio-root-from-tool msbuild))))
+  (define app-type
+    (or (vswhere-app-type-props vswhere)
+        (for/or ([root (in-list installation-roots)])
+          (windows-store-app-type-in-installation root))))
+
+  (windows-toolchain msbuild cl lib dumpbin signtool vswhere app-type))
 
 (module+ test-support
   (provide msbuild-in-installation
            prefer-64-bit-msbuild
            vc-toolset-in-installation
+           visual-studio-root-from-tool
+           vswhere-app-type-props
+           windows-store-app-type-in-installation
            sorted-child-directories))
