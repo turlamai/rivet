@@ -113,6 +113,14 @@ Linux 没有操作系统级代码签名门禁，因此 Rivet 在安装器层定�
 损坏升级恢复、升级、发行版原生降级或回滚、原生 Wayland 启动和卸载证据；AppImage 启动和
 原子替换另行门禁。
 
+## 无发布者证书的签名演练
+
+`Signing Dry Run` 工作流（`.github/workflows/signing-dry-run.yml`）是手动触发的。
+它在 Windows runner 上创建一次性自签名代码签名证书，仅信任该 runner，然后执行真实的
+`raco rivet package --production` 与 `signtool verify /pa /v`。这证明 Authenticode
+参数、RFC 3161 时间戳调用和验证接线在没有购买证书时也能工作。它不是发布身份，也不覆盖
+macOS 公证——后者需要 Apple Developer 账户和真实 Developer ID 证书。
+
 ## CI secrets
 
 生产签名应在独立的可信发布 job 或环境中运行，而不是在 pull-request CI 中。

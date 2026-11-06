@@ -91,6 +91,17 @@ downgrade or rollback, native-Wayland launch, and uninstall evidence across
 their declared distribution lifecycle; AppImage launch and atomic replacement
 are gated separately.
 
+## Signing dry run without a publisher certificate
+
+The `Signing Dry Run` workflow (`.github/workflows/signing-dry-run.yml`) is
+manual. It creates an ephemeral self-signed code-signing certificate on a
+Windows runner, trusts it only on that runner, and runs the real
+`raco rivet package --production` path plus `signtool verify /pa /v`. It
+proves the Authenticode arguments, RFC 3161 timestamp call and verification
+wiring without a purchased certificate. It is not a release identity and does
+not cover macOS notarization, which requires an Apple Developer account and a
+real Developer ID certificate.
+
 ## CI secrets
 
 Production signing should run in a separate trusted release job or environment, not in pull-request CI.

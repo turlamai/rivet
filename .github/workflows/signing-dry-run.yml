@@ -1,0 +1,69 @@
+name: Signing Dry Run
+
+# Exercises the Windows Authenticode production path with an ephemeral
+# self-signed certificate. This proves the command line, timestamping and
+# verification wiring without a purchased publisher certificate; it is not a
+# release signature and does not replace Authenticode trust or macOS
+# notarization, which need real credentials.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-authenticode:
+    name: Windows Authenticode with a self-signed certificate
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Racket CS
+        uses: Bogdanp/setup-racket@8889db76ff6cdc86df8aa09fdd1729cd090b7144 # v1.16
+        with:
+          architecture: x64
+          distribution: full
+          variant: CS
+          version: '9.3'
+      - name: Install Rivet
+        run: raco pkg install --auto --no-docs --name rivet --link "$PWD"
+      - name: Sign and verify a scaffold app
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = Join-Path $env:RUNNER_TEMP 'rivet-signing-smoke'
+          if (Test-Path $root) { Remove-Item -Recurse -Force $root }
+          New-Item -ItemType Directory -Force -Path $root | Out-Null
+          Set-Location $root
+          raco rivet new SigningSmoke
+          Set-Location (Join-Path $root 'SigningSmoke')
+
+          $password = [guid]::NewGuid().ToString('N')
+          $secure = ConvertTo-SecureString -String $password -Force -AsPlainText
+          $cert = New-SelfSignedCertificate `
+            -Type CodeSigningCert `
+            -Subject 'CN=Rivet Signing Dry Run' `
+            -CertStoreLocation Cert:\CurrentUser\My `
+            -KeyExportPolicy Exportable `
+            -KeyUsage DigitalSignature `
+            -TextExtension @('2.5.29.37={text}1.3.6.1.5.5.7.3.3')
+          $pfx = Join-Path $root 'signing.pfx'
+          $cer = Join-Path $root 'signing.cer'
+          Export-PfxCertificate -Cert $cert -FilePath $pfx -Password $secure | Out-Null
+          Export-Certificate -Cert $cert -FilePath $cer | Out-Null
+          # signtool verify /pa needs the self-signed root trusted on this runner.
+          Import-Certificate -FilePath $cer -CertStoreLocation Cert:\LocalMachine\Root | Out-Null
+
+          $env:RIVET_WINDOWS_SIGN_PFX = $pfx
+          $env:RIVET_WINDOWS_SIGN_PFX_PASSWORD = $password
+          $env:RIVET_WINDOWS_TIMESTAMP_URL = 'http://timestamp.digicert.com'
+          raco rivet package --production
+
+          $exe = Join-Path $root 'SigningSmoke\dist\SigningSmoke-windows-x64\RivetHost.exe'
+          if (-not (Test-Path $exe)) { throw 'production package did not produce the signed executable' }
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" `
+            -Recurse -Filter signtool.exe -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -match '\\x64\\signtool\.exe$' } |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $signtool) { throw 'signtool.exe was not found' }
+          & $signtool verify /pa /v $exe
+          if ($LASTEXITCODE -ne 0) { throw 'self-signed Authenticode verification failed' }
