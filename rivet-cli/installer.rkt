@@ -205,15 +205,29 @@
   ;; Honor the user's selection on first install and repair/reinstall, but not
   ;; after complete removal (REMOVE="ALL" means the target no longer exists).
   ;; NOT Installed would incorrectly suppress the repair/reinstall action.
-  ;; WixShellExec comes from the architecture-specific Util CA binary.
+  ;; WiX 5's Util extension has no ARM64 WixShellExec binary, so ARM64 uses a
+  ;; plain Directory/ExeCommand custom action instead.
+  (define arm64?
+    ;; The XML writer is also unit-tested on non-Windows hosts; only a
+    ;; Windows ARM64 target takes the no-CA launch path.
+    (and (eq? (system-type 'os) 'windows)
+         (case (system-type 'arch) [(aarch64 arm64) #t] [else #f])))
+  (define launch-action
+    (if arm64?
+        (string-append
+         "    <CustomAction Id=\"LaunchApplication\" Directory=\"INSTALLFOLDER\" "
+         "ExeCommand=\"[INSTALLFOLDER]RivetHost.exe\" Execute=\"immediate\" "
+         "Impersonate=\"yes\" Return=\"asyncNoWait\" />\n")
+        (format (string-append
+                 "    <Property Id=\"WixShellExecTarget\" Value=\"[INSTALLFOLDER]RivetHost.exe\" />\n"
+                 "    <CustomAction Id=\"LaunchApplication\" BinaryRef=\"Wix4UtilCA_X64\" DllEntry=\"WixShellExec\" Impersonate=\"yes\" />\n"))))
   (define installer-ui-xml
     (format (string-append
              "    <WixVariable Id=\"WixUILicenseRtf\" Value=\"~a\" />\n"
              "~a~a"
              "    <Property Id=\"WIXUI_INSTALLDIR\" Value=\"INSTALLFOLDER\" />\n"
              "    <Property Id=\"WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT\" Value=\"~a\" />\n"
-             "    <Property Id=\"WixShellExecTarget\" Value=\"[INSTALLFOLDER]RivetHost.exe\" />\n"
-             "    <CustomAction Id=\"LaunchApplication\" BinaryRef=\"Wix4UtilCA_~a\" DllEntry=\"WixShellExec\" Impersonate=\"yes\" />\n"
+             "~a"
              "    <ui:WixUI Id=\"WixUI_InstallDir\" />\n"
              "    <UI>\n"
              "      <Publish Dialog=\"ExitDialog\" Control=\"Finish\" Event=\"DoAction\" Value=\"LaunchApplication\" Condition=\"WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT (REMOVE = &quot;ALL&quot;)\" Order=\"2\" />\n"
@@ -222,9 +236,7 @@
             (or (bitmap-variable "WixUIBannerBmp" 'banner) "")
             (or (bitmap-variable "WixUIDialogBmp" 'dialog) "")
             (xml-escape (string-append "Launch " display-name))
-            (case (system-type 'arch)
-              [(aarch64 arm64) "ARM64"]
-              [else "X64"])))
+            launch-action))
   (call-with-output-file source
     #:exists 'truncate/replace
     (lambda (out)
