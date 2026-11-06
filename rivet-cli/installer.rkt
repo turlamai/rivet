@@ -162,7 +162,13 @@
                      out)))
         generated)))
 
-(define (write-wix-source! project package source)
+(define (write-wix-source! project package source
+                           #:windows-arm64?
+                           [windows-arm64?
+                            (and (eq? (system-type 'os) 'windows)
+                                 (case (system-type 'arch)
+                                   [(aarch64 arm64) #t]
+                                   [else #f]))])
   (define name (project-name project))
   (define identifier (project-identifier project))
   (define display-name (project-display-name project))
@@ -207,13 +213,8 @@
   ;; NOT Installed would incorrectly suppress the repair/reinstall action.
   ;; WiX 5's Util extension has no ARM64 WixShellExec binary, so ARM64 uses a
   ;; plain Directory/ExeCommand custom action instead.
-  (define arm64?
-    ;; The XML writer is also unit-tested on non-Windows hosts; only a
-    ;; Windows ARM64 target takes the no-CA launch path.
-    (and (eq? (system-type 'os) 'windows)
-         (case (system-type 'arch) [(aarch64 arm64) #t] [else #f])))
   (define launch-action
-    (if arm64?
+    (if windows-arm64?
         (string-append
          "    <CustomAction Id=\"LaunchApplication\" Directory=\"INSTALLFOLDER\" "
          "ExeCommand=\"[INSTALLFOLDER]RivetHost.exe\" Execute=\"immediate\" "
