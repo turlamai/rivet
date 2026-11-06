@@ -173,7 +173,7 @@
     (and supported? racket-exe raco runtime essential-tools?
          (or (not (eq? os 'windows))
              (not project)
-             (windows-toolchain-app-type-props windows-tools))))
+             (and (windows-toolchain-app-type-props windows-tools) #t))))
   (define project-readiness
     (and project
          (let* ([baseline (project-path project "rivet-schema.json")]
