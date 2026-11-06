@@ -726,3 +726,6 @@
   (define report (release-doctor-report project))
   (display-release-doctor report)
   (if (zero? (hash-ref report 'failed)) 0 1))
+
+(module+ test-support
+  (provide windows-application-type-warnings))
