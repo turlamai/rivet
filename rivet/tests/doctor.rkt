@@ -8,7 +8,9 @@
          "../../rivet-cli/codegen.rkt"
          "../../rivet-cli/doctor.rkt"
          "../../rivet-cli/project.rkt"
-         "../../rivet-cli/scaffold.rkt")
+         "../../rivet-cli/scaffold.rkt"
+         "../../rivet-cli/windows-tools.rkt"
+         (submod "../../rivet-cli/doctor.rkt" test-support))
 
 (define report (doctor-report))
 
@@ -66,6 +68,18 @@
 
 ;; Keep remediation logic deterministic and useful even when this test runs on
 ;; a machine whose real developer toolchain is complete.
+;; The app-type gate must fail closed without the props and stay silent with
+;; them; this runs without a Windows host.
+(check-equal?
+ (map (lambda (warning) (hash-ref warning 'code))
+      (windows-application-type-warnings
+       (windows-toolchain #f #f #f #f #f #f #f)))
+ '("missing-windows-store-application-type"))
+(check-equal?
+ (windows-application-type-warnings
+  (windows-toolchain #f #f #f #f #f #f "C:\\MSBuild\\Application Type\\Windows Store\\10.0"))
+ '())
+
 (define incomplete-windows
   (hash 'os "windows"
         'supported #t
@@ -83,6 +97,9 @@
 (check-true
  (for/or ([fix (in-list windows-fixes)])
    (regexp-match? #rx"Windows C\\+\\+ toolchain" (car fix))))
+(check-true
+ (for/or ([fix (in-list windows-fixes)])
+   (regexp-match? #rx"UniversalBuildTools" (cdr fix))))
 
 (define incomplete-macos
   (hash 'os "macosx"

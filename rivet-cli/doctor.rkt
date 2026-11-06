@@ -48,7 +48,8 @@
         'cl (path-string (windows-toolchain-cl tools))
         'lib (path-string (windows-toolchain-lib tools))
         'dumpbin (path-string (windows-toolchain-dumpbin tools))
-        'signtool (path-string (windows-toolchain-signtool tools))))
+        'signtool (path-string (windows-toolchain-signtool tools))
+        'app-type-props (path-string (windows-toolchain-app-type-props tools))))
 
 (define (macos-tools-report)
   (hash 'swift (executable-string "swift")
@@ -104,6 +105,15 @@
               "The WinUI SetIcon(string) overload requires an .ico file. For a titled window use winui_window.hpp and rivet::system::ApplyAppIcon(*this) after InitializeComponent; verify Settings/About windows too."))
       '()))
 
+(define (windows-application-type-warnings tools)
+  (if (windows-toolchain-app-type-props tools)
+      '()
+      (list
+       (hash 'code "missing-windows-store-application-type"
+             'severity "error"
+             'message "The WinUI 3 host requires the Windows Store application-type MSBuild props, but the detected Visual Studio/Build Tools installation does not provide them."
+             'remediation "Open Visual Studio Installer, modify the installation, and add the `Microsoft.VisualStudio.Workload.UniversalBuildTools` workload (C++ Universal Windows Platform tools). MSVC and a Windows SDK alone are not sufficient for the WinUI 3 host; rerun `raco rivet doctor` afterwards."))))
+
 (define (doctor-report)
   (define os (system-type 'os))
   (define arch (system-type 'arch))
@@ -118,10 +128,12 @@
                        #f)])
       (discover-racket-runtime)))
 
+  (define windows-tools #f)
   (define-values (supported? ui tools essential-tools?)
     (case os
       [(windows)
        (define discovered (discover-windows-toolchain))
+       (set! windows-tools discovered)
        (define report (windows-tools-report discovered))
        (values #t
                "WinUI 3 / Windows App SDK 2.4"
@@ -153,8 +165,15 @@
       [else
        (values #f "unsupported" (hash) #f)]))
 
-  (define usable? (and supported? racket-exe raco runtime essential-tools? #t))
   (define project (find-project))
+  ;; Inside a Rivet project the WinUI host will be built, so a missing
+  ;; application-type props directory is fatal. A bare checkout has nothing
+  ;; to build; keep doctor useful there without a layout-sensitive probe.
+  (define usable?
+    (and supported? racket-exe raco runtime essential-tools?
+         (or (not (eq? os 'windows))
+             (not project)
+             (and (windows-toolchain-app-type-props windows-tools) #t))))
   (define project-readiness
     (and project
          (let* ([baseline (project-path project "rivet-schema.json")]
@@ -172,6 +191,9 @@
         '()))
   (define warnings
     (append schema-warnings
+            (if (and windows-tools project)
+                (windows-application-type-warnings windows-tools)
+                '())
             (if project
                 (windows-icon-source-warnings (rivet-project-root project))
                 '())))
@@ -227,7 +249,10 @@
                (missing-tool? tools 'lib)
                (missing-tool? tools 'dumpbin))
        (add! "Install the Windows C++ toolchain"
-             "Open Visual Studio Installer and install Visual Studio 2022 (or Build Tools 2022) with the `Desktop development with C++` workload and a Windows 10/11 SDK. Rivet restores its Windows App SDK package during the build. Then open a new terminal and rerun `raco rivet doctor`."))]
+             "Open Visual Studio Installer and install Visual Studio 2022 (or Build Tools 2022) with the `Desktop development with C++` workload and a Windows 10/11 SDK. Rivet restores its Windows App SDK package during the build. Then open a new terminal and rerun `raco rivet doctor`."))
+     (when (missing-tool? tools 'app-type-props)
+       (add! "Install the Windows Store application-type build components"
+             "Add the `Microsoft.VisualStudio.Workload.UniversalBuildTools` workload in Visual Studio Installer (C++ Universal Windows Platform tools). The WinUI 3 host imports MSBuild's `Application Type\\Windows Store\\10.0` props; without them MSB8036 misleadingly reports a missing Windows SDK. Then rerun `raco rivet doctor`."))]
     [(macosx)
      (define tools (hash-ref report 'tools))
      (when (or (missing-tool? tools 'swift)
@@ -290,6 +315,7 @@
      (display-path "C++ compiler" (hash-ref tools 'cl))
      (display-path "MSVC librarian" (hash-ref tools 'lib))
      (display-path "dependency audit (dumpbin)" (hash-ref tools 'dumpbin))
+     (display-path "WinUI application type props" (hash-ref tools 'app-type-props))
      (display-path "production signing (signtool)"
                    (hash-ref tools 'signtool)
                    "development packaging is still available")]
@@ -700,3 +726,6 @@
   (define report (release-doctor-report project))
   (display-release-doctor report)
   (if (zero? (hash-ref report 'failed)) 0 1))
+
+(module+ test-support
+  (provide windows-application-type-warnings))
