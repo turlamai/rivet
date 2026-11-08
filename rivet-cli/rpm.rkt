@@ -130,9 +130,15 @@
   (write-rpm-spec! project spec)
   (define output (rpm-installer-path project))
   (make-directory* (path-only output))
+  ;; rpmbuild otherwise uses /var/lib/rpm, which a normal user cannot create
+  ;; or write. Keep the rpmdb inside the project's topdir so packaging works
+  ;; without root on a machine that has never initialized an RPM database.
+  (define rpmdb (build-path topdir "rpmdb"))
+  (make-directory* rpmdb)
   (run! 'create-rpm! rpmbuild
         "-bb"
         (string-append "--define=_topdir " (path->string topdir))
+        (string-append "--define=_dbpath " (path->string rpmdb))
         (string-append "--define=_rpmdir " (path->string (project-path project "dist")))
         (string-append "--define=_build_name_fmt %%{NAME}-%%{VERSION}-%%{RELEASE}.%%{ARCH}.rpm")
         (path->string spec))
