@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Linux RPM packaging now works for an unprivileged build on a machine
+  without an initialized RPM database: `rpmbuild` uses a project-local
+  `_dbpath`, and `%files` globs are no longer quoted (quotes made rpmbuild
+  look for a literal `*`). Verified deb/rpm install and removal, AppImage
+  extraction and tar.gz/zip output on an Ubuntu ARM64 VM.
+
 ## 0.15.0
 
 - Windows ARM64 MSIs now build and install. WiX 5.0.2 does not ship
