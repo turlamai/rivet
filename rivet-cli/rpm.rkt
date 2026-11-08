@@ -88,12 +88,15 @@
       (display "\n%prep\n\n%build\n" out)
       (display "\n%install\nrm -rf \"%{buildroot}\"\nmkdir -p \"%{buildroot}\"\ncp -a \"%{_topdir}/STAGED/.\" \"%{buildroot}/\"\n" out)
       (display "\n%files\n" out)
-      (fprintf out "%dir \"/opt/~a\"\n" name)
-      (fprintf out "\"/opt/~a/*\"\n" name)
-      (fprintf out "\"/usr/share/applications/~a.desktop\"\n"
+      ;; %files entries are RPM globs, not shell words: quoting them makes
+      ;; rpmbuild look for a literal `*` and fail with "File not found".
+      ;; Project names are validated identifiers, so unquoted paths are safe.
+      (fprintf out "%dir /opt/~a\n" name)
+      (fprintf out "/opt/~a/*\n" name)
+      (fprintf out "/usr/share/applications/~a.desktop\n"
                (project-linux-desktop-id project))
       (when (project-linux-icon project)
-        (fprintf out "\"/usr/share/pixmaps/~a.png\"\n" name))))
+        (fprintf out "/usr/share/pixmaps/~a.png\n" name))))
   destination)
 
 (define (create-rpm! project package)
@@ -130,9 +133,15 @@
   (write-rpm-spec! project spec)
   (define output (rpm-installer-path project))
   (make-directory* (path-only output))
+  ;; rpmbuild otherwise uses /var/lib/rpm, which a normal user cannot create
+  ;; or write. Keep the rpmdb inside the project's topdir so packaging works
+  ;; without root on a machine that has never initialized an RPM database.
+  (define rpmdb (build-path topdir "rpmdb"))
+  (make-directory* rpmdb)
   (run! 'create-rpm! rpmbuild
         "-bb"
         (string-append "--define=_topdir " (path->string topdir))
+        (string-append "--define=_dbpath " (path->string rpmdb))
         (string-append "--define=_rpmdir " (path->string (project-path project "dist")))
         (string-append "--define=_build_name_fmt %%{NAME}-%%{VERSION}-%%{RELEASE}.%%{ARCH}.rpm")
         (path->string spec))
