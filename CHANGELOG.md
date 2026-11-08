@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.15.0
+
+- Windows ARM64 MSIs now build and install. WiX 5.0.2 does not ship
+  `Wix4UtilCA_ARM64`; the ARM64 host uses a no-binary
+  `Directory`/`ExeCommand` Finish-page launch action, while x64 keeps
+  `WixShellExec`. Verified on a Windows 11 ARM64 VM: MSI build, elevated
+  install, native window launch, `/fa` repair, uninstall and external user
+  data retention.
+
 - Launch smoke no longer hangs when the application spawns a descendant that
   inherits stdout/stderr. Capture threads get a short grace, then Rivet closes
   its read ends; a pipe held open by a surviving child can no longer stall
