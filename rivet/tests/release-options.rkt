@@ -2,8 +2,10 @@
 
 (require rackunit
          racket/file
+         racket/port
          racket/path
          racket/string
+         racket/system
          "../../rivet/distribution/crypto.rkt"
          "../../rivet/distribution/manifest.rkt"
          "../../rivet-cli/appimage.rkt"
@@ -73,11 +75,25 @@
     (call-with-output-file (build-path package "payload.txt")
       #:exists 'truncate/replace
       (lambda (out) (display "portable payload" out)))
+    ;; macOS .app payloads depend on relative symlinks inside frameworks;
+    ;; flattening them breaks `codesign --deep --strict` after an in-app
+    ;; update even though the DMG installer stays valid.
+    (when (eq? (system-type 'os) 'macosx)
+      (make-file-or-directory-link "payload.txt"
+                                   (build-path package "payload-link.txt")))
     (define archive (create-portable-zip! project package))
     (check-equal? archive (portable-zip-path project))
     (check-true (file-exists? archive))
     (check-true
      (file-exists? (string-append (path->string archive) ".sha256")))
+    (when (eq? (system-type 'os) 'macosx)
+      (define listing
+        (with-output-to-string
+          (lambda ()
+            (system* "/usr/bin/zipinfo" "-l" (path->string archive)))))
+      (unless (regexp-match? #rx"lrwx" listing)
+        (displayln listing))
+      (check-regexp-match #rx"lrwx" listing))
     (define artifact
       (parameterize ([current-environment-variables complete-env])
         (portable-update-artifact (release-update-environment #t) archive)))

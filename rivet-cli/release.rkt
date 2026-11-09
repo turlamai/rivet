@@ -3,6 +3,7 @@
 (require file/glob
          file/zip
          racket/file
+         racket/system
          racket/list
          racket/path
          racket/string
@@ -46,8 +47,25 @@
 (define (create-portable-zip! project package)
   (define zip-path (portable-zip-path project))
   (when (file-exists? zip-path) (delete-file zip-path))
-  (parameterize ([current-directory (path-only package)])
-    (zip zip-path (path->string (file-name-from-path package))))
+  ;; Racket's `zip` stores symlink targets as ordinary files. On macOS the
+  ;; payload is a .app whose frameworks rely on relative symlinks
+  ;; (Racket.framework/Versions/Current -> 9.3_CS), so flattening them makes
+  ;; the extracted bundle fail `codesign --verify --deep --strict` while the
+  ;; DMG (built by ditto) stays valid. ditto keeps the archive semantically
+  ;; identical to the bundle the host updates into place.
+  (cond
+    [(eq? (system-type 'os) 'macosx)
+     (define status
+       (parameterize ([current-directory (path-only package)])
+         (system*/exit-code "/usr/bin/ditto" "-c" "-k" "--norsrc" "--keepParent"
+                            (path->string (file-name-from-path package))
+                            (path->string zip-path))))
+     (unless (zero? status)
+       (error 'create-portable-zip!
+              "ditto failed to create the portable zip (exit ~a)" status))]
+    [else
+     (parameterize ([current-directory (path-only package)])
+       (zip zip-path (path->string (file-name-from-path package))))])
   (write-sha256-sidecar! zip-path)
   zip-path)
 

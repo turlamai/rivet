@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- Update feeds survive transient release-CDN failures: `fetch-update-manifest`
+  retries the transport three times and rejects an HTML error page before it
+  reaches the JSON/signature parser, and `download-update` refuses an HTML body
+  instead of writing it as the artifact. `fetch-sibling-asset` now reads the
+  response header string correctly (it previously treated it as a port) and
+  applies the same HTML guard.
+- macOS portable ZIPs keep the `.app` framework symlinks: the archive is built
+  with `ditto -c -k --keepParent` instead of Racket `zip`, which stored symlink
+  targets as files and made a zip-installed or zip-updated bundle fail
+  `codesign --verify --deep --strict` while the DMG copy stayed valid.
+
 ## 0.15.1
 
 - Linux RPM packaging now works for an unprivileged build on a machine

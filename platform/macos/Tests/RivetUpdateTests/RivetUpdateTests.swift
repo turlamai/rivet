@@ -552,6 +552,22 @@ private final class StubURLProtocol: URLProtocol {
     override func stopLoading() {}
 }
 
+private final class RequestCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+    func next() -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+        count += 1
+        return count
+    }
+    var value: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return count
+    }
+}
+
 private final class ProgressLog: @unchecked Sendable {
     private let lock = NSLock()
     private var values: [Int] = []
@@ -711,6 +727,31 @@ struct RivetUpdateNetworkedTests {
             }
             #expect(message.contains("404"))
         }
+    }
+
+    @Test func checkRetriesTransientGatewayErrors() async throws {
+        // A regional CDN answered 504 for roughly two out of three requests
+        // while auditing Taskly v0.2.7. Two transient failures must not turn
+        // a successful third attempt into an error.
+        let wrapper = try wrapperData(payloadJSON: innerManifestJSON(version: "1.2.3"))
+        let counter = RequestCounter()
+        StubURLProtocol.handler = { _ in
+            counter.next() < 3
+                ? .httpStatus(504, Data("<html>504 Gateway Time-out</html>".utf8))
+                : .success(wrapper)
+        }
+        let service = try RivetUpdateService(
+            configuration: testConfiguration,
+            bundlePath: "/Applications/Taskly.app",
+            currentVersion: "1.0.0",
+            sessionConfiguration: stubbedConfiguration())
+        let result = try await service.check()
+        guard case .available(let manifest) = result else {
+            Issue.record("expected an available update after retries")
+            return
+        }
+        #expect(manifest.version == "1.2.3")
+        #expect(counter.value == 3)
     }
 
     @Test func checkRefusesDevelopmentCopies() async throws {
