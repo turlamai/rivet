@@ -249,22 +249,40 @@ public final class RivetUpdateService: Sendable {
     }
 
     private func fetchSignedManifest() async throws -> RivetUpdateManifest {
-        let data: Data
-        let response: URLResponse
-        do {
-            (data, response) = try await session.data(from: configuration.feedURL)
-        } catch {
-            throw RivetUpdateError.network(error.localizedDescription)
+        // Release feeds sit behind a CDN that intermittently answers with
+        // 502/504 for a few seconds (observed from a regional network while
+        // auditing Taskly). Retry the transport only: signature and schema
+        // verification stay outside this loop so a verification failure can
+        // never be masked by a retry.
+        let attempts = 3
+        var lastNetworkFailure = "update check failed"
+        for attempt in 1...attempts {
+            do {
+                let (data, response) = try await session.data(from: configuration.feedURL)
+                let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+                guard status == 200 else {
+                    lastNetworkFailure = "HTTP \(status)"
+                    let retryable = status == 429 || (500...599).contains(status)
+                    if retryable, attempt < attempts {
+                        try await Task.sleep(nanoseconds: UInt64(attempt) * 500_000_000)
+                        continue
+                    }
+                    throw RivetUpdateError.network(lastNetworkFailure)
+                }
+                return try Self.verifyManifest(data,
+                                               keyBase64: configuration.publicKeyBase64,
+                                               keyID: configuration.keyID,
+                                               additionalTrustedKeys:
+                                                   configuration.additionalTrustedKeys)
+            } catch let error as URLError where attempt < attempts {
+                lastNetworkFailure = error.localizedDescription
+                try await Task.sleep(nanoseconds: UInt64(attempt) * 500_000_000)
+                continue
+            } catch let error as URLError {
+                throw RivetUpdateError.network(error.localizedDescription)
+            }
         }
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-            throw RivetUpdateError.network(
-                "HTTP \((response as? HTTPURLResponse)?.statusCode ?? -1)")
-        }
-        return try Self.verifyManifest(data,
-                                       keyBase64: configuration.publicKeyBase64,
-                                       keyID: configuration.keyID,
-                                       additionalTrustedKeys:
-                                           configuration.additionalTrustedKeys)
+        throw RivetUpdateError.network(lastNetworkFailure)
     }
 
     // MARK: - Pure steps (unit-tested)
