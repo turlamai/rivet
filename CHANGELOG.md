@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.15.2
 
 - Ed25519 no longer requires a native provider to verify or sign update
   manifests (#439): the factory selection now honors the runtime

@@ -6,7 +6,7 @@
 ;; this field synced to the release-version major.minor so the catalog
 ;; advertises what the tags actually ship.
 (define version "0.15")
-(define release-version "0.15.1")
+(define release-version "0.15.2")
 (define pkg-desc "Native application foundation for Racket")
 (define pkg-authors '(turlamai))
 (define license 'MIT)
