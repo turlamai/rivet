@@ -237,7 +237,9 @@
                       source
                       (build-path stage (file-name-from-path source))))))
 
-(define (compile-backend! project runtime stage)
+(define (compile-backend! project runtime stage
+                          #:raco [raco #f]
+                          #:boot-sources [boot-sources #f])
   (define backend-relative (project-ref project 'backend))
   (define backend (project-path project backend-relative))
   (unless (file-exists? backend)
@@ -251,26 +253,29 @@
   (make-directory* runtime-dir)
 
   (define core (build-path res-dir "core.zo"))
-  (compile-backend-module-bundle! backend core runtime-dir)
+  (compile-backend-module-bundle! backend core runtime-dir #:raco raco)
 
   (for ([source (in-list
-                 (list (racket-runtime-petite-boot runtime)
-                       (racket-runtime-scheme-boot runtime)
-                       (racket-runtime-racket-boot runtime)))])
+                 (or boot-sources
+                     (list (racket-runtime-petite-boot runtime)
+                           (racket-runtime-scheme-boot runtime)
+                           (racket-runtime-racket-boot runtime))))])
     (copy-required! 'build-project!
                     source
                     (build-path runtime-dir (file-name-from-path source))))
   core)
 
-(define (compile-backend-module-bundle! backend core [runtime-dir #f])
-  (define raco (resolve-raco-executable))
+(define (compile-backend-module-bundle! backend core
+                                        [runtime-dir #f]
+                                        #:raco [raco #f])
+  (define raco-executable (or raco (resolve-raco-executable)))
   ;; `raco ctool --mods` can consume an existing compiled entry module without
   ;; refreshing its transitive dependencies. Compile the dependency graph first
   ;; so same-length source edits cannot leave stale bytecode in the bundle.
-  (run! 'build-project! raco "make" (path->string backend))
+  (run! 'build-project! raco-executable "make" (path->string backend))
   (apply run!
          'build-project!
-         raco
+         raco-executable
          "ctool"
          (append
           (if runtime-dir
@@ -589,20 +594,121 @@
   (file-or-directory-permissions staged-executable #o755)
   staged-executable)
 
+;; The standalone iOS host embeds a portable-bytecode Racket CS built by
+;; platform/ios/build-embedded-racket.sh. The product backend compiles to
+;; the same portable bytecode with that pipeline's pb compiler, so the app
+;; bundle carries `runtime/*.boot` + `res/core.zo` exactly like the desktop
+;; stage — but with pb bytecode that a W^X platform (no JIT, no executable
+;; memory, per App Store policy) can run. The updater stack is never linked
+;; into the iOS host: App Store policy forbids a post-review code-download
+;; path. The pipeline is consumed through environment variables so a stock
+;; desktop checkout builds exactly as before:
+;;   RIVET_IOS_HOST_RACKET     pb compiler racket (compiles the backend)
+;;   RIVET_IOS_RACKET_LIB_DIR  target libracketcs.a directory (merged pb
+;;                             runtime + libffi)
+;;   RIVET_IOS_BOOT_DIR        target runtime/*.boot directory
+;;   RIVET_IOS_RACKET_INCLUDE  target embedding headers
+(define (ios-build-environment)
+  (define host-racket (getenv "RIVET_IOS_HOST_RACKET"))
+  (define lib-dir (getenv "RIVET_IOS_RACKET_LIB_DIR"))
+  (define boot-dir (getenv "RIVET_IOS_BOOT_DIR"))
+  (define include-dir (getenv "RIVET_IOS_RACKET_INCLUDE"))
+  (unless (and host-racket lib-dir boot-dir include-dir)
+    (raise-arguments-error
+     'build-project!
+     (string-append
+      "the iOS build requires the pb toolchain environment; run "
+      "platform/ios/build-embedded-racket.sh and export RIVET_IOS_HOST_RACKET, "
+      "RIVET_IOS_RACKET_LIB_DIR, RIVET_IOS_BOOT_DIR, and RIVET_IOS_RACKET_INCLUDE")))
+  (values host-racket lib-dir boot-dir include-dir))
+
+(define (build-ios! project stage configuration)
+  (define-values (host-racket lib-dir boot-dir include-dir)
+    (ios-build-environment))
+  (define host-dir (project-path project "ios-host"))
+  (unless (directory-exists? (build-path host-dir "project.xcodeproj"))
+    (raise-arguments-error 'build-project!
+                           "iOS host project is missing"
+                           "expected" (build-path host-dir "project.xcodeproj")))
+  (define xcodebuild (find-executable-path "xcodebuild"))
+  (unless xcodebuild
+    (error 'build-project! "xcodebuild was not found; install Xcode"))
+
+  ;; Stage the target boot files and the pb backend bundle where the Xcode
+  ;; project's folder references pick them up.
+  (define runtime-dir (build-path host-dir "runtime"))
+  (define res-dir (build-path host-dir "res"))
+  (fresh-directory! runtime-dir)
+  (fresh-directory! res-dir)
+  (for ([entry (in-list (directory-list boot-dir))])
+    (copy-required! 'build-project!
+                    (build-path boot-dir entry)
+                    (build-path runtime-dir entry)))
+  (define host-raco
+    (build-path (path-only host-racket) "raco"))
+  (unless (file-exists? host-raco)
+    (error 'build-project! "the pb compiler is missing its raco" "expected" host-raco))
+  (define backend (project-path project (project-ref project 'backend)))
+  (compile-backend-module-bundle! backend
+                                  (build-path res-dir "core.zo")
+                                  runtime-dir
+                                  #:raco host-raco)
+
+  (define build-dir (project-path project ".rivet" "build" "ios"))
+  (fresh-directory! build-dir)
+  (run! 'build-project!
+        xcodebuild
+        "-project" (path->string (build-path host-dir "project.xcodeproj"))
+        "-scheme" "RivetHost"
+        "-configuration" configuration
+        "-sdk" "iphonesimulator"
+        "-destination" "generic/platform=iOS Simulator"
+        "-derivedDataPath" (path->string build-dir)
+        "ARCHS=arm64"
+        "CODE_SIGNING_ALLOWED=NO"
+        (format "RIVET_IOS_RACKET_LIB_DIR=~a" lib-dir)
+        (format "OTHER_CFLAGS=-I~a" include-dir))
+
+  ;; Stage the built .app beside the desktop artifacts.
+  (define built-app
+    (for*/first ([configuration-dir (in-list
+                                     (list (build-path build-dir
+                                                       "Build"
+                                                       "Products"
+                                                       (string-append configuration "-iphonesimulator"))))]
+                 [entry (in-list (directory-list configuration-dir))]
+                 #:when (string-suffix? (path->string entry) ".app"))
+      (build-path configuration-dir entry)))
+  (unless built-app
+    (error 'build-project! "xcodebuild did not produce a RivetHost.app"))
+  (define staged-app (build-path stage "RivetHost.app"))
+  (when (directory-exists? staged-app)
+    (delete-directory/files staged-app))
+  (copy-directory/files built-app staged-app)
+  staged-app)
+
 (define (build-project! project
                         #:configuration [configuration "Debug"]
                         #:self-contained? [self-contained? #f]
-                        #:clean-native? [clean-native? #f])
+                        #:clean-native? [clean-native? #f]
+                        #:ios? [ios? #f])
   (check-project-schema-baseline! project)
   (generate-clients! project)
-  (define runtime (discover-racket-runtime))
   (define stage (project-path project ".rivet" "stage"))
   (fresh-directory! stage)
-  (compile-backend! project runtime stage)
-  (copy-project-resources! project stage)
-  (write-app-info! project stage)
-
-  (case (system-type 'os)
+  (cond
+    [ios?
+     ;; The pb backend bundle and the target boot files stage inside the
+     ;; iOS host; the desktop stage layout does not apply.
+     (copy-project-resources! project stage)
+     (write-app-info! project stage)
+     (build-ios! project stage configuration)]
+    [else
+     (define runtime (discover-racket-runtime))
+     (compile-backend! project runtime stage)
+     (copy-project-resources! project stage)
+     (write-app-info! project stage)
+     (case (system-type 'os)
     [(windows)
      (build-windows! project runtime stage configuration self-contained?
                      clean-native?)]
@@ -612,7 +718,7 @@
      (build-linux! project runtime stage configuration)]
     [else
      (error 'build-project!
-            "Rivet native hosts currently target Windows, macOS, and Linux")]))
+            "Rivet native hosts currently target Windows, macOS, and Linux")])]))
 
 (define (dev-project! project)
   ;; Development should start the generated app on a clean machine, not fail

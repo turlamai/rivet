@@ -319,7 +319,7 @@
         (list (target "windows" "production-target" "WinUI 3 / C++/WinRT" "windows")
               (target "macos" "production-target" "SwiftUI / AppKit" "macos-host")
               (target "linux" "production-target" "GTK4" "linux")
-              (target "ios" "foundation" "SwiftUI" #f)
+              (target "ios" "foundation" "SwiftUI" "ios-host")
               (target "ipados" "foundation" "SwiftUI" #f)
               (target "watchos" "typed-companion-foundation" "SwiftUI" #f)
               (target "android" "protocol-runtime-foundation" "Jetpack Compose" #f))

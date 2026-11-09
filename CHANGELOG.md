@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- Standalone iOS hosts enter foundation status: `raco rivet new` now also
+  generates an `ios-host/` Xcode project (SwiftUI app + XCTest) that embeds
+  the Racket CS runtime in-process, and `raco rivet build --ios` compiles
+  the backend to portable bytecode with the pb compiler, stages it with the
+  target boot files, and runs xcodebuild for the iOS simulator. The pb
+  runtime (no JIT, no executable memory — the App Store constraint on a
+  W^X platform) cross-builds per SDK via
+  `platform/ios/build-embedded-racket.sh`, which harvests a single merged
+  static archive following the official install recipe. The generated host
+  never links the updater stack: App Store policy forbids post-review code
+  download. Simulator lifecycle evidence (backend boots, serves typed
+  RPCs, restarts with identical state) ships in the generated XCTest
+  suite; device signing, App Store submission, real-device round trips,
+  and the Android standalone host remain open gates. See
+  docs/mobile-hosts.md.
+
 - Ed25519 no longer requires a native provider to verify or sign update
   manifests (#439): the factory selection now honors the runtime
   `(crypto-factories)` configuration (so a host or the release tooling that

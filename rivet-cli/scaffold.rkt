@@ -92,6 +92,7 @@ ACCEPTANCE
     "- Shared Racket logic: `app/backend.rkt`\n"
     "- Windows UI: `windows/MainWindow.xaml` and `windows/MainWindow.xaml.cpp`\n"
     "- macOS UI: `macos-host/Sources/RivetHost/ContentView.swift` and `RivetHostApp.swift`\n"
+    "- iOS UI: `ios-host/Sources/RivetHost/ContentView.swift` and `RivetHostApp.swift` (build with `raco rivet build --ios`; see docs/mobile-hosts.md)\n"
     "- Linux UI: `linux/src/main.cpp` (GTK4)\n"
     "- Packaged application resources and icons: configure `resources`, `windows-icon`, `macos-icon`, and `linux-icon` in `rivet.rktd`; AppImage release fails closed without `linux-icon`\n"
     "- Continuous integration: `.github/workflows/native.yml` builds and runs acceptance on Windows, macOS, and Linux; keep its Rivet pin in sync with your installed release\n"
@@ -144,6 +145,7 @@ state; never hide it with stash, reset, or generated-file cleanup.
 - Keep shared application and domain logic in `app/backend.rkt`.
 - Keep Windows UI native in WinUI 3 / C++/WinRT under `windows/`.
 - Keep macOS UI native in SwiftUI/AppKit under `macos-host/`.
+- Keep iOS UI native in SwiftUI under `ios-host/`; it embeds the portable-bytecode runtime and must never link the updater stack.
 - Keep Linux UI native in GTK4 under `linux/`.
 - Do not introduce a cross-platform UI DSL or bypass RVT1 with an ad-hoc IPC.
 - iOS/iPadOS/watchOS and Android are foundation targets until their
@@ -217,6 +219,7 @@ Source you may edit:
 - `app/`
 - `windows/`
 - `macos-host/`
+- `ios-host/`
 - `linux/`
 - `rivet.rktd`
 - `rivet-schema.json` when an API compatibility break is intentional
@@ -235,6 +238,8 @@ Generated output you should not hand-edit:
 - `windows/obj/`
 - `windows/RivetHost/`
 - `macos-host/.build/`
+- `ios-host/runtime/`
+- `ios-host/res/`
 
 `raco rivet build` regenerates the typed clients. Use `raco rivet clean` to
 remove transient build output while keeping the generated client sources that
@@ -585,6 +590,9 @@ UPDATE-MODULE
     "windows/obj/\n"
     "windows/RivetHost/\n"
     "macos-host/.build/\n"
+    "ios-host/runtime/\n"
+    "ios-host/res/\n"
+    "ios-host/DerivedData/\n"
     ".DS_Store\n"))
 
   (define windows-template (build-path (simplify-path rivet-root #t) "platform" "windows" "host"))
@@ -603,6 +611,14 @@ UPDATE-MODULE
   (unless (directory-exists? linux-template)
     (error 'rivet-new "Linux host template is missing: ~a" linux-template))
   (copy-directory/files linux-template (build-path root "linux"))
+
+  ;; The standalone iOS host builds through `raco rivet build --ios` once
+  ;; the pb toolchain environment is exported; a fresh project carries the
+  ;; Xcode project so the desktop-first workflow is unchanged.
+  (define ios-template (build-path (simplify-path rivet-root #t) "platform" "ios" "host"))
+  (unless (directory-exists? ios-template)
+    (error 'rivet-new "iOS host template is missing: ~a" ios-template))
+  (copy-directory/files ios-template (build-path root "ios-host"))
   ;; A fresh project starts with a usable compatibility gate. Builds never
   ;; rewrite this source-controlled baseline; applications update it only when
   ;; an API change is deliberate.

@@ -1,0 +1,439 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		4A0000012A00000001 /* RivetHostApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0001012A00000001 /* RivetHostApp.swift */; };
+		4A0000012A00000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0001012A00000002 /* ContentView.swift */; };
+		4A0000012A00000003 /* BackendRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0001012A00000003 /* BackendRuntime.swift */; };
+		4A0000012A00000004 /* GeneratedBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0001012A00000004 /* GeneratedBackend.swift */; };
+		4A0000012A00000005 /* runtime in Resources */ = {isa = PBXBuildFile; fileRef = 4A0001012A00000005 /* runtime */; };
+		4A0000012A00000006 /* res in Resources */ = {isa = PBXBuildFile; fileRef = 4A0001012A00000006 /* res */; };
+		4A0000012A00000007 /* BackendSmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0001012A00000007 /* BackendSmokeTests.swift */; };
+		4A0000012A00000008 /* runtime in Resources */ = {isa = PBXBuildFile; fileRef = 4A0001012A00000005 /* runtime */; };
+		4A0000012A00000009 /* res in Resources */ = {isa = PBXBuildFile; fileRef = 4A0001012A00000006 /* res */; };
+		4A0000012A00000010 /* RivetRuntime in Frameworks */ = {isa = PBXBuildFile; productRef = 4A0002012A00000001 /* RivetRuntime */; };
+		4A0000012A00000011 /* RivetEmbedding in Frameworks */ = {isa = PBXBuildFile; productRef = 4A0002012A00000002 /* RivetEmbedding */; };
+		4A0000012A00000013 /* RivetRuntime in Frameworks */ = {isa = PBXBuildFile; productRef = 4A0002012A00000001 /* RivetRuntime */; };
+		4A0000012A00000014 /* RivetEmbedding in Frameworks */ = {isa = PBXBuildFile; productRef = 4A0002012A00000002 /* RivetEmbedding */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		4A0001012A00000001 /* RivetHostApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RivetHostApp.swift; sourceTree = "<group>"; };
+		4A0001012A00000002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		4A0001012A00000003 /* BackendRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendRuntime.swift; sourceTree = "<group>"; };
+		4A0001012A00000004 /* GeneratedBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneratedBackend.swift; sourceTree = "<group>"; };
+		4A0001012A00000005 /* runtime */ = {isa = PBXFileReference; lastKnownFileType = folder; path = runtime; sourceTree = "<group>"; };
+		4A0001012A00000006 /* res */ = {isa = PBXFileReference; lastKnownFileType = folder; path = res; sourceTree = "<group>"; };
+		4A0001012A00000007 /* BackendSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendSmokeTests.swift; sourceTree = "<group>"; };
+		4A0001012A00000020 /* RivetHost.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "RivetHost.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		4A0001012A00000021 /* RivetHostTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "RivetHostTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		4A0003012A00000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4A0000012A00000010 /* RivetRuntime in Frameworks */,
+				4A0000012A00000011 /* RivetEmbedding in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4A0003012A00000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4A0000012A00000013 /* RivetRuntime in Frameworks */,
+				4A0000012A00000014 /* RivetEmbedding in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		4A0004012A00000001 = {
+			isa = PBXGroup;
+			children = (
+				4A0004012A00000002 /* Sources */,
+				4A0004012A00000003 /* Tests */,
+				4A0004012A00000004 /* Runtime resources */,
+				4A0004012A00000005 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		4A0004012A00000002 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				4A0001012A00000001 /* RivetHostApp.swift */,
+				4A0001012A00000002 /* ContentView.swift */,
+				4A0001012A00000003 /* BackendRuntime.swift */,
+				4A0001012A00000004 /* GeneratedBackend.swift */,
+			);
+			path = Sources/RivetHost;
+			sourceTree = "<group>";
+		};
+		4A0004012A00000003 /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				4A0001012A00000007 /* BackendSmokeTests.swift */,
+			);
+			path = Sources/RivetHostTests;
+			sourceTree = "<group>";
+		};
+		4A0004012A00000004 /* Runtime resources */ = {
+			isa = PBXGroup;
+			children = (
+				4A0001012A00000005 /* runtime */,
+				4A0001012A00000006 /* res */,
+			);
+			sourceTree = "<group>";
+		};
+		4A0004012A00000005 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				4A0001012A00000020 /* RivetHost.app */,
+				4A0001012A00000021 /* RivetHostTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		4A0005012A00000001 /* RivetHost */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4A0007012A00000001 /* Build configuration list for PBXNativeTarget "RivetHost" */;
+			buildPhases = (
+				4A0003012A00000001 /* Frameworks */,
+				4A0006012A00000001 /* Sources */,
+				4A0006012A00000002 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = RivetHost;
+			productName = RivetHost;
+			productReference = 4A0001012A00000020 /* RivetHost.app */;
+			productType = "com.apple.product-type.application";
+			packageProductDependencies = (
+				4A0002012A00000001 /* RivetRuntime */,
+				4A0002012A00000002 /* RivetEmbedding */,
+			);
+		};
+		4A0005012A00000002 /* RivetHostTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4A0007012A00000002 /* Build configuration list for PBXNativeTarget "RivetHostTests" */;
+			buildPhases = (
+				4A0003012A00000002 /* Frameworks */,
+				4A0006012A00000003 /* Sources */,
+				4A0006012A00000004 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = RivetHostTests;
+			productName = RivetHostTests;
+			productReference = 4A0001012A00000021 /* RivetHostTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+			packageProductDependencies = (
+				4A0002012A00000004 /* RivetRuntime */,
+				4A0002012A00000005 /* RivetEmbedding */,
+			);
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		4A0008012A00000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					4A0005012A00000001 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+					4A0005012A00000002 = {
+						CreatedOnToolsVersion = 15.0;
+						TestTargetID = 4A0005012A00000001;
+					};
+				};
+			};
+			buildConfigurationList = 4A0007012A00000003 /* Build configuration list for PBXProject "RivetHost" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 4A0004012A00000001;
+			packageReferences = (
+				4A0009012A00000001 /* XCRemoteSwiftPackageReference "rivet" */,
+			);
+			productRefGroup = 4A0004012A00000005 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				4A0005012A00000001 /* RivetHost */,
+				4A0005012A00000002 /* RivetHostTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		4A0006012A00000002 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4A0000012A00000005 /* runtime in Resources */,
+				4A0000012A00000006 /* res in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4A0006012A00000004 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4A0000012A00000008 /* runtime in Resources */,
+				4A0000012A00000009 /* res in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		4A0006012A00000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4A0000012A00000001 /* RivetHostApp.swift in Sources */,
+				4A0000012A00000002 /* ContentView.swift in Sources */,
+				4A0000012A00000003 /* BackendRuntime.swift in Sources */,
+				4A0000012A00000004 /* GeneratedBackend.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4A0006012A00000003 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4A0000012A00000007 /* BackendSmokeTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		4A0010012A00000005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		4A0010012A00000006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		4A0010012A00000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				"CODE_SIGN_IDENTITY[sdk=iphonesimulator*]" = "";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_TESTABILITY = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_GENERATE_MAP_FILE = NO;
+				LIBRARY_SEARCH_PATHS = "$(RIVET_IOS_RACKET_LIB_DIR)";
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = "-lracketcs -liconv";
+				PRODUCT_BUNDLE_IDENTIFIER = "dev.rivet.host";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		4A0010012A00000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LIBRARY_SEARCH_PATHS = "$(RIVET_IOS_RACKET_LIB_DIR)";
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = "-lracketcs -liconv";
+				PRODUCT_BUNDLE_IDENTIFIER = "dev.rivet.host";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		4A0010012A00000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LIBRARY_SEARCH_PATHS = "$(RIVET_IOS_RACKET_LIB_DIR)";
+				OTHER_LDFLAGS = "-lracketcs -liconv";
+				PRODUCT_BUNDLE_IDENTIFIER = "dev.rivet.host.tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RivetHost.app/$(BUILT_PRODUCT_NAME)";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		4A0010012A00000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LIBRARY_SEARCH_PATHS = "$(RIVET_IOS_RACKET_LIB_DIR)";
+				OTHER_LDFLAGS = "-lracketcs -liconv";
+				PRODUCT_BUNDLE_IDENTIFIER = "dev.rivet.host.tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RivetHost.app/$(BUILT_PRODUCT_NAME)";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		4A0007012A00000001 /* Build configuration list for PBXNativeTarget "RivetHost" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4A0010012A00000001 /* Debug */,
+				4A0010012A00000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4A0007012A00000002 /* Build configuration list for PBXNativeTarget "RivetHostTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4A0010012A00000003 /* Debug */,
+				4A0010012A00000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4A0007012A00000003 /* Build configuration list for PBXProject "RivetHost" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4A0010012A00000005 /* Debug */,
+				4A0010012A00000006 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		4A0009012A00000001 /* XCRemoteSwiftPackageReference "rivet" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/turlamai/rivet.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.10.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		4A0002012A00000001 /* RivetRuntime */ = {
+			isa = XCSwiftPackageProductDependency;
+			packageName = RivetRuntime;
+			productName = RivetRuntime;
+		};
+		4A0002012A00000002 /* RivetEmbedding */ = {
+			isa = XCSwiftPackageProductDependency;
+			packageName = RivetEmbedding;
+			productName = RivetEmbedding;
+		};
+		4A0002012A00000004 /* RivetRuntime */ = {
+			isa = XCSwiftPackageProductDependency;
+			packageName = RivetRuntime;
+			productName = RivetRuntime;
+		};
+		4A0002012A00000005 /* RivetEmbedding */ = {
+			isa = XCSwiftPackageProductDependency;
+			packageName = RivetEmbedding;
+			productName = RivetEmbedding;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 4A0008012A00000001 /* Project object */;
+}
