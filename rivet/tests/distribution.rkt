@@ -6,6 +6,7 @@
          rackunit
          racket/file
          racket/port
+         racket/tcp
          "../../rivet/distribution.rkt"
          (rename-in (submod "../../rivet/distribution/updater.rkt" test)
                     [copy-limited! copy-limited!/test]
@@ -13,8 +14,14 @@
                      call-with-partial-cleanup/test]
                     [call-with-fetch-deadline
                      call-with-fetch-deadline/test]
+                    [call-with-update-response
+                     call-with-update-response/test]
                     [html-error-response? html-error-response?/test]
-                    [header-content-length header-content-length/test]))
+                    [header-content-length header-content-length/test]
+                    [header-field header-field/test]
+                    [require-successful-response!
+                     require-successful-response!/test]
+                    [status-of status-of/test]))
 
 (use-all-factories!)
 
@@ -607,3 +614,151 @@
  42)
 (check-false
  (header-content-length/test "Content-Type: text/html\r\n"))
+
+;; ---- status-aware transport (#435) -------------------------------------
+;; A non-2xx answer must be rejected by its status before any body byte is
+;; trusted. GitHub's release CDN once answered a 504 with a 92-byte HTML
+;; page that the size verifier reported as a "corrupted" update; proxies
+;; can answer plain-text errors that no HTML sniff would catch, so the
+;; transport speaks to net/http-client directly and checks the status on
+;; every hop. Redirects are followed by hand, keeping net/url's old
+;; #:redirections budget (the keyword itself stays absent from the public
+;; contract — doctor's negative test depends on that).
+
+(check-equal? (status-of/test #"HTTP/1.1 503 Service Unavailable") 503)
+(check-equal? (status-of/test #"HTTP/1.0 200 OK") 200)
+(check-equal? (status-of/test #"HTTP/1.1 204 No Content") 204)
+(check-false (status-of/test #"NOT-A-STATUS-LINE"))
+
+(check-equal?
+ (header-field/test
+  "Content-Type: text/plain\r\nLocation: https://mirror.example/x.msi\r\n"
+  "location")
+ "https://mirror.example/x.msi")
+(check-equal?
+ (header-field/test "X-Plan:   spaced value \r\n" "x-plan")
+ "spaced value")
+(check-false (header-field/test "Content-Type: text/plain\r\n" "Location"))
+
+;; 2xx passes the guard; non-2xx, an HTML body on a 2xx, and a status the
+;; transport could not parse all raise.
+(require-successful-response!/test 'probe 204 "Content-Type: text/plain\r\n"
+                                   "https://updates.example/x.msi")
+(check-exn #rx"failed: HTTP 404"
+           (lambda ()
+             (require-successful-response!/test
+              'probe 404 "Content-Type: text/plain\r\n" "https://x/y")))
+(check-exn #rx"HTML error page"
+           (lambda ()
+             (require-successful-response!/test
+              'probe 200 "Content-Type: text/html; charset=utf-8\r\n"
+              "https://x/y")))
+(check-exn #rx"failed: HTTP unknown"
+           (lambda ()
+             (require-successful-response!/test
+              'probe #f "Content-Type: text/plain\r\n" "https://x/y")))
+
+;; racket/tcp offers no way to read an ephemeral port back, so try a
+;; random high port until the bind succeeds. The listener is returned with
+;; the port it claimed.
+(define (open-test-listener)
+  (let loop ([attempts 25])
+    (define port (+ 21000 (random 40000)))
+    (with-handlers ([exn:fail:network?
+                     (lambda (error)
+                       (when (zero? attempts) (raise error))
+                       (loop (sub1 attempts)))])
+      (define listener (tcp-listen port 8 #f "127.0.0.1"))
+      (cons port listener))))
+
+;; Answer every connection with the same canned response until the test
+;; closes the listener; accept's network error ends the thread.
+(define (serve-forever listener answer)
+  (thread
+   (lambda ()
+     (let loop ()
+       (with-handlers ([exn:fail:network? void])
+         (define-values (client-in client-out) (tcp-accept listener))
+         (display answer client-out)
+         (close-output-port client-out)
+         (close-input-port client-in))
+       (loop)))))
+
+;; Runs thunk with the URL of a one-response server; answer may need the
+;; bound port (a self-redirect), so it can be a procedure of the port.
+(define (with-test-server answer-or-port->bytes thunk)
+  (define binding (open-test-listener))
+  (define answer
+    (if (procedure? answer-or-port->bytes)
+        (answer-or-port->bytes (car binding))
+        answer-or-port->bytes))
+  (define server (serve-forever (cdr binding) answer))
+  (dynamic-wind
+    void
+    (lambda ()
+      (thunk (format "http://127.0.0.1:~a/payload" (car binding))))
+    (lambda ()
+      (tcp-close (cdr binding))
+      (kill-thread server))))
+
+;; A plain-text 503 must be rejected by status, before the body: the body
+;; receiver must never run on a non-2xx answer.
+(with-test-server
+ #"HTTP/1.1 503 Service Unavailable\r\nContent-Type: text/plain\r\nContent-Length: 4\r\n\r\noops"
+ (lambda (url)
+   (check-exn
+    #rx"failed: HTTP 503"
+    (lambda ()
+      (call-with-update-response/test
+       'fetch-update-manifest url
+       (lambda (status headers body-in)
+         (error 'probe "body receiver must not run on a 5xx")))))))
+
+;; A 200 reaches the receiver with the de-chunked body.
+(with-test-server
+ #"HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nTransfer-Encoding: chunked\r\n\r\n7\r\npayload\r\n0\r\n\r\n"
+ (lambda (url)
+   (define received #f)
+   (call-with-update-response/test
+    'probe url
+    (lambda (status headers body-in)
+      (set! received (list status (port->bytes body-in)))))
+   (check-equal? received (list 200 #"payload"))))
+
+;; Redirects are followed across hops; only the final response reaches the
+;; receiver, with its own status and de-chunked body.
+(let ([a (open-test-listener)] [b (open-test-listener)])
+  (define server-a
+    (serve-forever
+     (cdr a)
+     (string->bytes/utf-8
+      (format
+       "HTTP/1.1 302 Found\r\nLocation: http://127.0.0.1:~a/payload\r\nContent-Length: 0\r\n\r\n"
+       (car b)))))
+  (define server-b
+    (serve-forever
+     (cdr b)
+     #"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nTransfer-Encoding: chunked\r\n\r\n7\r\npayload\r\n0\r\n\r\n"))
+  (define received #f)
+  (call-with-update-response/test
+   'probe (format "http://127.0.0.1:~a/entry" (car a))
+   (lambda (status headers body-in)
+     (set! received (list status (port->bytes body-in)))))
+  (check-equal? received (list 200 #"payload"))
+  (tcp-close (cdr a))
+  (tcp-close (cdr b))
+  (kill-thread server-a)
+  (kill-thread server-b))
+
+;; A redirect loop fails after the hop budget instead of spinning.
+(with-test-server
+ (lambda (port)
+   (string->bytes/utf-8
+    (format
+     "HTTP/1.1 302 Found\r\nLocation: http://127.0.0.1:~a/payload\r\nContent-Length: 0\r\n\r\n"
+     port)))
+ (lambda (url)
+   (check-exn #rx"redirect limit"
+              (lambda ()
+                (call-with-update-response/test 'probe url void)))))
+

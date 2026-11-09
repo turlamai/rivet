@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- The updater rejects a non-2xx response by its status code before a body
+  byte is trusted (#435): the transport moved from `get-pure-port/headers`
+  (whose header block hides the status line) to `net/http-client`, with an
+  explicit redirect loop keeping the previous 10-hop budget. Gateway and
+  proxy error bodies — plain-text or XML, not just the HTML shape GitHub's
+  CDN answers 502/504 with — now raise a network-classified error naming
+  the status and URL instead of surfacing later as a misleading size/SHA
+  mismatch on a "corrupted" update. The HTML guard stays as defense in
+  depth for a 2xx that claims a captive-portal body.
 - Update feeds survive transient release-CDN failures: `fetch-update-manifest`
   retries the transport three times and rejects an HTML error page before it
   reaches the JSON/signature parser, and `download-update` refuses an HTML body

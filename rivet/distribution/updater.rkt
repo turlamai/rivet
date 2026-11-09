@@ -1,6 +1,7 @@
 #lang racket/base
 
 (require json
+         net/http-client
          net/url
          racket/file
          racket/match
@@ -113,8 +114,12 @@
   (provide copy-limited!
            call-with-partial-cleanup
            call-with-fetch-deadline
+           call-with-update-response
            html-error-response?
-           header-content-length))
+           header-content-length
+           header-field
+           require-successful-response!
+           status-of))
 
 ;; GitHub release assets — the dominant update origin — answer with a 302
 ;; to their CDN, so every fetch must follow redirections or the updater
@@ -124,10 +129,10 @@
 (define update-fetch-connect-timeout-seconds 30)
 (define update-fetch-idle-timeout-seconds 60)
 
-;; `get-pure-port/headers` yields the body port plus the raw header block;
-;; the status line is consumed by the client. An HTML error page (the shape
-;; GitHub's CDN returns on 502/504) must never reach the JSON/signature
-;; parser, and its `Content-Length` is still useful for bounded reads.
+;; Header predicates work on the flat header block the transport yields
+;; (fields joined with CRLF). An HTML error page (the shape GitHub's CDN
+;; returns on 502/504) must never reach the JSON/signature parser, and its
+;; `Content-Length` is still useful for bounded reads.
 (define (html-error-response? headers)
   (and (string? headers)
        (regexp-match? #rx"(?i:content-type:[ \t]*text/html)" headers)))
@@ -138,6 +143,115 @@
          (regexp-match #rx"(?im:^content-length:[ \t]*([0-9]+)[ \t]*\r?$)"
                        headers)))
   (and match (string->number (list-ref match 1))))
+
+;; `get-pure-port/headers` hides the response's status line — the
+;; http-client consumes it — which is why a gateway error body could pass
+;; the HTML sniff above and only fail later as a misleading size/SHA
+;; mismatch (#435: GitHub's release CDN answered a 504 with a 92-byte HTML
+;; page while the asset itself was intact). The transport below speaks to
+;; `net/http-client` directly, where every hop's numeric status is
+;; visible, and follows redirects by hand with the same hop budget
+;; net/url's `#:redirections` used to provide. The keyword itself stays
+;; off the public contracts; doctor's negative test relies on that.
+(define (status-of status-line)
+  ;; Three literal digit classes: Racket's regexp language rejects the
+  ;; counted-repetition spellings ({3} is literal, **{3} is a reader
+  ;; error), so explicitness beats cleverness here.
+  (define match
+    (regexp-match #rx"^HTTP/[0-9.]+[ \t]+([0-9][0-9][0-9])"
+                  (bytes->string/latin-1 status-line)))
+  (and match (string->number (list-ref match 1))))
+
+(define (headers-string fields)
+  (string-join
+   (for/list ([field (in-list fields)]) (bytes->string/latin-1 field))
+   "\r\n"))
+
+(define (header-field headers name)
+  (define match
+    (regexp-match
+     (pregexp (string-append "(?im:^" (regexp-quote name)
+                             ":[ \t]*(.*?)[ \t]*\r?$)"))
+     headers))
+  (and match (list-ref match 1)))
+
+;; 2xx is the only answer whose body may be trusted. Everything else —
+;; gateway HTML, a proxy's plain-text error, an unparseable status — is
+;; refused before the body is handed to any caller, so callers retry a
+;; transient 5xx instead of diagnosing a "corrupted" artifact.
+(define (require-successful-response! who status headers url)
+  (unless (and (exact-nonnegative-integer? status)
+               (<= 200 status 299))
+    (error who "request for ~a failed: HTTP ~a" url (or status "unknown")))
+  (when (html-error-response? headers)
+    (error who "request for ~a returned an HTML error page" url)))
+
+;; path?query exactly as written: clearing the authority fields from the
+;; url struct keeps the original percent-encoding intact.
+(define (request-target u)
+  (url->string (struct-copy url u
+                            [scheme #f] [host #f]
+                            [port #f] [user #f])))
+
+;; A Location header may be protocol-relative or path-only; scheme, host
+;; and port default to the hop that produced it.
+(define (resolved-redirect base-u location)
+  (define loc (string->url location))
+  (struct-copy url loc
+               [scheme (or (url-scheme loc) (url-scheme base-u))]
+               [host (or (url-host loc) (url-host base-u))]
+               [port (or (url-port loc) (url-port base-u))]))
+
+;; GETs url-string and hands the final response to receive as
+;; (values status headers body-in). Each hop opens its own connection;
+;; redirect responses are closed before the next hop, and the final body
+;; and connection close after receive returns or raises.
+(define (call-with-update-response who url-string receive
+                                   #:redirections
+                                   [redirections update-fetch-redirections])
+  (let follow ([u (string->url url-string)] [hops-left redirections])
+    (define scheme-name (url-scheme u))
+    (unless (member scheme-name '("http" "https"))
+      (error who "update fetch refuses the ~a scheme: ~a"
+             (or scheme-name "schemeless") (url->string u)))
+    (define conn
+      (http-conn-open (url-host u)
+                      #:port (or (url-port u)
+                                 (if (string=? scheme-name "https")
+                                     443
+                                     80))
+                      #:ssl? (string=? scheme-name "https")))
+    (define-values (status-line fields body-in)
+      (http-conn-sendrecv! conn (request-target u)
+                           #:headers '("User-Agent: Rivet-Updater/1")))
+    (define status (status-of status-line))
+    (define headers (headers-string fields))
+    (cond
+      [(and (memv status '(301 302 303 307 308)) (positive? hops-left))
+       (define location (header-field headers "Location"))
+       (close-input-port body-in)
+       (http-conn-close! conn)
+       (unless (string? location)
+         (error who
+                "redirect without a Location header: HTTP ~a for ~a"
+                (or status "unknown") (url->string u)))
+       (follow (resolved-redirect u location) (sub1 hops-left))]
+      [(memv status '(301 302 303 307 308))
+       (close-input-port body-in)
+       (http-conn-close! conn)
+       (error who
+              "update fetch exceeded its ~a hop redirect limit following ~a"
+              redirections url-string)]
+      [else
+       (dynamic-wind
+         void
+         (lambda ()
+           (require-successful-response!
+            who status headers (url->string u))
+           (receive status headers body-in))
+         (lambda ()
+           (close-input-port body-in)
+           (http-conn-close! conn)))])))
 
 ;; get-pure-port blocks on the TCP connect with no interruptible event, so
 ;; the whole fetch runs in a custodian-owned worker and a deadline past
@@ -185,22 +299,14 @@
     (call-with-fetch-deadline
      'fetch-update-manifest connect-timeout-seconds idle-timeout-seconds
      (lambda ()
-       (define-values (in headers)
-         (get-pure-port/headers (string->url manifest-url)
-                                '("User-Agent: Rivet-Updater/1")
-                                #:redirections update-fetch-redirections))
-       (dynamic-wind
-         void
-         (lambda ()
-           (when (html-error-response? headers)
-             (error 'fetch-update-manifest
-                    "update feed returned an HTML error page instead of a signed manifest"))
-           (define out (open-output-bytes))
-           (copy-limited! in out maximum-bytes
-                          #:who 'fetch-update-manifest
-                          #:stall-seconds idle-timeout-seconds)
-           (get-output-bytes out))
-         (lambda () (close-input-port in))))))
+       (call-with-update-response
+        'fetch-update-manifest manifest-url
+        (lambda (status headers body-in)
+          (define out (open-output-bytes))
+          (copy-limited! body-in out maximum-bytes
+                         #:who 'fetch-update-manifest
+                         #:stall-seconds idle-timeout-seconds)
+          (get-output-bytes out))))))
   ;; Transient CDN failures (502/504 HTML, dropped connections) are the
   ;; common case for release assets; retry the transport a few times before
   ;; failing. Signature and manifest validation stay outside the retry loop
@@ -243,50 +349,38 @@
   (call-with-fetch-deadline
    'fetch-sibling-asset connect-timeout-seconds idle-timeout-seconds
    (lambda ()
-     (define-values (in headers)
-       (get-pure-port/headers
-        (string->url url)
-        '("User-Agent: Rivet-Updater/1")
-        #:redirections update-fetch-redirections))
-     (dynamic-wind
-       void
-       (lambda ()
-         ;; The client consumes the status line; an HTML body is the
-         ;; reliable signal that the server answered with an error page.
-         (when (html-error-response? headers)
-           (error 'fetch-sibling-asset
-                  "sibling asset request returned an HTML error page: ~a"
-                  url))
-         (define content-length (header-content-length headers))
-         (when (exact-positive-integer? content-length)
-           (when (> content-length maximum-bytes)
-             (error 'fetch-sibling-asset
-                    "sibling asset declares ~a bytes beyond the ~a byte limit"
-                    content-length maximum-bytes)))
-         (make-parent-directory* destination)
-         (define temporary (path-add-extension destination #".partial"))
-         (when (file-exists? temporary) (delete-file temporary))
-         (call-with-partial-cleanup
-          temporary
-          (lambda ()
-            (call-with-output-file temporary
-              #:exists 'truncate/replace
-              #:mode 'binary
-              (lambda (out)
-                (copy-limited! in out maximum-bytes
-                               #:who 'fetch-sibling-asset
-                               #:on-progress on-progress
-                               #:stall-seconds idle-timeout-seconds)))
-            (when expected-sha256
-              (define actual (sha256-file/hex temporary))
-              (unless (string=? actual expected-sha256)
-                (error 'fetch-sibling-asset
-                       "sibling asset SHA-256 does not match the expected value"
-                       "expected" expected-sha256
-                       "actual" actual)))
-            (rename-file-or-directory temporary destination #t)
-            destination)))
-       (lambda () (close-input-port in))))))
+     (call-with-update-response
+      'fetch-sibling-asset url
+      (lambda (status headers body-in)
+        (define content-length (header-content-length headers))
+        (when (exact-positive-integer? content-length)
+          (when (> content-length maximum-bytes)
+            (error 'fetch-sibling-asset
+                   "sibling asset declares ~a bytes beyond the ~a byte limit"
+                   content-length maximum-bytes)))
+        (make-parent-directory* destination)
+        (define temporary (path-add-extension destination #".partial"))
+        (when (file-exists? temporary) (delete-file temporary))
+        (call-with-partial-cleanup
+         temporary
+         (lambda ()
+           (call-with-output-file temporary
+             #:exists 'truncate/replace
+             #:mode 'binary
+             (lambda (out)
+               (copy-limited! body-in out maximum-bytes
+                              #:who 'fetch-sibling-asset
+                              #:on-progress on-progress
+                              #:stall-seconds idle-timeout-seconds)))
+           (when expected-sha256
+             (define actual (sha256-file/hex temporary))
+             (unless (string=? actual expected-sha256)
+               (error 'fetch-sibling-asset
+                      "sibling asset SHA-256 does not match the expected value"
+                      "expected" expected-sha256
+                      "actual" actual)))
+           (rename-file-or-directory temporary destination #t)
+           destination)))))))
 
 ;; `portable` is the policy class for any self-replacing tree, so it covers
 ;; both the portable ZIP and the Linux tar.gz feed shape a product may ship.
@@ -384,36 +478,27 @@
   (call-with-partial-cleanup
    temporary
    (lambda ()
-     (define-values (in headers)
-       (get-pure-port/headers (string->url (update-artifact-url artifact))
-                              '("User-Agent: Rivet-Updater/1")
-                              #:redirections update-fetch-redirections))
-     (when (html-error-response? headers)
-       (error 'download-update
-              "update artifact request returned an HTML error page: ~a"
-              (update-artifact-url artifact)))
-     (dynamic-wind
-       void
-       (lambda ()
-         (call-with-output-file temporary
-           #:exists 'truncate/replace
-           #:mode 'binary
-           (lambda (out)
-             ;; Bound the stream to the signed size, not merely the looser
-             ;; configured ceiling, so progress never exceeds 100% before a
-             ;; malformed response is rejected.
-             (copy-limited! in out (update-artifact-size artifact)
-                            #:who 'download-update
-                            #:on-progress on-progress
-                            #:progress-every
-                            (or configured-progress-every
-                                (max 1
-                                     (quotient
-                                      (update-artifact-size artifact)
-                                      100)))
-                            #:stall-seconds stall-timeout-seconds
-                            #:total-seconds total-timeout-seconds))))
-       (lambda () (close-input-port in)))
+     (call-with-update-response
+      'download-update (update-artifact-url artifact)
+      (lambda (status headers body-in)
+        (call-with-output-file temporary
+          #:exists 'truncate/replace
+          #:mode 'binary
+          (lambda (out)
+            ;; Bound the stream to the signed size, not merely the looser
+            ;; configured ceiling, so progress never exceeds 100% before a
+            ;; malformed response is rejected.
+            (copy-limited! body-in out (update-artifact-size artifact)
+                           #:who 'download-update
+                           #:on-progress on-progress
+                           #:progress-every
+                           (or configured-progress-every
+                               (max 1
+                                    (quotient
+                                     (update-artifact-size artifact)
+                                     100)))
+                           #:stall-seconds stall-timeout-seconds
+                           #:total-seconds total-timeout-seconds)))))
      (verify-update-artifact! candidate temporary)
      (rename-file-or-directory temporary destination #t)
      destination)))
