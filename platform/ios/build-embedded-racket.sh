@@ -219,6 +219,23 @@ stage_build() {
       fi
       libffi_prefix="$work_dir/libffi-$sdk_name"
       build_target_libffi "$sdk_name" arm64 "$min_flag" "$libffi_prefix"
+      # The cross build's executables are build-side artifacts the harvest
+      # never consumes (only the archive, boot files, and headers are), and
+      # codesign rejects the simulator Mach-O layout under strict
+      # validation. Replace the mac signing helper with a no-op for this
+      # stage; native stages keep real signing.
+      cat > "$source_dir/src/mac/codesign.zuo" <<'ZUO'
+#lang zuo
+(require "../lib.zuo")
+(provide codesign-via-racket?
+         strip-signature*
+         restore-signature*
+         install_name_tool*)
+(define codesign-via-racket? #f)
+(define (strip-signature* cross? bootstrap-racket dest) (void))
+(define (restore-signature* cross? bootstrap-racket dest) (void))
+(define (install_name_tool* cross? bootstrap-racket args) (void))
+ZUO
       echo "=== Rivet iOS toolchain: stage=$stage sdk=$sdk"
       build_dir="$work_dir/build-$sdk_name"
       mkdir -p "$build_dir"

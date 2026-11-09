@@ -33,6 +33,13 @@ Racket CS source (same version and SHA-256 pin as
 |-------|--------|---------|
 | `host-base` | prefix | native Racket CS build; bootstraps every pb and cross build |
 | `host-compiler` | prefix | native pb (`tpb64l`) racket+raco that compiles product backends to portable bytecode |
+
+The `host-compiler` stage must run on a machine **without forced W^X** —
+Linux, or an x86_64 macOS host. On arm64 macOS the kernel kills any
+process that turns libffi closure pages executable, and the pb compiler's
+own bootstrap loads `ffi/unsafe`; the pb VM itself is fine (`raw_racketcs`
+runs) but the compiler never finishes. The stage is machine-portable, so
+CI builds it on an Ubuntu runner and macOS runners consume its prefix.
 | `device` | prefix | cross build of `libracketcs.a` + boot files for the iPhoneOS SDK |
 | `simulator` | prefix | cross build of `libracketcs.a` + boot files for the iPhoneSimulator SDK |
 
@@ -127,7 +134,11 @@ pb 字节码与机器无关:后端模块由构建机上的 pb `racket` 编译一
 
 `platform/ios/build-embedded-racket.sh` 从与 CI 相同 pin 的 Racket CS
 源码构建全部产物。四个阶段:`host-base`(原生构建,引导后续一切)、
-`host-compiler`(跑在 macOS 上的 pb racket/raco,把产品后端编译成可移植
+`host-compiler`(pb racket/raco,把产品后端编译成可移植;必须运行在
+未强制 W^X 的机器上——Linux 或 x86_64 macOS:arm64 macOS 内核会杀掉把
+libffi closure 页变为可执行的进程,pb 编译器自身 bootstrap 会加载
+`ffi/unsafe`,故该阶段在 arm64 macOS 上无法完成;本阶段产物与机器无关,
+CI 在 Ubuntu runner 构建、macOS runner 消费其 prefix)
 字节码)、`simulator`/`device`(交叉构建各 SDK 的 `libracketcs.a` 与
 boot 文件)。脚本处理过的真实故障:pb 需要的 libffi 按 SDK 编译并并入归档、
 模拟器 SDK 路径需以 `iPhoneSimulator.sdk` 结尾、交叉构建的 `make install`
