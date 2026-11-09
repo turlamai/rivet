@@ -2,6 +2,34 @@
 
 ## Unreleased
 
+- Ed25519 no longer requires a native provider to verify or sign update
+  manifests (#439): the factory selection now honors the runtime
+  `(crypto-factories)` configuration (so a host or the release tooling that
+  configured a wider provider set keeps working — the package builder's
+  `use-all-factories!` could generate a key no code path could then parse),
+  and when no native provider implements Ed25519 at all — the official
+  package builder's OpenSSL, or a verify-only embedded process on a machine
+  without one — decode, sign, and verify route through a new pure-Racket
+  backend built on the `ed25519` package, the same pattern glaze ships.
+  The pure backend parses exactly the shapes the release tooling produces
+  (DER SubjectPublicKeyInfo, OneAsymmetricKey, PrivateKeyInfo, and the
+  OpenSSH public-key line) and fails closed on anything else; a
+  cross-backend interop test pins the DER prefixes byte for byte and proves
+  signatures verify under the other backend in both directions.
+- `raco rivet doctor` no longer reports a bare unreadable release version in
+  exotic installed layouts: the canonical user-scope package directory
+  (`<addon-dir>/<version>/pkgs/rivet/info.rkt`) joined the resolution
+  candidates, and every candidate attempt is recorded and surfaced in the
+  release-gate finding, so the package builder's test phase explains itself
+  instead of failing as `#f` (#439).
+- The package `version` field is `0.15` again — it had been stale at `0.13`
+  since the 0.13 release, so the catalog advertised 0.13 while tags and
+  native artifacts shipped 0.15.x (#439).
+- The suite survives the package builder's minimal environment (#439):
+  `taskboard-acceptance` finds `raco` next to the running racket executable
+  when the builder drives the suite by absolute path, and the logging test
+  routes its intentional critical record into a file sink instead of stderr,
+  which the builder treats as a test failure.
 - The updater rejects a non-2xx response by its status code before a body
   byte is trusted (#435): the transport moved from `get-pure-port/headers`
   (whose header block hides the status line) to `net/http-client`, with an

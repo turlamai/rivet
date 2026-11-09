@@ -56,9 +56,15 @@
     (check-equal? (length (remove-duplicates records)) 100)
 
     ;; --- crash reporter writes the record plus the exception -------------
+    ;; The critical log record is routed into its own file sink instead of
+    ;; the default stderr sink: the record is the point of the exercise, and
+    ;; the package builder treats any stderr output as a test failure.
     (define crash-path (build-path root "crash.log"))
+    (define crash-stream (build-path root "crash-stream.log"))
     (parameterize ([current-rivet-crash-reporter
-                    (make-crash-file-reporter crash-path)])
+                    (make-crash-file-reporter crash-path)]
+                   [current-rivet-log-sink
+                    (make-rotating-log-sink crash-stream)])
       (check-exn exn:fail?
                  (lambda ()
                    (call-with-crash-reporting
@@ -67,6 +73,10 @@
       (last (read-records crash-path)))
     (check-equal? (hash-ref crash-record 'event) "unhandled-exception")
     (check-true (string-contains? (hash-ref crash-record 'exception) "boom"))
+    (check-true
+     (for/or ([record (in-list (read-records crash-stream))])
+       (string=? (hash-ref record 'event) "unhandled-exception"))
+     "the critical record reaches the configured log sink as well")
 
     ;; --- the active file is private on Unix ------------------------------
     (unless (eq? (system-type 'os) 'windows)

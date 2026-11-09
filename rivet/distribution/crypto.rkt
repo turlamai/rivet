@@ -3,8 +3,10 @@
 (require crypto
          (only-in racket/base [sha256-bytes racket-sha256-bytes])
          (only-in crypto/libcrypto libcrypto-factory)
+         "crypto-pure.rkt"
          net/base64
          racket/file
+         racket/list
          racket/port
          racket/string)
 
@@ -37,19 +39,28 @@
 
 ;; Keep native provider imports lazy. Full desktop distributions already ship
 ;; OpenSSL 3; importing additional FFI providers during app startup can break
-;; otherwise self-contained packaged applications. The official Racket 9.3
-;; natipkg builder instead carries OpenSSL 1.1, so when the primary factory
-;; cannot implement EdDSA, try the separately RFC 8032-validated Nettle
-;; implementation. There is no alternative signature algorithm and no mock.
-(define (ed25519-factories)
-  (if (get-pk 'eddsa libcrypto-factory)
-      (list libcrypto-factory)
-      (let ([nettle
-             (with-handlers ([exn:fail? (lambda (_) #f)])
-               (dynamic-require 'crypto/nettle 'nettle-factory))])
-        (if (and nettle (get-pk 'eddsa nettle))
-            (list libcrypto-factory nettle)
-            (list libcrypto-factory)))))
+;; otherwise self-contained packaged applications. Reading the
+;; `(crypto-factories)` parameter is safe — it never loads a factory module —
+;; so an embedder that configured a wider set (the release tooling's
+;; `use-all-factories!`, or a host application with its own provider choice)
+;; keeps working even when this module's own defaults cannot serve Ed25519.
+(define (nettle-candidate)
+  (with-handlers ([exn:fail? (lambda (_) #f)])
+    (dynamic-require 'crypto/nettle 'nettle-factory)))
+
+;; Every native factory that can sign and verify Ed25519 right now, empty
+;; when none can. The official Racket 9.3 package builder carries an OpenSSL
+;; that predates Ed25519 and no libnettle, so an empty result is a supported
+;; runtime state, not an error: decode/sign/verify then route through the
+;; pure RFC 8032 backend in crypto-pure.rkt. There is no alternative
+;; signature algorithm and no mock.
+(define (native-ed25519-factories)
+  (remove-duplicates
+   (for/list ([factory (in-list (append (crypto-factories)
+                                        (list libcrypto-factory)
+                                        (list (nettle-candidate))))]
+              #:when (and factory (get-pk 'eddsa factory)))
+     factory)))
 
 (define (bytes->base64-string value)
   (bytes->string/utf-8 (base64-encode value #"")))
@@ -79,26 +90,60 @@
   (bytes->hex-string (sha256-file path)))
 
 (define (decode-key who raw formats #:origin [origin #f])
-  (or (for/or ([format (in-list formats)])
-        (with-handlers ([exn:fail? (lambda (_) #f)])
-          (datum->pk-key raw format (ed25519-factories))))
+  (define factories (native-ed25519-factories))
+  (or (and (pair? factories)
+           (for/or ([format (in-list formats)])
+             (with-handlers ([exn:fail? (lambda (_) #f)])
+               (datum->pk-key raw format factories))))
+      ;; No native factory serves Ed25519 here; the DER and OpenSSH shapes
+      ;; still decode through the pure backend. The rkt-* datum formats are
+      ;; native-only by construction (they are produced by a native key
+      ;; object) and correctly fail closed without one.
+      (pure-decode who raw formats)
       (apply raise-arguments-error who
              "could not decode Ed25519 key"
              (append (list "accepted formats" formats)
                      (if origin (list "path" origin) (list))))))
 
+;; Route a decode request to the pure backend when the requested formats
+;; include one it understands. Returns #f for native-only formats and for
+;; bytes the pure backend rejects, so the caller always raises the shared
+;; "could not decode" error — with the path origin — instead of a backend
+;; internal one.
+(define (pure-decode who raw formats)
+  (with-handlers ([exn:fail? (lambda (_) #f)])
+    (and (pure-available-for? formats)
+         (if (for/or ([format (in-list formats)])
+               (memq format '(OneAsymmetricKey PrivateKeyInfo rkt-private)))
+             (decode-private-bytes who raw)
+             (decode-public-bytes who raw)))))
+
+(define (pure-available-for? formats)
+  (and (available?)
+       (for/or ([format (in-list formats)])
+         (memq format '(SubjectPublicKeyInfo openssh-public
+                        OneAsymmetricKey PrivateKeyInfo)))))
+
 (define (read-key who path formats)
   (decode-key who (file->bytes path) formats #:origin path))
 
 (define (ensure-ed25519 who key private?)
-  (unless (pk-key? key)
-    (raise-argument-error who "pk-key?" key))
-  (define datum (pk-key->datum key (if private? 'rkt-private 'rkt-public)))
-  (unless (and (list? datum)
-               (pair? datum)
-               (eq? (car datum) 'eddsa)
-               (member 'ed25519 datum))
-    (raise-arguments-error who "key is not Ed25519" "key" key))
+  (cond
+    [(pure-ed25519-key? key)
+     (unless (eq? (pure-ed25519-key-kind key) (if private? 'private 'public))
+       (raise-arguments-error who
+         "key kind does not match the requested operation"
+         "expected" (if private? 'private 'public)
+         "key kind" (pure-ed25519-key-kind key)))]
+    [else
+     (unless (pk-key? key)
+       (raise-argument-error who "pk-key?" key))
+     (define datum (pk-key->datum key (if private? 'rkt-private 'rkt-public)))
+     (unless (and (list? datum)
+                  (pair? datum)
+                  (eq? (car datum) 'eddsa)
+                  (member 'ed25519 datum))
+       (raise-arguments-error who "key is not Ed25519" "key" key))])
   key)
 
 (define (read-ed25519-public-key path)
@@ -127,17 +172,33 @@
 
 (define (ed25519-sign private-key message)
   (define checked (ensure-ed25519 'ed25519-sign private-key #t))
-  (define safe-key
-    (datum->pk-key (pk-key->datum checked 'rkt-private)
-                   'rkt-private
-                   (ed25519-factories)))
-  (pk-sign safe-key message))
+  (cond
+    [(pure-ed25519-key? checked)
+     (sign checked message)]
+    [else
+     (define safe-key
+       (datum->pk-key (pk-key->datum checked 'rkt-private)
+                      'rkt-private
+                      (or (native-ed25519-factories)
+                          ;; The key exists as a native object, so a native
+                          ;; factory that understands Ed25519 existed when it
+                          ;; was produced; if none does now, fail loudly
+                          ;; rather than with a bare contract error.
+                          (raise-arguments-error
+                           'ed25519-sign
+                           "no native provider can parse the Ed25519 private key"
+                           "factories configured" (crypto-factories)))))
+     (pk-sign safe-key message)]))
 
 (define (ed25519-verify public-key message signature)
   (define checked (ensure-ed25519 'ed25519-verify public-key #f))
-  (define safe-key
-    (datum->pk-key (pk-key->datum checked 'rkt-public)
-                   'rkt-public
-                   (ed25519-factories)))
-  (and (= (bytes-length signature) 64)
-       (pk-verify safe-key message signature)))
+  (cond
+    [(pure-ed25519-key? checked)
+     (verify checked message signature)]
+    [else
+     (define safe-key
+       (datum->pk-key (pk-key->datum checked 'rkt-public)
+                      'rkt-public
+                      (native-ed25519-factories)))
+     (and (= (bytes-length signature) 64)
+          (pk-verify safe-key message signature))]))
