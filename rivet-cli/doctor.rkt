@@ -8,6 +8,7 @@
          racket/runtime-path
          racket/string
          racket/system
+         setup/dirs
          "codegen.rkt"
          "i18n.rkt"
          "project.rkt"
@@ -19,6 +20,7 @@
          windows-icon-source-warnings
          run-doctor
          installed-rivet-release-version
+         installed-rivet-release-version-attempts
          update-api-contract-violations
          repository-pin-findings
          release-doctor-report
@@ -431,23 +433,57 @@
 ;; active collection configuration alone.
 (define-runtime-path module-package-info "../info.rkt")
 
+;; Every candidate is recorded with its outcome so an exotic environment —
+;; the package builder's test phase resolves modules through a collection
+;; configuration that defeated the first two candidates — explains itself in
+;; the doctor report instead of surfacing a bare #f.
+(define release-version-attempts (box '()))
+
+(define (record-attempt! source path outcome)
+  (set-box! release-version-attempts
+            (cons (list source path outcome)
+                  (unbox release-version-attempts))))
+
+;; The canonical user-scope package directory. The package builder installs
+;; multi-collection packages under <addon-dir>/<version>/pkgs/<name>, which
+;; is exactly where its test phase runs from.
+(define (addon-package-info)
+  (with-handlers ([exn:fail? (lambda (_) #f)])
+    (build-path (find-system-path 'addon-dir)
+                (version) "pkgs" "rivet" "info.rkt")))
+
 (define (installed-rivet-release-version)
-  ;; Return #f if neither the actual module's package metadata nor an
-  ;; installed Rivet collection provides a release-version. In particular,
-  ;; copied standalone CLI sources without package metadata must not invent
-  ;; a version and silently pass the release doctor gate.
-  (define (read-candidate path)
-    (with-handlers ([exn:fail? (lambda (_) #f)])
-      (and path
-           (file-exists? path)
-           (let ([version (read-info-release-version path)])
-             (and (string? version) version)))))
-  (or (read-candidate module-package-info)
+  ;; Return #f if none of the candidates provides a release-version. In
+  ;; particular, copied standalone CLI sources without package metadata must
+  ;; not invent a version and silently pass the release doctor gate.
+  (define (read-candidate source path)
+    (define outcome
+      (with-handlers ([exn:fail?
+                       (lambda (e)
+                         (format "error: ~a" (exn-message e)))])
+        (cond
+          [(not path) "no candidate path"]
+          [(not (file-exists? path)) "file does not exist"]
+          [else
+           (define value (read-info-release-version path))
+           (if (string? value)
+               (begin0 value (record-attempt! source path value))
+               "release-version definition not found")])))
+    (unless (string? outcome)
+      (record-attempt! source path outcome))
+    (and (string? outcome) outcome))
+  (or (read-candidate 'module-relative module-package-info)
       (read-candidate
+       'collection-lookup
        (with-handlers ([exn:fail? (lambda (_) #f)])
          (define collection-info (collection-file-path "info.rkt" "rivet"))
          (simplify-path
-          (build-path (path-only collection-info) 'up "info.rkt"))))))
+          (build-path (path-only collection-info) 'up "info.rkt"))))
+      (read-candidate 'package-builder-layout (addon-package-info))))
+
+;; The recorded candidate attempts, in call order, for diagnostics.
+(define (installed-rivet-release-version-attempts)
+  (reverse (unbox release-version-attempts)))
 
 ;; The distribution API surface is intentionally small, but hosts call it
 ;; from hand-written Racket where a stale keyword is a silent runtime failure
@@ -684,7 +720,15 @@
       "installed rivet release is discoverable"
       (lambda ()
         (and (not installed-version)
-             "could not read the installed rivet package's release version; install rivet as a package (raco pkg install) before releasing")))
+             (string-append
+              "could not read the installed rivet package's release version; "
+              "install rivet as a package (raco pkg install) before releasing. "
+              "Candidate attempts: "
+              (string-join
+               (for/list ([attempt (in-list (installed-rivet-release-version-attempts))])
+                 (format "~a (~a): ~a"
+                         (first attempt) (second attempt) (third attempt)))
+               "; ")))))
      ;; Projects that keep a shared/i18n single source gate its parity and
      ;; the freshness of the embedded host tables (issue #242). Projects
      ;; without one skip this check.

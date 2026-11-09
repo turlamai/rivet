@@ -17,7 +17,17 @@
 (check-true (file-exists? (build-path taskboard "rivet-acceptance.rktd")))
 (check-true (file-exists? (build-path taskboard "rivet-schema.json")))
 
-(define raco (find-executable-path "raco"))
+;; The package builder drives the suite through raco by absolute path, so
+;; raco may be absent from PATH while sitting next to the running racket
+;; executable. Try PATH first, then the sibling of the current executable.
+(define (sibling-raco)
+  (define dir (path-only (find-system-path 'exec-file)))
+  (and dir
+       (for/or ([name (in-list (list "raco" "raco.exe"))])
+         (define candidate (build-path dir name))
+         (and (file-exists? candidate) candidate))))
+
+(define raco (or (find-executable-path "raco") (sibling-raco)))
 (check-true (path-string? raco))
 
 (parameterize ([current-directory taskboard])
