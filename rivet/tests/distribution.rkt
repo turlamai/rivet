@@ -12,7 +12,9 @@
                     [call-with-partial-cleanup
                      call-with-partial-cleanup/test]
                     [call-with-fetch-deadline
-                     call-with-fetch-deadline/test]))
+                     call-with-fetch-deadline/test]
+                    [html-error-response? html-error-response?/test]
+                    [header-content-length header-content-length/test]))
 
 (use-all-factories!)
 
@@ -588,3 +590,20 @@
  (call-with-fetch-deadline/test
   'fetch-update-manifest 0.1 0.2 (lambda () 'completed))
  'completed)
+
+;; A 502/504 from the release CDN is an HTML page, not a manifest. The
+;; fetch layer must name that shape instead of handing the HTML to the
+;; JSON signature parser (taskly v0.2.7 feed audit).
+(check-true
+ (html-error-response?/test
+  "Content-Type: text/html; charset=utf-8\r\nContent-Length: 42\r\n"))
+(check-false
+ (html-error-response?/test
+  "Content-Type: application/json\r\nContent-Length: 42\r\n"))
+(check-false (html-error-response?/test #f))
+(check-equal?
+ (header-content-length/test
+  "Content-Type: text/html\r\nContent-Length: 42\r\n")
+ 42)
+(check-false
+ (header-content-length/test "Content-Type: text/html\r\n"))

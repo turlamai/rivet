@@ -112,7 +112,9 @@
 (module+ test
   (provide copy-limited!
            call-with-partial-cleanup
-           call-with-fetch-deadline))
+           call-with-fetch-deadline
+           html-error-response?
+           header-content-length))
 
 ;; GitHub release assets — the dominant update origin — answer with a 302
 ;; to their CDN, so every fetch must follow redirections or the updater
@@ -121,6 +123,21 @@
 
 (define update-fetch-connect-timeout-seconds 30)
 (define update-fetch-idle-timeout-seconds 60)
+
+;; `get-pure-port/headers` yields the body port plus the raw header block;
+;; the status line is consumed by the client. An HTML error page (the shape
+;; GitHub's CDN returns on 502/504) must never reach the JSON/signature
+;; parser, and its `Content-Length` is still useful for bounded reads.
+(define (html-error-response? headers)
+  (and (string? headers)
+       (regexp-match? #rx"(?i:content-type:[ \t]*text/html)" headers)))
+
+(define (header-content-length headers)
+  (define match
+    (and (string? headers)
+         (regexp-match #rx"(?im:^content-length:[ \t]*([0-9]+)[ \t]*\r?$)"
+                       headers)))
+  (and match (string->number (list-ref match 1))))
 
 ;; get-pure-port blocks on the TCP connect with no interruptible event, so
 ;; the whole fetch runs in a custodian-owned worker and a deadline past
@@ -164,24 +181,43 @@
     (raise-argument-error 'fetch-update-manifest "positive real?" connect-timeout-seconds))
   (unless (and (real? idle-timeout-seconds) (> idle-timeout-seconds 0))
     (raise-argument-error 'fetch-update-manifest "positive real?" idle-timeout-seconds))
-  (call-with-fetch-deadline
-   'fetch-update-manifest connect-timeout-seconds idle-timeout-seconds
-   (lambda ()
-     (define in (get-pure-port (string->url manifest-url)
-                               '("User-Agent: Rivet-Updater/1")
-                               #:redirections update-fetch-redirections))
-     (dynamic-wind
-       void
-       (lambda ()
-         (define out (open-output-bytes))
-         (copy-limited! in out maximum-bytes
-                        #:who 'fetch-update-manifest
-                        #:stall-seconds idle-timeout-seconds)
-         (verify-signed-manifest (open-input-bytes (get-output-bytes out))
-                                 public-key
-                                 #:key-id key-id
-                                 #:trusted-keys trusted-keys))
-       (lambda () (close-input-port in))))))
+  (define (fetch-once)
+    (call-with-fetch-deadline
+     'fetch-update-manifest connect-timeout-seconds idle-timeout-seconds
+     (lambda ()
+       (define-values (in headers)
+         (get-pure-port/headers (string->url manifest-url)
+                                '("User-Agent: Rivet-Updater/1")
+                                #:redirections update-fetch-redirections))
+       (dynamic-wind
+         void
+         (lambda ()
+           (when (html-error-response? headers)
+             (error 'fetch-update-manifest
+                    "update feed returned an HTML error page instead of a signed manifest"))
+           (define out (open-output-bytes))
+           (copy-limited! in out maximum-bytes
+                          #:who 'fetch-update-manifest
+                          #:stall-seconds idle-timeout-seconds)
+           (get-output-bytes out))
+         (lambda () (close-input-port in))))))
+  ;; Transient CDN failures (502/504 HTML, dropped connections) are the
+  ;; common case for release assets; retry the transport a few times before
+  ;; failing. Signature and manifest validation stay outside the retry loop
+  ;; so a verification failure is never masked by a retry.
+  (define payload
+    (let loop ([attempt 1])
+      (with-handlers
+          ([exn:fail?
+            (lambda (error)
+              (if (< attempt 3)
+                  (begin (sleep (* 0.5 attempt)) (loop (add1 attempt)))
+                  (raise error)))])
+        (fetch-once))))
+  (verify-signed-manifest (open-input-bytes payload)
+                          public-key
+                          #:key-id key-id
+                          #:trusted-keys trusted-keys))
 
 ;; Release sidecars and sibling artifacts (sha256 files, extra installers)
 ;; live next to the update feed on the same host. Every private copy of
@@ -207,7 +243,7 @@
   (call-with-fetch-deadline
    'fetch-sibling-asset connect-timeout-seconds idle-timeout-seconds
    (lambda ()
-     (define-values (response in)
+     (define-values (in headers)
        (get-pure-port/headers
         (string->url url)
         '("User-Agent: Rivet-Updater/1")
@@ -215,24 +251,13 @@
      (dynamic-wind
        void
        (lambda ()
-         ;; The status line is the first response header: "HTTP/1.1 200 OK".
-         (define status-line (read-line in 'return))
-         (define status
-           (let ([match (regexp-match #rx"^HTTP/[0-9.]+ ([0-9]{3})" status-line)])
-             (and match (string->number (list-ref match 1)))))
-         (unless (and status (<= 200 status 299))
+         ;; The client consumes the status line; an HTML body is the
+         ;; reliable signal that the server answered with an error page.
+         (when (html-error-response? headers)
            (error 'fetch-sibling-asset
-                  "sibling asset request failed: HTTP ~a for ~a"
-                  (or status "unknown") url))
-         ;; Consume the header block; only Content-Length is load-bearing.
-         (define content-length
-           (let loop ()
-             (define line (read-line in 'return))
-             (cond
-               [(or (eof-object? line) (string=? line "")) #f]
-               [(regexp-match #rx"(?i:^content-length:[ ]*([0-9]+)[ ]*$)" line)
-                => (lambda (match) (string->number (list-ref match 1)))]
-               [else (loop)])))
+                  "sibling asset request returned an HTML error page: ~a"
+                  url))
+         (define content-length (header-content-length headers))
          (when (exact-positive-integer? content-length)
            (when (> content-length maximum-bytes)
              (error 'fetch-sibling-asset
@@ -359,10 +384,14 @@
   (call-with-partial-cleanup
    temporary
    (lambda ()
-     (define in
-       (get-pure-port (string->url (update-artifact-url artifact))
-                      '("User-Agent: Rivet-Updater/1")
-                      #:redirections update-fetch-redirections))
+     (define-values (in headers)
+       (get-pure-port/headers (string->url (update-artifact-url artifact))
+                              '("User-Agent: Rivet-Updater/1")
+                              #:redirections update-fetch-redirections))
+     (when (html-error-response? headers)
+       (error 'download-update
+              "update artifact request returned an HTML error page: ~a"
+              (update-artifact-url artifact)))
      (dynamic-wind
        void
        (lambda ()
