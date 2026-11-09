@@ -55,7 +55,10 @@ jobs:
           Add-Content $env:GITHUB_PATH 'C:\Racket'
       - name: Install Rivet
         shell: pwsh
-        run: raco pkg install --auto --no-docs --name rivet --link "$PWD"
+        # The release installer pins its default catalog to the 9.3 release
+        # set, which does not carry family packages (ed25519); resolve
+        # package deps through the live catalog instead.
+        run: raco pkg install --auto --no-docs --catalog https://pkgs.racket-lang.org --name rivet --link "$PWD"
       - name: Verify signed portable update transaction
         run: raco test rivet/tests/platform-artifact-binding.rkt rivet/tests/platform-update-adapter.rkt rivet/tests/platform-targz-update.rkt
       - name: Check toolchain and JSON diagnostics
@@ -115,7 +118,9 @@ jobs:
           variant: CS
           version: '9.3'
       - name: Install Rivet
-        run: raco pkg install --auto --no-docs --name rivet --link "$PWD"
+        # Same live-catalog resolution as the Windows ARM64 job: the full
+        # distribution's default catalog is the release set.
+        run: raco pkg install --auto --no-docs --catalog https://pkgs.racket-lang.org --name rivet --link "$PWD"
       - name: Verify default macOS DMG installation layout
         run: raco test rivet/tests/macos-installer.rkt
       - name: Verify signed portable update transaction
