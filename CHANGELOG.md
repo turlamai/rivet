@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.15.1
 
 - Linux RPM packaging now works for an unprivileged build on a machine
   without an initialized RPM database: `rpmbuild` uses a project-local
