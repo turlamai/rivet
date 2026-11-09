@@ -5,8 +5,15 @@
 - Linux RPM packaging now works for an unprivileged build on a machine
   without an initialized RPM database: `rpmbuild` uses a project-local
   `_dbpath`, and `%files` globs are no longer quoted (quotes made rpmbuild
-  look for a literal `*`). Verified deb/rpm install and removal, AppImage
-  extraction and tar.gz/zip output on an Ubuntu ARM64 VM.
+  look for a literal `*`). The quoting also became load-bearing: rpm 6
+  stops globbing quoted `%files` entries, so the quoted payload glob broke
+  packaging on rpm 6 hosts while older rpm releases stripped the quotes
+  and still globbed — the same spec succeeded on the ubuntu-24.04 arm64
+  runner (rpm 4.18.2) and failed on the x64 runner (rpm 6.0.1) in one
+  release run (#432). Verified spec generation, rpmbuild, and rpm
+  install/erase under rpm 6.0.1 on an Ubuntu 26.04 VM, plus deb/rpm
+  install and removal, AppImage extraction and tar.gz/zip output on an
+  Ubuntu ARM64 VM.
 
 ## 0.15.0
 
