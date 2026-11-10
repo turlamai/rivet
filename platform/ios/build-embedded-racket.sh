@@ -184,8 +184,12 @@ stage_build() {
         make -j"$jobs"
         make install
       )
+      # Persist the Chez bootstrap build tree inside the prefix: later
+      # stages need it (--enable-scheme), and the work directory is deleted
+      # on exit.
+      mv "$build_dir" "$output/build-base"
       mkdir -p "$output/share"
-      printf '%s\n' "$(cd "$build_dir/cs/c" && pwd)" \
+      printf '%s\n' "$(cd "$output/build-base/cs/c" && pwd)" \
         > "$output/share/rivet-chez-build-dir"
       ;;
     host-compiler)
