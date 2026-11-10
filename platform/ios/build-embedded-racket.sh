@@ -34,7 +34,7 @@ stage=""
 output=""
 base_dir=""
 source_dir=""
-jobs="$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
+jobs="$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)"
 
 usage() {
   sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'
@@ -69,7 +69,8 @@ if [ -z "$source_dir" ]; then
   archive="$work_dir/racket-minimal-$racket_version-src-builtpkgs.tgz"
   curl --fail --location --retry 3 --output "$archive" \
     "https://download.racket-lang.org/releases/$racket_version/installers/racket-minimal-$racket_version-src-builtpkgs.tgz"
-  echo "$archive_sha256  $archive" | shasum -a 256 --check -
+  checksum_tool="sha256sum"; command -v sha256sum >/dev/null 2>&1 || checksum_tool="shasum -a 256"
+  echo "$archive_sha256  $archive" | $checksum_tool --check -
   tar -xzf "$archive" -C "$work_dir"
   source_dir="$work_dir/racket-$racket_version"
 fi
@@ -80,10 +81,10 @@ source_dir="$(cd "$source_dir" && pwd)"
 # file"), which aborts host-pb and simulator builds on current toolchains.
 # Route the signing through the system codesign instead — standard for
 # iOS-family Mach-O images. Upstream issue to report against Racket.
-sed -i '' \
-  -e 's/(define codesign-via-racket? #t)/(define codesign-via-racket? #f)/' \
-  -e 's/(if (or cross? codesign-via-racket?)/(if codesign-via-racket?/g' \
-  "$source_dir/src/mac/codesign.zuo"
+signer="$source_dir/src/mac/codesign.zuo"
+sed -e 's/(define codesign-via-racket? #t)/(define codesign-via-racket? #f)/' \
+    -e 's/(if (or cross? codesign-via-racket?)/(if codesign-via-racket?/g' \
+    "$signer" > "$signer.portable" && mv "$signer.portable" "$signer"
 source_dir="$(cd "$source_dir" && pwd)"
 
 # The host-base stage records its Chez bootstrap directory beside the
