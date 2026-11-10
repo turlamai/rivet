@@ -57,6 +57,12 @@ case "$stage" in
   *) echo "unknown or missing --stage: $stage" >&2; usage ;;
 esac
 [ -n "$output" ] || { echo "missing --output" >&2; usage; }
+# Resolve the output prefix to an absolute path immediately: relative
+# paths would otherwise resolve inside each build subshell (and an
+# unresolvable path silently produced an empty --prefix, pointing the
+# install at the filesystem root).
+mkdir -p "$output"
+output="$(cd "$output" && pwd)"
 if [ "$stage" != "host-base" ] && [ -z "$base_dir" ]; then
   echo "--stage $stage requires --base-dir (the host-base output)" >&2
   exit 2

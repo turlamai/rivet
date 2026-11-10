@@ -35,3 +35,5 @@ Thumbs.db
 
 # Rivet generated state
 .rivet/
+pb-stages/
+toolchain.sh
