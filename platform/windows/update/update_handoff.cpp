@@ -218,9 +218,11 @@ void MsiHandoff::LaunchVerifiedInstaller(
     }
   }
   {
+    // Versions are ASCII-validated above, so narrowing here is exact; the
+    // file must carry narrow bytes for DiscardNonUpgrades to read back.
+    std::string const narrow(queued_version.begin(), queued_version.end());
     std::ofstream output(version_path, std::ios::binary | std::ios::trunc);
-    output.write(queued_version.data(),
-                 static_cast<std::streamsize>(queued_version.size()));
+    output.write(narrow.data(), static_cast<std::streamsize>(narrow.size()));
     output.close();
     if (!output) {
       throw std::system_error(std::make_error_code(std::errc::io_error),
