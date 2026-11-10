@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- The release-version reader survives the package catalog's builder (#446
+  expected): the builder rewrites a packaged `info.rkt` into a single-line
+  `(module info setup/infotab (#%module-begin …))` wrapper with no `#lang`
+  line, and the top-level-form scan treated that wrapper as one giant datum
+  while the plain-text regexp in the same test still matched — the catalog
+  environment reported "release-version definition not found" against a
+  file whose text declares it, and every generated scaffold CI file
+  interpolated the message into its Rivet pins. `call-with-source-forms`
+  now also feeds the definitions inside a `#%module-begin` wrapper to the
+  visitor; a regression test pins the builder's exact wrapper shape.
+
 - The branded DMG backdrop now draws at the full window size regardless of
   the source artwork's DPI metadata (#444). The #322 resample fixed the
   pixel size but `sips -z` preserves the source DPI, and Finder maps pixels

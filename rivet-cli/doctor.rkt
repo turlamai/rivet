@@ -21,6 +21,7 @@
          run-doctor
          installed-rivet-release-version
          installed-rivet-release-version-attempts
+         read-info-release-version
          update-api-contract-violations
          repository-pin-findings
          release-doctor-report
@@ -399,12 +400,32 @@
   ;; leading #lang reader directive that plain `read` cannot parse. Reading
   ;; the rest as data is deliberate: release checks want every datum,
   ;; including quoted ones.
+  ;;
+  ;; The package catalog's builder rewrites a packaged `info.rkt` into a
+  ;; single-line `(module info setup/infotab (#%module-begin …))` wrapper
+  ;; with no #lang line, so a plain scan sees one giant datum and none of
+  ;; the definitions the release checks need. When a visited datum is that
+  ;; wrapper shape, feed the definitions inside its #%module-begin to
+  ;; visit as well.
+  (define (visit-form! datum)
+    (visit datum)
+    (define wrapper-body
+      (and (list? datum)
+           (>= (length datum) 4)
+           (eq? (car datum) 'module)
+           (list? (list-ref datum 3))
+           (pair? (list-ref datum 3))
+           (eq? (car (list-ref datum 3)) '#%module-begin)
+           (cdr (list-ref datum 3))))
+    (when (list? wrapper-body)
+      (for ([inner (in-list wrapper-body)])
+        (visit inner))))
   (define (scan-forms! in)
     (let loop ()
       (define datum (with-handlers ([exn:fail? (lambda (_) eof)])
                       (read in)))
       (unless (eof-object? datum)
-        (visit datum)
+        (visit-form! datum)
         (loop))))
   (call-with-input-file path
     (lambda (in)
