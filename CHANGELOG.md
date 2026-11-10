@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- The branded DMG backdrop now draws at the full window size regardless of
+  the source artwork's DPI metadata (#444). The #322 resample fixed the
+  pixel size but `sips -z` preserves the source DPI, and Finder maps pixels
+  to points through it: a 144dpi source staged at 660x400 pixels drew at
+  330x200pt — a quarter of the window, with the Applications alias on
+  blank white and the app icon covering the baked-in instructions
+  (observed on shipped movebit installers; taskly and fulcrum were correct
+  only because their assets carry 72dpi). Staging now forces the staged
+  PNG to 72dpi and asserts the staged file's pixel size and DPI, extracted
+  into a testable `stage-dmg-background!` with unit tests over the 2x@144,
+  1x@144, and 1x@72 shapes.
+
+## 0.15.2
+
+
 - The Windows MSI no longer creates a desktop shortcut (#441). The Start
   Menu shortcut remains the discoverability surface; users who want a
   desktop icon can drag one from Start. Modern commercial installers
