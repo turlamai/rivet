@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- The Windows MSI no longer creates a desktop shortcut (#441). The Start
+  Menu shortcut remains the discoverability surface; users who want a
+  desktop icon can drag one from Start. Modern commercial installers
+  (Chrome, Office, store-packaged apps) default the same way, and the
+  family's launcher and tray-resident products never had a use for the
+  icon. Existing installs lose the desktop icon at their next major
+  upgrade (automatic component removal); silent installs and upgrade
+  smoke tests are otherwise unchanged.
+
 ## 0.15.2
 
 - Ed25519 no longer requires a native provider to verify or sign update
