@@ -187,6 +187,25 @@
   (check-equal? (installed-rivet-release-version) expected-release-version
                 "an installed package must resolve its own version without collection lookups"))
 
+;; The package catalog's builder rewrites a packaged `info.rkt` into a
+;; single-line `(module info setup/infotab (#%module-begin …))` wrapper with
+;; no #lang line. The plain-text regexp above still matches inside that
+;; wrapper while a top-level-form scan sees only the wrapper datum — which
+;; is exactly how the catalog environment reported "release-version
+;; definition not found" against a file whose text declares it. The reader
+;; must descend into the wrapper.
+(define builder-info-form
+  (format "(module info setup/infotab (#%module-begin (define package-content-state (quote (built \"9.3\"))) (define collection (quote multi)) (define version \"0.15\") (define release-version \"~a\") (define license (quote MIT))))"
+          expected-release-version))
+(define builder-info-file (make-temporary-file "rivet-builder-info-~a"))
+(call-with-output-file builder-info-file
+  (lambda (out) (display builder-info-form out))
+  #:exists 'replace)
+(check-equal? (read-info-release-version builder-info-file)
+              expected-release-version
+              "the reader must see definitions inside the builder's module wrapper")
+(delete-file builder-info-file)
+
 ;; ---- Release gate (issues #245 and #255) ----
 ;;
 ;; The gate is exercised against a real scaffolded project: fresh generated
