@@ -73,16 +73,17 @@
 (check-regexp-match #rx"<ComponentGroupRef Id=\"ShortcutComponents\" />" plain-source
                     "the main feature must install the shortcuts")
 (check-regexp-match #rx"<StandardDirectory Id=\"ProgramMenuFolder\"><Directory Id=\"ApplicationProgramsFolder\"" plain-source)
-(check-regexp-match #rx"<StandardDirectory Id=\"DesktopFolder\"" plain-source)
-(check-equal? (length (regexp-match* #rx"<Shortcut Id=" plain-source)) 2
-              "a start-menu and a desktop shortcut must be authored")
+(check-false (regexp-match? #rx"DesktopFolder" plain-source)
+             "the installer must not author a desktop shortcut (#441)")
+(check-equal? (length (regexp-match* #rx"<Shortcut Id=" plain-source)) 1
+              "only the start-menu shortcut is authored")
 (check-regexp-match
  #rx"<Shortcut Id=\"StartMenuApplicationShortcut\" Name=\"Smoke\" Description=\"Smoke\" Target=\"\\[INSTALLFOLDER\\]RivetHost.exe\" WorkingDirectory=\"INSTALLFOLDER\" />"
  plain-source)
 (check-equal? (length (regexp-match* #rx"<RemoveFolder Id=\"RemoveApplicationProgramsFolder\"" plain-source)) 1
               "the start-menu folder must be removed on uninstall")
-(check-equal? (length (regexp-match* #rx"<RegistryValue Root=\"HKLM\" Key=\"Software\\\\[^\"]+\\\\Shortcuts\"" plain-source)) 2
-              "shortcut components must carry a machine-scoped key path")
+(check-equal? (length (regexp-match* #rx"<RegistryValue Root=\"HKLM\" Key=\"Software\\\\[^\"]+\\\\Shortcuts\"" plain-source)) 1
+              "the start-menu component must carry a machine-scoped key path")
 
 ;; Display names and identifiers are XML-escaped everywhere they are emitted.
 (define escaped-source
@@ -103,8 +104,8 @@
                           'file-associations
                           (list (hasheq 'extension ".smk"
                                         'description "Smoke Document")))))
-(check-equal? (length (regexp-match* #rx"<Shortcut Id=" registration-source)) 2
-              "shortcuts must survive registration authoring")
+(check-equal? (length (regexp-match* #rx"<Shortcut Id=" registration-source)) 1
+              "the start-menu shortcut must survive registration authoring")
 (check-regexp-match #rx"NativeActivationRegistration" registration-source)
 
 ;; Add/Remove Programs pinning rides on the configured windows icon.
