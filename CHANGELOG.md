@@ -11,6 +11,17 @@
   upgrade (automatic component removal); silent installs and upgrade
   smoke tests are otherwise unchanged.
 
+- The Windows MSI handoff no longer runs a queued installer against an
+  application that is already at or above the queued version (#437):
+  `LaunchVerifiedInstaller` records the signed manifest's version next to
+  the script, and a startup `DiscardNonUpgrades` pass deletes attempt
+  queues whose recorded version parses and is not an upgrade. Attempts
+  queued by older releases, or with unparseable versions, are kept (not
+  provably stale) and still age out through `CleanupStaleAttempts`. The
+  dotted-version comparison lives in the portable runtime
+  (`rivet/version_compare.hpp`) and is pinned by a cross-platform unit
+  test.
+
 ## 0.15.2
 
 - Ed25519 no longer requires a native provider to verify or sign update

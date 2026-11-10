@@ -27,16 +27,29 @@ class MsiHandoff final {
   static void CleanupStaleAttempts(std::wstring const& application_id,
                                    unsigned max_age_hours = 24);
 
+  // Startup gate for stale queues (issue #437): deletes every attempt whose
+  // recorded version is parseable and not an upgrade over `running_version`
+  // — the field failure class where an out-of-band install left a queued
+  // MSI behind and the next launch re-ran it against an already-current
+  // app. Attempts without a recorded version (queued by older Rivet
+  // releases) or with an unparseable version are kept: they are not
+  // provably stale, and CleanupStaleAttempts still ages them out. Returns
+  // the number of attempts discarded. Call once at startup, before any new
+  // update check runs.
+  static std::size_t DiscardNonUpgrades(std::wstring const& application_id,
+                                        std::wstring const& running_version);
+
   // Creates and launches a detached handoff. The script waits (bounded) for
   // this PID to exit, runs `msiexec /passive /norestart`, records failure for
   // the next launch, and always relaunches the application after msiexec.
-  // `release_lease` runs only after the helper process exists, immediately
-  // before this method returns; use it to release single-instance ownership,
-  // then terminate the current UI process. Throws std::system_error or
-  // std::invalid_argument and leaves the current process running on failure.
+  // `queued_version` is the signed manifest's version for the MSI: it is
+  // written next to the script so `DiscardNonUpgrades` can refuse to spend
+  // a stale queue later. Throws std::system_error or std::invalid_argument
+  // and leaves the current process running on failure.
   static void LaunchVerifiedInstaller(
       std::wstring const& application_id,
       std::filesystem::path const& verified_msi,
+      std::wstring const& queued_version,
       std::filesystem::path const& relaunch_executable,
       std::function<void()> release_lease = {},
       unsigned exit_timeout_seconds = 30);

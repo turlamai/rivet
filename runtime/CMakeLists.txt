@@ -82,6 +82,13 @@ if(RIVET_BUILD_TESTS)
   rivet_enable_test_assertions(rivet_x509_spki_test)
   add_test(NAME rivet_x509_spki_test COMMAND rivet_x509_spki_test)
 
+  # Header-only: the version comparison is compiled into this test directly.
+  add_executable(rivet_version_compare_test tests/version_compare_test.cpp)
+  target_include_directories(rivet_version_compare_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+  target_compile_features(rivet_version_compare_test PRIVATE cxx_std_17)
+  rivet_enable_test_assertions(rivet_version_compare_test)
+  add_test(NAME rivet_version_compare_test COMMAND rivet_version_compare_test)
+
   add_executable(rivet_protocol_property_test tests/protocol_property_test.cpp)
   target_link_libraries(rivet_protocol_property_test PRIVATE rivet_protocol)
   target_compile_features(rivet_protocol_property_test PRIVATE cxx_std_17)
