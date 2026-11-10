@@ -28,7 +28,14 @@
                            "CreateProcessW"
                            "release_lease"
                            "1641"
-                           "3010"))])
+                           "3010"
+                           ;; Issue #437: a queued installer must carry its
+                           ;; version and a startup gate must discard a
+                           ;; queue that is not an upgrade.
+                           "version.txt"
+                           "queued_version"
+                           "DiscardNonUpgrades"
+                           "version_is_upgrade"))])
   (check-true (string-contains? source required)
               (format "Windows handoff lost required lifecycle step: ~a"
                       required)))

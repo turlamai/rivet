@@ -2,11 +2,15 @@
 
 #include <windows.h>
 
+#include "rivet/version_compare.hpp"
+
 #include <chrono>
+#include <cstddef>
 #include <cwctype>
 #include <fstream>
 #include <iterator>
 #include <stdexcept>
+#include <string_view>
 #include <system_error>
 #include <vector>
 
@@ -132,9 +136,46 @@ void MsiHandoff::CleanupStaleAttempts(std::wstring const& application_id,
   }
 }
 
+std::size_t MsiHandoff::DiscardNonUpgrades(
+    std::wstring const& application_id, std::wstring const& running_version) {
+  auto const root = update_root(application_id);
+  // Versions are ASCII (validated at queue time; the running identity comes
+  // from the same manifest family), so byte truncation is exact.
+  std::string const running_narrow(running_version.begin(),
+                                   running_version.end());
+  auto const running =
+      rivet::update::parse_dotted_version(running_narrow);
+  if (!running) {
+    // A running version this class cannot parse means the caller's own
+    // identity is broken; refusing to touch any attempt is the safe answer.
+    return 0;
+  }
+  std::size_t discarded = 0;
+  std::error_code ec;
+  for (auto const& entry : std::filesystem::directory_iterator(root, ec)) {
+    if (!entry.is_directory(ec)) continue;
+    auto const version_file = entry.path() / L"version.txt";
+    if (!std::filesystem::is_regular_file(version_file, ec)) continue;
+    std::ifstream input(version_file, std::ios::binary);
+    std::string bytes((std::istreambuf_iterator<char>(input)),
+                      std::istreambuf_iterator<char>());
+    // nullopt (unparseable recorded version) keeps the attempt: not
+    // provably stale. false (parsed and not an upgrade) discards it.
+    auto const is_upgrade = rivet::update::version_is_upgrade(
+        std::string_view(bytes), running_narrow);
+    if (is_upgrade.has_value() && !*is_upgrade) {
+      std::filesystem::remove_all(entry.path(), ec);
+      ec.clear();
+      ++discarded;
+    }
+  }
+  return discarded;
+}
+
 void MsiHandoff::LaunchVerifiedInstaller(
     std::wstring const& application_id,
     std::filesystem::path const& verified_msi,
+    std::wstring const& queued_version,
     std::filesystem::path const& relaunch_executable,
     std::function<void()> release_lease,
     unsigned exit_timeout_seconds) {
@@ -145,6 +186,17 @@ void MsiHandoff::LaunchVerifiedInstaller(
   if (!std::filesystem::is_regular_file(relaunch_executable)) {
     throw std::invalid_argument("relaunch executable does not exist");
   }
+  // Versions are ASCII by manifest contract; anything else would write a
+  // version.txt DiscardNonUpgrades can never parse, so reject at queue time.
+  for (wchar_t const ch : queued_version) {
+    if (ch == 0 || ch > 0x7f) {
+      throw std::invalid_argument(
+          "queued version must be non-empty ASCII");
+    }
+  }
+  if (queued_version.empty()) {
+    throw std::invalid_argument("queued version must be non-empty ASCII");
+  }
 
   auto const root = update_root(application_id);
   auto const attempt = root / (std::to_wstring(::GetCurrentProcessId()) + L"-" +
@@ -153,6 +205,7 @@ void MsiHandoff::LaunchVerifiedInstaller(
   auto const script_path = attempt / L"install.cmd";
   auto const log_path = attempt / L"msiexec.log";
   auto const failure_path = attempt / L"failure.txt";
+  auto const version_path = attempt / L"version.txt";
   auto const script = handoff_script(::GetCurrentProcessId(),
                                      exit_timeout_seconds);
   {
@@ -162,6 +215,18 @@ void MsiHandoff::LaunchVerifiedInstaller(
     if (!output) {
       throw std::system_error(std::make_error_code(std::errc::io_error),
                               "could not write MSI handoff script");
+    }
+  }
+  {
+    // Versions are ASCII-validated above, so narrowing here is exact; the
+    // file must carry narrow bytes for DiscardNonUpgrades to read back.
+    std::string const narrow(queued_version.begin(), queued_version.end());
+    std::ofstream output(version_path, std::ios::binary | std::ios::trunc);
+    output.write(narrow.data(), static_cast<std::streamsize>(narrow.size()));
+    output.close();
+    if (!output) {
+      throw std::system_error(std::make_error_code(std::errc::io_error),
+                              "could not record the queued version");
     }
   }
 
