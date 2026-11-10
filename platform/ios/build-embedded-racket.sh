@@ -263,21 +263,47 @@ ZUO
   esac
 }
 
-stage_build
-
-# Emit the artifact locations the app pipeline consumes, mirroring the
-# setup-embed-racket action's discovery.
-library="$(find "$output" -name 'libracketcs*.a' -print -quit)"
-include_dir="$(dirname "$(find "$output" -name chezscheme.h -print -quit)")"
-boot_dir="$(dirname "$(find "$output" -name 'petite.boot' -print -quit)")"
-for artifact in "$library" "$include_dir/chezscheme.h" "$include_dir/racketcs.h" \
-                "$boot_dir/petite.boot" "$boot_dir/scheme.boot" "$boot_dir/racket.boot"; do
-  [ -e "$artifact" ] || { echo "missing expected artifact: $artifact" >&2; exit 1; }
-done
-if [ "$stage" = "host-compiler" ]; then
-  [ -x "$output/bin/racket" ] || { echo "host compiler racket missing: $output/bin/racket" >&2; exit 1; }
-  printf 'RIVET_IOS_HOST_RACKET=%s\n' "$output/bin/racket"
+# Stages are idempotent: a completed stage is skipped (and re-verified)
+# unless RIVET_TOOLCHAIN_FORCE=1. This gives CI cache hits a clean hook.
+stage_done="$output/share/rivet-stage-$stage-done"
+if [ -f "$stage_done" ] && [ "${RIVET_TOOLCHAIN_FORCE:-0}" != "1" ]; then
+  echo "=== stage $stage already built; skipping (RIVET_TOOLCHAIN_FORCE=1 rebuilds)"
+else
+  stage_build
+  mkdir -p "$output/share"
+  touch "$stage_done"
 fi
-printf 'RIVET_IOS_LIBRARY=%s\n' "$library"
-printf 'RIVET_IOS_INCLUDE=%s\n' "$include_dir"
-printf 'RIVET_IOS_BOOT_DIR=%s\n' "$boot_dir"
+
+# Per-stage artifact verification. Host stages ship a runnable racket/raco
+# plus (for host-base) the persisted Chez bootstrap tree; cross stages ship
+# the merged static archive, the boot trio, and the embedding headers. The
+# verification matches each platform's install layout rather than the
+# macOS action's discovery.
+case "$stage" in
+  host-base)
+    for artifact in "$output/bin/racket" "$output/bin/raco" \
+                    "$output/share/rivet-chez-build-dir" \
+                    "$output/build-base/cs/c"; do
+      [ -e "$artifact" ] || { echo "missing expected artifact: $artifact" >&2; exit 1; }
+    done
+    printf 'RIVET_PB_HOST_BASE=%s\n' "$output"
+    ;;
+  host-compiler)
+    for artifact in "$output/bin/racket" "$output/bin/raco"; do
+      [ -e "$artifact" ] || { echo "missing expected artifact: $artifact" >&2; exit 1; }
+    done
+    printf 'RIVET_PB_HOST_COMPILER=%s\n' "$output"
+    ;;
+  device|simulator)
+    library="$(find "$output" -name 'libracketcs*.a' -print -quit)"
+    include_dir="$(dirname "$(find "$output" -name chezscheme.h -print -quit)")"
+    boot_dir="$output/runtime"
+    for artifact in "$library" "$include_dir/chezscheme.h" "$include_dir/racketcs.h" \
+                    "$boot_dir/petite.boot" "$boot_dir/scheme.boot" "$boot_dir/racket.boot"; do
+      [ -e "$artifact" ] || { echo "missing expected artifact: $artifact" >&2; exit 1; }
+    done
+    printf 'RIVET_IOS_LIBRARY=%s\n' "$library"
+    printf 'RIVET_IOS_INCLUDE=%s\n' "$include_dir"
+    printf 'RIVET_IOS_BOOT_DIR=%s\n' "$boot_dir"
+    ;;
+esac
