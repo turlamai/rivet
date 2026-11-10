@@ -208,7 +208,9 @@ Schema evolution is checked above the codec. `raco rivet schema --output` writes
 
 ## UI strategy
 
-Rivet deliberately does **not** provide a fake common widget toolkit in its first layer.
+Rivet deliberately does **not** provide a common widget API in its first layer.
+
+`racket/gui` makes the opposite trade on the UI side: it exposes one Racket widget API (`button%`, `text-field%`, …) implemented by native controls — `NSButton` on macOS, `GtkButton` on Linux, Win32 buttons on Windows — so `racket/gui` applications are native at the control level too. Rivet shares the Racket backend, the typed contract, and the generated clients, but has no widget API: each platform's UI is written in that platform's own current first-party framework (SwiftUI, WinUI 3, GTK4) in Swift / C++ / Kotlin.
 
 Windows applications should be able to use everything WinUI 3 exposes. macOS applications should be able to use everything SwiftUI/AppKit exposes. Linux applications use GTK4 directly under Rivet's [Wayland-first display policy](linux-display.md): native Wayland is the tested release path, while X11/XWayland remains a best-effort toolkit compatibility path. A future Racket declarative UI layer may map a useful common subset to each renderer, but it is deliberately outside the runtime contract and must not prevent platform-native escape hatches.
 

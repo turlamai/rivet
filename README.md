@@ -1,6 +1,6 @@
 # Rivet
 
-Build first-party native desktop apps with [Racket](https://racket-lang.org/). Use WinUI 3 on Windows, SwiftUI on macOS, and GTK4 on Linux; keep your application logic in Racket and ship a real native app instead of a WebView or a cross-platform widget layer.
+Build first-party native desktop apps with [Racket](https://racket-lang.org/). Use WinUI 3 on Windows, SwiftUI on macOS, and GTK4 on Linux; keep your application logic in Racket and write each platform's UI in its own first-party UI framework — no WebView, no shared widget API.
 
 **Human-first. Agent-native. Local by design.**
 
@@ -57,7 +57,7 @@ Rivet fills that gap:
 - **Exact runtime matching** — Rivet stages the installed Racket CS runtime and never silently falls back to a nearby version
 - **Documented ecosystem escape hatches** — generated Agent guidance and `inspect --json` explain when to use a Racket package, a native host API, FFI, an external CLI, or an isolated sidecar, including the release and security checks for each
 
-Rivet is intentionally not a WebView framework and not a cross-platform widget toolkit. Windows, macOS, and Linux each keep their first-party native UI and platform behavior.
+Rivet is intentionally not a WebView framework, and it provides no shared widget API: each platform's UI is written directly in SwiftUI, WinUI 3, or GTK4. (`racket/gui`, by contrast, offers one Racket widget API over native controls — a different trade that Rivet deliberately does not make.) Windows, macOS, and Linux each keep their first-party modern UI stack and platform behavior.
 
 ### Hello Rivet
 

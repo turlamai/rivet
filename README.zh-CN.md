@@ -1,6 +1,6 @@
 # Rivet
 
-用 [Racket](https://racket-lang.org/) 构建第一方原生桌面应用。Windows 使用 WinUI 3，macOS 使用 SwiftUI，Linux 使用 GTK4；把应用逻辑放在 Racket 中，最终交付的是真正原生应用，而不是 WebView 或跨平台控件封装层。
+用 [Racket](https://racket-lang.org/) 构建第一方原生桌面应用。Windows 使用 WinUI 3，macOS 使用 SwiftUI，Linux 使用 GTK4；把应用逻辑放在 Racket 中，各平台界面直接用该平台的第一方 UI 框架编写——不用 WebView，也没有统一控件 API。
 
 **Human-first. Agent-native. Local by design. —— 为人而生，为 Agent 原生设计，本地优先。**
 
@@ -55,7 +55,7 @@ Rivet 补上的是这一层：
 - **精确 runtime 匹配** —— 构建时使用当前安装的精确 Racket CS 版本，不会静默退回相邻版本
 - **明确的生态扩展路径** —— 新项目的 Agent 指南和 `inspect --json` 会说明何时选择 Racket 包、原生宿主 API、FFI、外部 CLI 或隔离 sidecar，并列出每种选择必须完成的安全与发布检查
 
-Rivet 刻意不做 WebView 框架，也不做统一跨平台控件层。Windows、macOS 与 Linux 都保留各自第一方原生 UI 和平台行为。
+Rivet 刻意不做 WebView 框架，也不提供统一控件 API：各平台界面直接用 SwiftUI、WinUI 3 或 GTK4 编写。（相比之下，`racket/gui` 提供的是一套 Racket 控件 API、底层为原生控件——那是 Rivet 刻意不做的一种取舍。）Windows、macOS 与 Linux 都保留各自第一方现代 UI 技术栈和平台行为。
 
 ### Hello Rivet
 
