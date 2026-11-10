@@ -90,6 +90,7 @@ packaged dependency-closure, and clean-machine checks.
 @section{Application Backend}
 
 @defmodule[rivet]
+@defmodule[rivet/backend]
 
 The backend declaration and serving surface is also available without the
 aggregate module as @racketmodname[rivet/backend]; require whichever is
