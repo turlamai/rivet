@@ -139,8 +139,12 @@ void MsiHandoff::CleanupStaleAttempts(std::wstring const& application_id,
 std::size_t MsiHandoff::DiscardNonUpgrades(
     std::wstring const& application_id, std::wstring const& running_version) {
   auto const root = update_root(application_id);
-  auto const running = rivet::update::parse_dotted_version(
-      {running_version.begin(), running_version.end()});
+  // Versions are ASCII (validated at queue time; the running identity comes
+  // from the same manifest family), so byte truncation is exact.
+  std::string const running_narrow(running_version.begin(),
+                                   running_version.end());
+  auto const running =
+      rivet::update::parse_dotted_version(running_narrow);
   if (!running) {
     // A running version this class cannot parse means the caller's own
     // identity is broken; refusing to touch any attempt is the safe answer.
@@ -158,8 +162,7 @@ std::size_t MsiHandoff::DiscardNonUpgrades(
     // nullopt (unparseable recorded version) keeps the attempt: not
     // provably stale. false (parsed and not an upgrade) discards it.
     auto const is_upgrade = rivet::update::version_is_upgrade(
-        std::string_view(bytes), {running_version.begin(),
-                                  running_version.end()});
+        std::string_view(bytes), running_narrow);
     if (is_upgrade.has_value() && !*is_upgrade) {
       std::filesystem::remove_all(entry.path(), ec);
       ec.clear();
