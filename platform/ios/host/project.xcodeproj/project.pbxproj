@@ -427,8 +427,8 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/turlamai/rivet.git";
 			requirement = {
-				kind = revision;
-				revision = "4ff88a8c2b4a424a04a74b95e5761b07501b0258";
+				kind = branch;
+				branch = feat/mobile-hosts;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
