@@ -144,8 +144,8 @@ HPATCH
     # headers leak it in).
     tramp_src="$source_dir/src/bc/foreign/libffi/src/tramp.c"
     if ! grep -q "stddef.h" "$tramp_src"; then
-      { printf '#include <stddef.h>\n'; cat "$tramp_src"; } \
-        > "$tramp_src.new" && mv "$tramp_src.new" "$tramp_src"
+      sed -e '1s/^/#include <stddef.h>\n/' "$tramp_src" > "$tramp_src.new" \
+        && mv "$tramp_src.new" "$tramp_src"
     fi
     make -j"$jobs"
     make install
