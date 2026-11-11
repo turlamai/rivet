@@ -12,6 +12,8 @@
 
 当第一方原生交互值得维护 SwiftUI、WinUI 3、GTK4 三份界面时，选择 Rivet。共享领域逻辑归 Racket，渲染与系统交互归原生宿主。需要共享 HTML/CSS 界面时可评估 Glaze。
 
+双语主页见 [rivet.jrtx.site](https://rivet.jrtx.site/)。
+
 [使用选择、成熟度、升级与支持](docs/USING.zh-CN.md) · [English](docs/USING.md)
 
 ## 快速开始
@@ -48,7 +50,7 @@ Rivet 补上的是这一层：
 - **第一方原生 UI** —— Windows 使用 WinUI 3，macOS 使用 SwiftUI/AppKit，Linux 使用 GTK4
 - **Racket 负责应用逻辑** —— 宏、模式匹配、并发、数据处理、业务逻辑都留在 Racket
 - **一套后端契约** —— typed RPC、Event、共享 State、取消与生命周期统一走 RVT1
-- **共享应用模型** —— 将后端 schema 投影到与 Glaze 共用的传输无关契约 [Keel](https://github.com/turlamai/keel)，但 RVT1 与原生 UI 所有权仍留在 Rivet
+- **共享应用模型** —— 将后端 schema 投影到与 [Glaze](https://github.com/turlamai/glaze) 共用的传输无关契约 [Keel](https://github.com/turlamai/keel)，但 RVT1 与原生 UI 所有权仍留在 Rivet
 - **自动生成原生客户端** —— Racket 侧的声明在构建时生成 Swift/C++/Kotlin 类型化 API
 - **实时图表** —— 三桌面宿主统一的滚动时间序列控件走同一套类型化数据面（`rivet/chart` 环形缓冲 + 带间隙检测的二进制批次）；见 [docs/chart-series.md](docs/chart-series.md)
 - **进程内嵌 Racket CS** —— 不需要额外启动后端进程，Racket runtime 直接嵌入应用
@@ -343,7 +345,7 @@ hello/
 
 ```text
 rivet/
-├── rivet/                    # Racket backend、协议、State/RPC 定义
+├── rivet/                    # Racket backend、协议、State/RPC 定义与测试
 ├── rivet-cli/                # new / doctor / clean / build / dev / package / verify / codegen
 ├── runtime/                  # 共享 C++ RVT1 codec 与测试
 ├── platform/
@@ -351,11 +353,13 @@ rivet/
 │   │   ├── runtime/          # Racket CS bridge + native client
 │   │   └── host/             # WinUI 3 模板
 │   ├── macos/
-│       ├── Sources/          # Swift protocol/client + C embedding bridge
-│       └── host/             # SwiftUI 模板
+│   │   ├── Sources/          # Swift protocol/client + C embedding bridge
+│   │   └── host/             # SwiftUI 模板
+│   ├── linux/                # GTK4 runtime + host（CMake）：system、chart、update、theme
 │   └── android/              # Kotlin RVT1 协议/runtime 与 Gradle 构建
-├── rivet/tests/
-└── docs/
+├── examples/                 # 维护中的参考应用（taskboard）及其测试
+├── benches/                  # event-throughput 基准
+└── docs/                     # 指南、规范性说明与官网素材
 ```
 
 ## 测试

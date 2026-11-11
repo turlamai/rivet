@@ -1,5 +1,8 @@
 #lang info
 
+;; The package name is declared here; `raco-commands` stays at the
+;; collection level in rivet-cli/info.rkt (the collection that owns it).
+(define name "rivet")
 (define collection 'multi)
 ;; Racket package versions reject a trailing ".0" component. Release tags and
 ;; native artifacts remain three-component SemVer via `release-version`; keep
@@ -41,6 +44,3 @@
     "platform/macos/.build"
     "platform/macos/host/.build"
     "platform/macos/Integration/.build"))
-
-(define raco-commands
-  '(("rivet" rivet-cli/main "create, build, and run Rivet applications" #f)))

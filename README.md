@@ -12,6 +12,8 @@ Build first-party native desktop apps with [Racket](https://racket-lang.org/). U
 
 Choose Rivet when first-party native interaction is worth maintaining separate SwiftUI, WinUI 3 and GTK4 UIs. Racket owns shared domain logic; native hosts own rendering and OS interaction. For a shared HTML/CSS interface, evaluate Glaze instead.
 
+The bilingual homepage is [rivet.jrtx.site](https://rivet.jrtx.site/).
+
 [Fit, maturity, upgrades and support](docs/USING.md) · [简体中文](docs/USING.zh-CN.md)
 
 ## Quick Start
@@ -50,7 +52,7 @@ Rivet fills that gap:
 - **First-party native UI** — WinUI 3 on Windows, SwiftUI/AppKit on macOS, GTK4 on Linux
 - **Racket for application logic** — macros, pattern matching, concurrency, data processing, domain logic
 - **One backend contract** — typed RPC, events, shared state, cancellation, and lifecycle over the same RVT1 protocol
-- **Shared application model** — project the backend schema into [Keel](https://github.com/turlamai/keel), the transport-neutral contract shared with Glaze, without moving RVT1 or native UI ownership
+- **Shared application model** — project the backend schema into [Keel](https://github.com/turlamai/keel), the transport-neutral contract shared with [Glaze](https://github.com/turlamai/glaze), without moving RVT1 or native UI ownership
 - **Generated native clients** — Racket declarations become typed Swift and C++ APIs at build time
 - **Real-time charts** — rolling-time-series widgets on every desktop host over one typed data plane (`rivet/chart` ring buffers, gap-detected binary batches); see [docs/chart-series.md](docs/chart-series.md)
 - **Embedded Racket CS** — the Racket runtime lives inside the application process; no external backend process is required
@@ -354,7 +356,7 @@ You own the native UI source. Rivet owns the runtime bridge, protocol, code gene
 
 ```text
 rivet/
-├── rivet/                    # Racket backend, protocol and State/RPC definitions
+├── rivet/                    # Racket backend, protocol, State/RPC definitions, tests
 ├── rivet-cli/                # new / doctor / clean / build / dev / package / verify / codegen
 ├── runtime/                  # shared C++ RVT1 codec and tests
 ├── platform/
@@ -362,11 +364,13 @@ rivet/
 │   │   ├── runtime/          # Racket CS bridge + native client
 │   │   └── host/             # WinUI 3 scaffold
 │   ├── macos/
-│       ├── Sources/          # Swift protocol/client + C embedding bridge
-│       └── host/             # SwiftUI scaffold
+│   │   ├── Sources/          # Swift protocol/client + C embedding bridge
+│   │   └── host/             # SwiftUI scaffold
+│   ├── linux/                # GTK4 runtime + host (CMake): system, chart, update, theme
 │   └── android/              # Kotlin RVT1 protocol/runtime and Gradle build
-├── rivet/tests/
-└── docs/
+├── examples/                 # maintained reference app (taskboard) and its tests
+├── benches/                  # event-throughput benchmark
+└── docs/                     # guides, normative notes, and the site assets
 ```
 
 ## Testing

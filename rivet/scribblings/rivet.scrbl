@@ -3,10 +3,15 @@
 @(require (for-label (except-in racket/base sha256-bytes)
                      racket/contract/base
                      rivet
+                     rivet/app-info
+                     rivet/backend
+                     rivet/chart
                      rivet/distribution
+                     rivet/keel
                      rivet/protocol
                      rivet/resources
-                     rivet/system))
+                     rivet/system
+                     rivet/testing))
 
 @title[#:tag "rivet"]{Rivet: First-Party Native Desktop Applications with Racket}
 @author{TurLamAI}
@@ -316,18 +321,38 @@ Cancels a pending request by identifier.}
 @defthing[message:shutdown exact-positive-integer? #:value 7]{
 Requests orderly backend shutdown.}
 
-@subsection{Application Resources}
+@subsection{Test-only HTTP helpers}
 
 @defmodule[rivet/testing]
 
-Test-only helpers for exercising code that performs HTTP:
-@racket[ephemeral-http-listener] starts a bounded loopback listener,
-@racket[serve-http!] accepts one request, and
-@racket[fake-request], @racket[fake-request?], @racket[fake-request-body],
-@racket[fake-request-headers], @racket[fake-request-method] and
-@racket[fake-request-path] construct and inspect a deterministic request.
-They are stable enough for product tests but are not a production HTTP
-server.
+Test-only helpers for exercising code that performs HTTP. They are stable
+enough for product tests but are not a production HTTP server.
+
+@defproc[(ephemeral-http-listener [first-port exact-nonnegative-integer? 18432]
+                                  [count exact-positive-integer? 512]
+                                  [#:backlog backlog exact-positive-integer? 16]
+                                  [#:host host string? "127.0.0.1"])
+         (values exact-nonnegative-integer? tcp-listener?)]{
+Probes a bounded loopback port range and returns the first free port with
+its listener, so tests never hardcode ports. Raises when no port in the
+range is free.}
+
+@defstruct*[fake-request ([method symbol?]
+                          [path string?]
+                          [headers (listof (cons/c string? string?))]
+                          [body bytes?])]{
+One deterministic request handed to a fake handler.}
+
+@defproc[(serve-http! [listener tcp-listener?]
+                      [handler procedure?])
+         void?]{
+A minimal sequential HTTP/1.1 fake: accepts one connection at a time,
+parses the request line, headers, and a declared Content-Length body, hands
+a @racket[fake-request] to @racket[handler], and writes back
+@racket[(cons status-line response-bytes)] with @tt{Connection: close}. Run
+it on a thread; killing the thread stops the fake.}
+
+@subsection{Application resources}
 
 @defmodule[rivet/resources]
 
@@ -1123,21 +1148,41 @@ same installation-scoped lock used by execution protects recovery.}
 
 @section{Command-Line Workflow}
 
+The command inventory below mirrors @filepath{rivet-cli/usage.rkt}, which is
+the single source of truth for every flag and variant; run @tt{raco rivet
+help} for the full annotated table.
+
 @verbatim{
-raco rivet new <name>       create a native starter project
-raco rivet inspect --json   emit the agent-readable project contract
-raco rivet doctor           inspect the native toolchain
-raco rivet schema --json    emit the current versioned API schema
-raco rivet schema --output rivet-schema.json
-                             write a compatibility baseline
-raco rivet schema check rivet-schema.json --json
-                             reject breaking API changes
-raco rivet dev              build and run the current application
-raco rivet build            compile backend and native host
-raco rivet package          create and verify a distributable
-raco rivet release          build installer, signed update manifest, and SBOM
-raco rivet verify           verify an existing packaged artifact
-raco rivet compliance       generate SBOM and third-party notices
+raco rivet new <name> [--with-updates]   create a native starter project
+raco rivet doctor [--json] [--release]   inspect the native toolchain; the
+                                         --release form runs the release gate
+raco rivet entitlements --json|--plist|--check APP
+                                         emit or enforce macOS entitlements
+raco rivet inspect [--json]              show the project edit/verification map
+raco rivet acceptance [--json] [--dry-run] [--suite <id>]
+                                         run declared acceptance suites
+raco rivet matrix <report.json>...       aggregate per-platform acceptance reports
+raco rivet verify-remote --repo O/R --ref REF
+                                         trigger and fold remote acceptance legs
+raco rivet schema --json|--output <file>|check <file>
+                                         emit, baseline, or reject API changes
+raco rivet clean                         remove generated .rivet/build/dist output
+raco rivet support-bundle                collect a redacted doctor/inspect/log bundle
+raco rivet build                         compile backend and native host
+raco rivet generate [--check]            regenerate Swift, C++, and Kotlin clients
+raco rivet dev                           build and run the current application
+raco rivet package [--production]        create and verify a distributable
+raco rivet release [--development] [--without-updates] [--update-payload ...]
+                                         build installer, signed update manifest, SBOM
+raco rivet manifest-compose <inputs...>  compose update manifests
+raco rivet sign-manifest ...             compose and sign a family update manifest
+raco rivet verify-release-assets ...     verify signed release asset parity
+raco rivet i18n                          verify shared/i18n parity, regenerate tables
+raco rivet measure size|startup          report artifact size/launch against budgets
+raco rivet compliance                    generate SBOM/notices and run the license audit
+raco rivet apple-review --channel ...    inspect an actual Apple artifact
+raco rivet verify [--production]         re-verify the current packaged artifact
+raco rivet help; raco rivet --version    help text; installed release version
 }
 
 Production application releases require publisher-controlled platform signing
@@ -1150,4 +1195,6 @@ application or to Rivet.
 The source repository contains the full getting-started guides, architecture,
 RVT1 protocol specification, runtime limits, production signing guide, system
 services guide, and release/update threat model. See
-@url{https://github.com/turlamai/rivet}.
+@url{https://github.com/turlamai/rivet} and the bilingual homepage at
+@url{https://rivet.jrtx.site/}; the transport-neutral schema contract lives in
+@url{https://github.com/turlamai/keel}.

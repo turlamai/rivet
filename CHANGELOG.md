@@ -1,6 +1,38 @@
 # Changelog
 
-## Unreleased
+All notable changes to Rivet are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
+project adheres to [Semantic Versioning](https://semver.org/).
+
+## [Unreleased]
+
+### Added
+
+- Bring the documentation front door to the family standard: the README
+  repository-structure tree gains `platform/linux/`, `examples/`, and
+  `benches/`, and places `rivet/tests/` inside the collection where it
+  actually lives; both languages link the sibling frameworks and
+  rivet.jrtx.site. The Scribble manual resolves every public contract
+  through complete `for-label` requires, documents the test-only HTTP
+  helpers as real indexed procedures, and lists the full CLI inventory
+  mirrored from `rivet-cli/usage.rkt` instead of a twelve-command excerpt.
+  A new Pages workflow publishes rivet.jrtx.site from `docs/`, and the
+  release pipeline now builds and asserts the reference manual like CI
+  does.
+
+### Changed
+
+- The changelog follows the family Keep a Changelog format: version
+  sections carry their release-tag dates and Added/Changed/Fixed
+  categories, and the previously duplicated `## 0.15.2` headings are
+  merged into one section. Entry text is unchanged.
+
+### Fixed
+
+- `info.rkt` now declares the package `name` (the field was missing) and
+  registers `raco rivet` exactly once — the duplicate root-level
+  `raco-commands` registration alongside `rivet-cli/info.rkt` is gone.
 
 - The release-version reader survives the package catalog's builder (#446
   expected): the builder rewrites a packaged `info.rkt` into a single-line
@@ -25,8 +57,9 @@
   into a testable `stage-dmg-background!` with unit tests over the 2x@144,
   1x@144, and 1x@72 shapes.
 
-## 0.15.2
+## [0.15.2] - 2026-11-10
 
+### Changed
 
 - The Windows MSI no longer creates a desktop shortcut (#441). The Start
   Menu shortcut remains the discoverability surface; users who want a
@@ -36,6 +69,8 @@
   icon. Existing installs lose the desktop icon at their next major
   upgrade (automatic component removal); silent installs and upgrade
   smoke tests are otherwise unchanged.
+
+### Fixed
 
 - The Windows MSI handoff no longer runs a queued installer against an
   application that is already at or above the queued version (#437):
@@ -47,8 +82,6 @@
   dotted-version comparison lives in the portable runtime
   (`rivet/version_compare.hpp`) and is pinned by a cross-platform unit
   test.
-
-## 0.15.2
 
 - Ed25519 no longer requires a native provider to verify or sign update
   manifests (#439): the factory selection now honors the runtime
@@ -64,20 +97,24 @@
   OpenSSH public-key line) and fails closed on anything else; a
   cross-backend interop test pins the DER prefixes byte for byte and proves
   signatures verify under the other backend in both directions.
+
 - `raco rivet doctor` no longer reports a bare unreadable release version in
   exotic installed layouts: the canonical user-scope package directory
   (`<addon-dir>/<version>/pkgs/rivet/info.rkt`) joined the resolution
   candidates, and every candidate attempt is recorded and surfaced in the
   release-gate finding, so the package builder's test phase explains itself
   instead of failing as `#f` (#439).
+
 - The package `version` field is `0.15` again — it had been stale at `0.13`
   since the 0.13 release, so the catalog advertised 0.13 while tags and
   native artifacts shipped 0.15.x (#439).
+
 - The suite survives the package builder's minimal environment (#439):
   `taskboard-acceptance` finds `raco` next to the running racket executable
   when the builder drives the suite by absolute path, and the logging test
   routes its intentional critical record into a file sink instead of stderr,
   which the builder treats as a test failure.
+
 - The updater rejects a non-2xx response by its status code before a body
   byte is trusted (#435): the transport moved from `get-pure-port/headers`
   (whose header block hides the status line) to `net/http-client`, with an
@@ -87,18 +124,22 @@
   the status and URL instead of surfacing later as a misleading size/SHA
   mismatch on a "corrupted" update. The HTML guard stays as defense in
   depth for a 2xx that claims a captive-portal body.
+
 - Update feeds survive transient release-CDN failures: `fetch-update-manifest`
   retries the transport three times and rejects an HTML error page before it
   reaches the JSON/signature parser, and `download-update` refuses an HTML body
   instead of writing it as the artifact. `fetch-sibling-asset` now reads the
   response header string correctly (it previously treated it as a port) and
   applies the same HTML guard.
+
 - macOS portable ZIPs keep the `.app` framework symlinks: the archive is built
   with `ditto -c -k --keepParent` instead of Racket `zip`, which stored symlink
   targets as files and made a zip-installed or zip-updated bundle fail
   `codesign --verify --deep --strict` while the DMG copy stayed valid.
 
-## 0.15.1
+## [0.15.1] - 2026-11-09
+
+### Fixed
 
 - Linux RPM packaging now works for an unprivileged build on a machine
   without an initialized RPM database: `rpmbuild` uses a project-local
@@ -113,19 +154,9 @@
   install and removal, AppImage extraction and tar.gz/zip output on an
   Ubuntu ARM64 VM.
 
-## 0.15.0
+## [0.15.0] - 2026-11-08
 
-- Windows ARM64 MSIs now build and install. WiX 5.0.2 does not ship
-  `Wix4UtilCA_ARM64`; the ARM64 host uses a no-binary
-  `Directory`/`ExeCommand` Finish-page launch action, while x64 keeps
-  `WixShellExec`. Verified on a Windows 11 ARM64 VM: MSI build, elevated
-  install, native window launch, `/fa` repair, uninstall and external user
-  data retention.
-
-- Launch smoke no longer hangs when the application spawns a descendant that
-  inherits stdout/stderr. Capture threads get a short grace, then Rivet closes
-  its read ends; a pipe held open by a surviving child can no longer stall
-  `raco rivet package`/`release` forever.
+### Added
 
 - `raco rivet doctor` now checks the Windows Store application-type MSBuild
   props required by the WinUI 3 host. It asks `vswhere -find` for the actual
@@ -141,25 +172,23 @@
   `<artifact>.asc` and complement the existing Ed25519 tarball/feed signature;
   unset behavior is unchanged.
 
-## 0.14.0
+### Fixed
 
-- macOS embedding now derives the backend working directory from a canonical
-  `<root>/res/core.zo` layout when a manually constructed configuration
-  leaves `workingDirectory` unset. This makes `raco ctool` runtime-path
-  slots resolve against the bundle resources instead of the GUI process's
-  current directory (#414). An explicit `workingDirectory` still wins, and a
-  nonstandard core location keeps the caller's process directory. Packaged
-  app verification on a real macOS install is still required before closing
-  the issue.
+- Windows ARM64 MSIs now build and install. WiX 5.0.2 does not ship
+  `Wix4UtilCA_ARM64`; the ARM64 host uses a no-binary
+  `Directory`/`ExeCommand` Finish-page launch action, while x64 keeps
+  `WixShellExec`. Verified on a Windows 11 ARM64 VM: MSI build, elevated
+  install, native window launch, `/fa` repair, uninstall and external user
+  data retention.
 
-- Align the backend/protocol reference with the implementation: note
-  `rivet/backend` from the aggregate module, document `rivet/testing`, state
-  that `message:hello` is backend-to-native, describe `emit-event!`'s
-  unique-server fallback, document `serve-fds` port closing, and specify the
-  closed `rivet-schema.json` format. `serve-fds` now reports a backend
-  failure to its diagnostic sink instead of discarding it silently; the
-  embedded host still owns supervision. Protocol shutdown wording now
-  matches the implemented leniency for type-7 frames.
+- Launch smoke no longer hangs when the application spawns a descendant that
+  inherits stdout/stderr. Capture threads get a short grace, then Rivet closes
+  its read ends; a pipe held open by a surviving child can no longer stall
+  `raco rivet package`/`release` forever.
+
+## [0.14.0] - 2026-11-05
+
+### Added
 
 - Add `examples/taskboard/rivet-acceptance.rktd`: the maintained reference
   now carries an executable definition of done (backend contract, schema
@@ -184,26 +213,12 @@
   `project.rkt`, which resolves against the user's project directory and
   broke `raco rivet measure` exactly where it is meant to run.
 
-- Document the `rivet.rktd` validation rules (identifier, resources,
-  device-rpcs, localizations, Linux naming and icon/installer extensions) in
-  both configuration guides, the 0/1/2 exit-status vocabulary in both
-  diagnostics guides, and the `make-chart-series` 2^24 capacity bound in the
-  manual. Withdraw the audit claim that the chart decoder can return a
-  negative first index: it reads that field as unsigned.
-
 - Add `make-crash-file-reporter` to `rivet/system`: a bounded JSONL reporter
   for uncaught Racket exceptions, reusing the rotating log sink and adding
   the exception message. It is the documented one-line default for
   `current-rivet-crash-reporter`; native fatal signals and restart policy
   remain the platform adapter's responsibility. Documented in both
   diagnostics guides and both system-services guides.
-
-- Generated projects now start with a real test: `tests/smoke.rkt` checks the
-  starter `greeting` helper, and `rivet-acceptance.rktd` declares a
-  `starter-smoke` unit suite that runs `raco test tests/`. Before this,
-  `raco rivet acceptance` could be green without executing any behavior.
-  `rivet/tests/scaffold-ci.rkt` asserts the file, the suite and that the test
-  passes; getting-started now lists the generated contract files.
 
 - Add the Chinese product-acceptance guide covering the manifest, suite and
   evidence rules, the in-process RVT1 backend recipe, capability classes,
@@ -212,16 +227,6 @@
   to have a non-trivial Chinese counterpart with reciprocal links; it also
   caught and fixed the missing language headers on the CI and API-stability
   pairs.
-
-- Slim the release tooling instead of adding another copy: one installer
-  vocabulary in `rivet/distribution/identity.rkt` (feed vs all release
-  assets) and one sidecar implementation in `rivet-cli/artifact-file.rkt`.
-  `sign-manifest`, `release`, `appimage` and `verify-release-assets` now
-  share them, which also fixes `sign-manifest --sidecars` producing
-  `app_zip.sha256` instead of `app.zip.sha256`. Delete four unreferenced
-  definitions (`->symbol`, `relative-files`, `lookup-record-info`,
-  `lookup-enum-info`) and the stale cross-product adoption snapshot that
-  duplicated the central portfolio and product repositories.
 
 - Add the Chinese native-UI testing guide: the behavioral contract, native
   accessibility identifiers, packaged-macOS launch/reap rules, the startup-
@@ -235,12 +240,6 @@
   to follow symlinked or directory log arguments, and supports `--json` for
   automation. Documented in both diagnostics guides and both troubleshooting
   guides; covered by `rivet/tests/support-bundle.rkt`.
-
-- Document the implemented `#:trusted-keys` keyword on `make-updater` and
-  `fetch-update-manifest`, `#:diagnostic-sink` on `serve`/`serve-fds`, and
-  `#:install-kind` on `select-update`. Add `rivet/tests/manual-keywords.rkt`,
-  which parses each Scribble signature and compares its keywords with the
-  live procedure's accepted keywords in both directions.
 
 - Add `make-rotating-log-sink` to `rivet/system`: an optional bounded JSONL
   file sink with size-based rotation, a configurable archive count, private
@@ -286,14 +285,6 @@
   failures, update feed/handoff recovery, acceptance failures and safe
   cleanup. Link it from the documentation map.
 
-- Move the CLI help and version text into `rivet-cli/usage.rkt`, so tests can
-  read the public help contract without executing the entry point. Add the
-  implemented `entitlements --plist/--dev-overlay/--check-overlay`,
-  `acceptance --suite/--manifest`, `measure startup/--artifact/--seconds` and
-  `verify-remote` flags to `raco rivet help`, and add
-  `rivet/tests/cli-help.rkt`: every command must appear in help and in both
-  READMEs, and every listed automation flag must exist.
-
 - `doctor --json` now reports `rivet-version` (the same release identity as
   `raco rivet --version`), and the human output prints it. The diagnostics
   reference also documents `project-readiness`, the warning object shape and
@@ -314,6 +305,206 @@
   drag-and-drop, fonts, support bundles, generated CI/updater wiring and
   the remaining Chinese journeys, with evidence and an ordered slice list.
 
+- Add a complete Simplified Chinese counterpart for the project configuration
+  guide, including every accepted `rivet.rktd` key, resource-layout rule,
+  data-directory convention, i18n contract and deployment target. The docs
+  map now links it and no longer lists configuration as an untranslated
+  public journey.
+
+- Add `raco rivet --version` (also `version`, `-V`), so scripts, bug reports
+  and `doctor` output can identify the installed release as one stable line
+  instead of consulting the package database.
+
+- `raco rivet release --update-payload` and `raco rivet sign-manifest` accept
+  the `targz` installer, so the signed feed can carry a Linux portable
+  tar.gz without a product-owned manifest script.
+
+- `raco rivet sign-manifest --sidecars` appends `.sha256` to the artifact
+  name (`app.tar.gz.sha256`) instead of the ambiguous `app.tar_gz.sha256`
+  form produced by `path-add-extension`, matching `release`'s portable
+  sidecar naming and download-page conventions.
+
+- Windows MSI lifecycle CI now performs real maintenance repair after the
+  first installed-app launch and verifies the installed payload stays intact.
+  Repair, running-app upgrade and full uninstall must preserve disposable
+  profile data outside the installation directory.
+
+- Default macOS DMGs now include an Applications drag-to-install shortcut
+  without requiring branded background art. The app is copied with ditto so
+  nested Racket.framework symlinks remain intact, with native DMG mount tests.
+  Branded DMG conversion also retries bounded transient disk-image busy errors
+  after Finder detach, while persistent failures still fail packaging.
+
+- Windows MSI lifecycle CI now upgrades a real installed v1 while its native
+  window/process are still live, using Installer Restart Manager rather than
+  preemptively closing the application. It requires the upgrade to finish
+  without reboot deferral, the old process to exit, and installed v2 to replace
+  v1, exposing the running-process reinstall failure that closed-app smoke
+  tests could not catch.
+
+- Windows MSI CI now starts the real installed executable from `Program Files`
+  after first installation. It requires a native main window, a normal close,
+  and process exit before the existing upgrade and uninstall tests, catching
+  installed-only startup failures. This tests actual launch behavior, not
+  interactive clicks in the Finish dialog.
+
+- State changes from an external Racket worker now notify native clients when
+  exactly one Rivet server is active, consistent with `emit-event!`. Ambiguous
+  multi-server routing fails before mutation, and local-only State still works
+  after the server exits. Covered by an RVT1 pipe regression.
+
+- Key rotation for update feeds is now a supported, tested dual-trust
+  window instead of a prose suggestion. `verify-signed-manifest` accepts
+  `#:trusted-keys` (an alist of key id to public key), `fetch-update-manifest`
+  and `make-updater` thread it through, and RivetUpdate on macOS takes
+  `additionalTrustedKeys`. A wrapper key id is verified against its own
+  paired public key; a trusted id whose signature does not verify fails
+  closed, and feeds signed with retired keys stay rejected. Windows CI now
+  also installs two MSI versions of the smoke app, upgrades in place,
+  refuses the downgrade, and uninstalls cleanly — installed-package
+  upgrade acceptance beyond portable packaging (issue #370).
+
+- `raco rivet doctor` now identifies a targeted source-owned WinUI
+  `SetIcon(exe_path)` mistake, with a native helper remediation and
+  a false-positive guard for borderless windows (#379).
+
+- The Apple preflight is now available as `raco rivet apple-review
+  --channel <developer-id|mac-app-store|ios-app-store> --app <path.app> --json`
+  from an installed Rivet package, instead of requiring a source-checkout
+  `.github` script. Its Python 3 scanner is packaged with `rivet-cli`; CLI
+  argument tests and a real packaged macOS CI smoke guard the public entry.
+
+- Taskboard Linux GTK4 native title editing now has explicit Save/Discard,
+  recoverable validation errors, and packaged Wayland AT-SPI checks (#347).
+  Its labels reflect the persisted Racket snapshot from #352; packaged
+  relaunch/recovery and complete human visual/IME review remain pending.
+
+- Taskboard macOS SwiftUI native title editing now has explicit Save/Discard
+  with recoverable validation errors and packaged AX checks (issue #347).
+  Its user-facing language now agrees with the durable Racket task snapshot
+  from #352. Full packaged relaunch and visual/IME review remain outstanding.
+
+- Add a read-only, JSON-reporting Apple channel preflight for packaged macOS
+  bundles. It detects malformed bundle/privacy metadata, checks effective
+  entitlements and code signatures on macOS, flags Store sandbox/unsafe runtime
+  exceptions and explicitly reports missing iOS standalone/Store evidence.
+  The paired English/Chinese guide distinguishes Developer ID notarization
+  from App Store review; this is not automatic Apple approval.
+
+- Taskboard WinUI 3 reference: explicit title draft/save/discard controls,
+  rejected backend mutations retain the draft, with packaged Windows UI
+  Automation coverage. The product-owned Racket task snapshot saves locally
+  before reporting a successful mutation and reloads across restarts; bounded
+  same-directory staged replacement, corrupt-input rejection and RVT1 relaunch tests cover
+  the storage path. Cross-platform native edit parity and full #347 acceptance
+  remain outstanding.
+
+- New Rivet projects now tell coding agents to design and verify native
+  interaction through the real packaged app, not require a separate mockup.
+  The generated AGENTS.md/README cover save/draft/focus/recovery and native
+  visual/keyboard evidence; `raco rivet inspect --json` exposes the same
+  product-owned scenario and review requirements as structured guidance.
+  This is a development contract, not automatic aesthetic certification.
+
+- Add an opt-in reverse-DNS `linux-desktop-id` project setting that is
+  honored by native deb/rpm/AppImage desktop entry staging and verification.
+  This lets GNOME 50 GlobalShortcuts consumers register a stable, valid
+  portal identity without renaming their package, executable or icon.
+  Omitting the setting preserves legacy installer filenames.
+
+- Windows WinUI hosts expose `rivet::system::ApplyAppIcon` for each titled
+  top-level window, including secondary settings windows. The shared resource
+  ID 1 helper preserves native fallback for unbranded executables.
+
+- Add an iPhone-side, default-deny Apple Watch RPC relay that binds explicitly
+  registered typed watch requests to the current authenticated desktop RVT1
+  client. It rechecks session availability per message, preserves desktop RPC
+  scope enforcement and the 64 KiB WatchConnectivity envelope budget, and
+  includes deterministic route, revocation, and budget tests. App packaging
+  and physical-device acceptance remain separate release gates.
+
+### Added
+
+- Application threads can now emit events. `emit-event!` falls back to
+  the unique active server's emitter when no thread-local parameter exists
+  (`send!` is already thread-safe through the writer channel), so file
+  watchers, network workers, and other backend threads can notify the
+  UI without polling. Emissions with multiple active servers or after shutdown raise as
+  before.
+
+### Fixed
+
+- WatchConnectivity immediate watch-to-iPhone requests now have a configurable
+  15-second default deadline (1–120 seconds) and cancellation-safe, exactly-once
+  completion. Late and duplicate native callbacks cannot resume a cancelled
+  or expired request. At most four foreground requests can run in each
+  direction by default; excess calls fail closed. The iPhone-side reply
+  handler also has a finite deadline and cancels a stalled route handler
+  before sending one empty
+  fail-closed response. Portable Swift tests cover duplicate responses,
+  pre-registration cancellation, timeout and one-shot incoming replies;
+  paired hardware validation remains outstanding.
+
+### Added
+
+### Changed
+
+- macOS embedding now derives the backend working directory from a canonical
+  `<root>/res/core.zo` layout when a manually constructed configuration
+  leaves `workingDirectory` unset. This makes `raco ctool` runtime-path
+  slots resolve against the bundle resources instead of the GUI process's
+  current directory (#414). An explicit `workingDirectory` still wins, and a
+  nonstandard core location keeps the caller's process directory. Packaged
+  app verification on a real macOS install is still required before closing
+  the issue.
+
+- Align the backend/protocol reference with the implementation: note
+  `rivet/backend` from the aggregate module, document `rivet/testing`, state
+  that `message:hello` is backend-to-native, describe `emit-event!`'s
+  unique-server fallback, document `serve-fds` port closing, and specify the
+  closed `rivet-schema.json` format. `serve-fds` now reports a backend
+  failure to its diagnostic sink instead of discarding it silently; the
+  embedded host still owns supervision. Protocol shutdown wording now
+  matches the implemented leniency for type-7 frames.
+
+- Document the `rivet.rktd` validation rules (identifier, resources,
+  device-rpcs, localizations, Linux naming and icon/installer extensions) in
+  both configuration guides, the 0/1/2 exit-status vocabulary in both
+  diagnostics guides, and the `make-chart-series` 2^24 capacity bound in the
+  manual. Withdraw the audit claim that the chart decoder can return a
+  negative first index: it reads that field as unsigned.
+
+- Generated projects now start with a real test: `tests/smoke.rkt` checks the
+  starter `greeting` helper, and `rivet-acceptance.rktd` declares a
+  `starter-smoke` unit suite that runs `raco test tests/`. Before this,
+  `raco rivet acceptance` could be green without executing any behavior.
+  `rivet/tests/scaffold-ci.rkt` asserts the file, the suite and that the test
+  passes; getting-started now lists the generated contract files.
+
+- Slim the release tooling instead of adding another copy: one installer
+  vocabulary in `rivet/distribution/identity.rkt` (feed vs all release
+  assets) and one sidecar implementation in `rivet-cli/artifact-file.rkt`.
+  `sign-manifest`, `release`, `appimage` and `verify-release-assets` now
+  share them, which also fixes `sign-manifest --sidecars` producing
+  `app_zip.sha256` instead of `app.zip.sha256`. Delete four unreferenced
+  definitions (`->symbol`, `relative-files`, `lookup-record-info`,
+  `lookup-enum-info`) and the stale cross-product adoption snapshot that
+  duplicated the central portfolio and product repositories.
+
+- Document the implemented `#:trusted-keys` keyword on `make-updater` and
+  `fetch-update-manifest`, `#:diagnostic-sink` on `serve`/`serve-fds`, and
+  `#:install-kind` on `select-update`. Add `rivet/tests/manual-keywords.rkt`,
+  which parses each Scribble signature and compares its keywords with the
+  live procedure's accepted keywords in both directions.
+
+- Move the CLI help and version text into `rivet-cli/usage.rkt`, so tests can
+  read the public help contract without executing the entry point. Add the
+  implemented `entitlements --plist/--dev-overlay/--check-overlay`,
+  `acceptance --suite/--manifest`, `measure startup/--artifact/--seconds` and
+  `verify-remote` flags to `raco rivet help`, and add
+  `rivet/tests/cli-help.rkt`: every command must appear in help and in both
+  READMEs, and every listed automation flag must exist.
+
 - Document `linux-desktop-id` and `linux-binary-name` in the project
   configuration guide and its Chinese counterpart, including defaults and
   validation, and correct the stale "Rivet 0.2 supports protocol 1" wording.
@@ -325,16 +516,6 @@
 - Document the `version` and `-V` aliases of `raco rivet --version` in both
   README languages and in the CLI help.
 
-- Add a complete Simplified Chinese counterpart for the project configuration
-  guide, including every accepted `rivet.rktd` key, resource-layout rule,
-  data-directory convention, i18n contract and deployment target. The docs
-  map now links it and no longer lists configuration as an untranslated
-  public journey.
-
-- Add `raco rivet --version` (also `version`, `-V`), so scripts, bug reports
-  and `doctor` output can identify the installed release as one stable line
-  instead of consulting the package database.
-
 - Publish the repository's contribution surface: issue forms for bugs and
   capabilities, a pull-request evidence checklist, a code of conduct, and
   weekly Dependabot updates for GitHub Actions. `SECURITY.md` now records
@@ -344,17 +525,6 @@
 - The documentation map now states its language status explicitly: which
   public journeys have complete Chinese counterparts and which pages are
   English-only, instead of implying whole-repository parity.
-
-- Portable ZIP update staging now rejects a signed archive with a lone
-  regular-file or symlink root rather than replacing an installed application
-  directory with a non-app file. A complete ZIP SHA-256 is deliberately
-  valid in the negative regression; the old installation stays intact.
-
-- Rivet release-doctor now reads the installed package's SemVer from its
-  own module-relative top-level metadata, with collection lookup as a
-  fallback. This fixes official multi-collection package builders that could
-  install Rivet but could not discover its release version; empty collection
-  search paths are covered by a regression without bypassing the release gate.
 
 - Portable installation consumes a bounded private copy reverified against
   the signed asset size and SHA-256, so a changed download is rejected before
@@ -373,34 +543,9 @@
   `select-update`/`make-updater` accept an explicit `'targz` kind to force
   the archive when a feed publishes both shapes.
 
-- `raco rivet release --update-payload` and `raco rivet sign-manifest` accept
-  the `targz` installer, so the signed feed can carry a Linux portable
-  tar.gz without a product-owned manifest script.
-
 - `raco rivet sign-manifest` now defaults to `dist/update-<channel>.json`,
   the same feed name `raco rivet release` writes, instead of a separate
   `dist/update-manifest.json` convention.
-
-- `raco rivet sign-manifest --sidecars` appends `.sha256` to the artifact
-  name (`app.tar.gz.sha256`) instead of the ambiguous `app.tar_gz.sha256`
-  form produced by `path-add-extension`, matching `release`'s portable
-  sidecar naming and download-page conventions.
-
-- Branded macOS DMG packaging now verifies the backing image device has
-  actually detached before conversion, even when Finder removes its mountpoint.
-  It can convert an isolated copy if diskimages-helper retains the original
-  image lock, while cleaning copies and failing closed on persistent errors.
-
-- Windows MSI lifecycle CI now performs real maintenance repair after the
-  first installed-app launch and verifies the installed payload stays intact.
-  Repair, running-app upgrade and full uninstall must preserve disposable
-  profile data outside the installation directory.
-
-- Default macOS DMGs now include an Applications drag-to-install shortcut
-  without requiring branded background art. The app is copied with ditto so
-  nested Racket.framework symlinks remain intact, with native DMG mount tests.
-  Branded DMG conversion also retries bounded transient disk-image busy errors
-  after Finder detach, while persistent failures still fail packaging.
 
 - Align the public documentation with the shipped CLI and manual. The
   copy-paste CI workflow no longer claims to pin 0.11.0 while its YAML pins
@@ -430,41 +575,12 @@
   release notes before GitHub publication; ordinary CI runs negative tests.
   Existing published release assets are not rewritten.
 
-- Windows MSI lifecycle CI now upgrades a real installed v1 while its native
-  window/process are still live, using Installer Restart Manager rather than
-  preemptively closing the application. It requires the upgrade to finish
-  without reboot deferral, the old process to exit, and installed v2 to replace
-  v1, exposing the running-process reinstall failure that closed-app smoke
-  tests could not catch.
-
-- Windows MSI CI now starts the real installed executable from `Program Files`
-  after first installation. It requires a native main window, a normal close,
-  and process exit before the existing upgrade and uninstall tests, catching
-  installed-only startup failures. This tests actual launch behavior, not
-  interactive clicks in the Finish dialog.
-
-- State changes from an external Racket worker now notify native clients when
-  exactly one Rivet server is active, consistent with `emit-event!`. Ambiguous
-  multi-server routing fails before mutation, and local-only State still works
-  after the server exits. Covered by an RVT1 pipe regression.
-
 - Linux install-kind detection now queries actual dpkg/rpm ownership instead
   of treating every executable under `/opt` or `/usr` as package-managed.
   Portable applications in those directories retain their update path;
   AppImage detection still wins. Unknown ownership under system prefixes
   fails closed to package-manager policy. Tests inject ownership states so they
   do not depend on the CI host's package database.
-
-- Key rotation for update feeds is now a supported, tested dual-trust
-  window instead of a prose suggestion. `verify-signed-manifest` accepts
-  `#:trusted-keys` (an alist of key id to public key), `fetch-update-manifest`
-  and `make-updater` thread it through, and RivetUpdate on macOS takes
-  `additionalTrustedKeys`. A wrapper key id is verified against its own
-  paired public key; a trusted id whose signature does not verify fails
-  closed, and feeds signed with retired keys stay rejected. Windows CI now
-  also installs two MSI versions of the smoke app, upgrades in place,
-  refuses the downgrade, and uninstalls cleanly — installed-package
-  upgrade acceptance beyond portable packaging (issue #370).
 
 - macOS entitlements are now declared, not hard-coded. The packager writes a
   channel/arch manifest (`raco rivet entitlements --json`) and signs with
@@ -477,103 +593,10 @@
   rejects any production bundle that is not hardened-runtime signed with
   effective entitlements equal to the declared manifest (issue #358).
 
-- `raco rivet doctor` now identifies a targeted source-owned WinUI
-  `SetIcon(exe_path)` mistake, with a native helper remediation and
-  a false-positive guard for borderless windows (#379).
-
-- The Apple preflight is now available as `raco rivet apple-review
-  --channel <developer-id|mac-app-store|ios-app-store> --app <path.app> --json`
-  from an installed Rivet package, instead of requiring a source-checkout
-  `.github` script. Its Python 3 scanner is packaged with `rivet-cli`; CLI
-  argument tests and a real packaged macOS CI smoke guard the public entry.
-
-- Taskboard Linux GTK4 native title editing now has explicit Save/Discard,
-  recoverable validation errors, and packaged Wayland AT-SPI checks (#347).
-  Its labels reflect the persisted Racket snapshot from #352; packaged
-  relaunch/recovery and complete human visual/IME review remain pending.
-
-- Taskboard macOS SwiftUI native title editing now has explicit Save/Discard
-  with recoverable validation errors and packaged AX checks (issue #347).
-  Its user-facing language now agrees with the durable Racket task snapshot
-  from #352. Full packaged relaunch and visual/IME review remain outstanding.
-
 - Document embedded Racket CS's original-place-thread FFI loading risk
   (issue #363) in embedding/capability guidance and machine-readable
   `inspect --json`, with a regression assertion. A packaged-host scheduling
   fix and proof remain separate; no general worker-thread FFI safety is claimed.
-
-- Add a read-only, JSON-reporting Apple channel preflight for packaged macOS
-  bundles. It detects malformed bundle/privacy metadata, checks effective
-  entitlements and code signatures on macOS, flags Store sandbox/unsafe runtime
-  exceptions and explicitly reports missing iOS standalone/Store evidence.
-  The paired English/Chinese guide distinguishes Developer ID notarization
-  from App Store review; this is not automatic Apple approval.
-
-
-- DMG packaging survives slow volume teardown on CI runners. The installer
-  now probes the mount point instead of trusting one `hdiutil detach` exit
-  code, retries the graceful detach across the few-second window where a
-  lingering `diskimages-helper` or Spotlight still holds the volume, treats
-  an already-torn-down volume as success, and only then falls back to the
-  forced detach (fulcrum v0.14.1: macos-x64 packaging failed twice in a row
-  with `couldn't eject "disk2" - Resource busy` followed by
-  `detach failed - No such file or directory`).
-
-- Taskboard WinUI 3 reference: explicit title draft/save/discard controls,
-  rejected backend mutations retain the draft, with packaged Windows UI
-  Automation coverage. The product-owned Racket task snapshot saves locally
-  before reporting a successful mutation and reloads across restarts; bounded
-  same-directory staged replacement, corrupt-input rejection and RVT1 relaunch tests cover
-  the storage path. Cross-platform native edit parity and full #347 acceptance
-  remain outstanding.
-
-- New Rivet projects now tell coding agents to design and verify native
-  interaction through the real packaged app, not require a separate mockup.
-  The generated AGENTS.md/README cover save/draft/focus/recovery and native
-  visual/keyboard evidence; `raco rivet inspect --json` exposes the same
-  product-owned scenario and review requirements as structured guidance.
-  This is a development contract, not automatic aesthetic certification.
-
-- Add an opt-in reverse-DNS `linux-desktop-id` project setting that is
-  honored by native deb/rpm/AppImage desktop entry staging and verification.
-  This lets GNOME 50 GlobalShortcuts consumers register a stable, valid
-  portal identity without renaming their package, executable or icon.
-  Omitting the setting preserves legacy installer filenames.
-
-
-- `raco rivet build` and `raco rivet i18n` no longer regenerate files for
-  platform hosts a project removed: the Swift and Windows typed clients and
-  embedded i18n tables are emitted only when their host directory exists,
-  matching the rule linux already followed and the conditional Kotlin client
-  (issue #311). Single-platform products no longer get deleted host
-  directories resurrected on every build, and the release freshness gate
-  stops demanding files nobody consumes.
-
-- Windows WinUI hosts expose `rivet::system::ApplyAppIcon` for each titled
-  top-level window, including secondary settings windows. The shared resource
-  ID 1 helper preserves native fallback for unbranded executables.
-
-- Add an iPhone-side, default-deny Apple Watch RPC relay that binds explicitly
-  registered typed watch requests to the current authenticated desktop RVT1
-  client. It rechecks session availability per message, preserves desktop RPC
-  scope enforcement and the 64 KiB WatchConnectivity envelope budget, and
-  includes deterministic route, revocation, and budget tests. App packaging
-  and physical-device acceptance remain separate release gates.
-
-### Added
-
-- Application threads can now emit events. `emit-event!` falls back to
-  the unique active server's emitter when no thread-local parameter exists
-  (`send!` is already thread-safe through the writer channel), so file
-  watchers, network workers, and other backend threads can notify the
-  UI without polling. Emissions with multiple active servers or after shutdown raise as
-  before.
-
-### Fixed
-
-- Branded macOS DMG creation now detaches by stable mounted device and
-  tolerates a disappearing mount. The bounded Finder/Spotlight retry path
-  is preserved for `resource busy` and already-detached races.
 
 - `raco rivet doctor` now points full-distribution users with missing CS boot
   files or static libraries to the minimal source-built embedding runtime and
@@ -585,30 +608,59 @@
   handler, not started before `serve`. An unbound ticker now receives an
   actionable error, and the regression test covers both thread origins.
 
-- The CLI no longer fails a completed command when the ambient log
-  transport dies (issue #339): failed stdout/stderr writes drop only the
-  affected output, preserving the child process result. Tolerant wrappers
-  also preserve caller-owned ambient ports when closed.
-
-- WatchConnectivity immediate watch-to-iPhone requests now have a configurable
-  15-second default deadline (1–120 seconds) and cancellation-safe, exactly-once
-  completion. Late and duplicate native callbacks cannot resume a cancelled
-  or expired request. At most four foreground requests can run in each
-  direction by default; excess calls fail closed. The iPhone-side reply
-  handler also has a finite deadline and cancels a stalled route handler
-  before sending one empty
-  fail-closed response. Portable Swift tests cover duplicate responses,
-  pre-registration cancellation, timeout and one-shot incoming replies;
-  paired hardware validation remains outstanding.
-
-### Added
-
 - `macos-resource-files`: a rivet.rktd key listing project-relative files
   copied verbatim into the macOS bundle's `Contents/Resources` root before
   signing — the standard home for `InternetAccessPolicy.plist`, which
   firewall apps surface as the app's network policy. Collisions with
   rivet-managed bundle names fail the package.
-## 0.13.0
+
+### Fixed
+
+- Portable ZIP update staging now rejects a signed archive with a lone
+  regular-file or symlink root rather than replacing an installed application
+  directory with a non-app file. A complete ZIP SHA-256 is deliberately
+  valid in the negative regression; the old installation stays intact.
+
+- Rivet release-doctor now reads the installed package's SemVer from its
+  own module-relative top-level metadata, with collection lookup as a
+  fallback. This fixes official multi-collection package builders that could
+  install Rivet but could not discover its release version; empty collection
+  search paths are covered by a regression without bypassing the release gate.
+
+- Branded macOS DMG packaging now verifies the backing image device has
+  actually detached before conversion, even when Finder removes its mountpoint.
+  It can convert an isolated copy if diskimages-helper retains the original
+  image lock, while cleaning copies and failing closed on persistent errors.
+
+- DMG packaging survives slow volume teardown on CI runners. The installer
+  now probes the mount point instead of trusting one `hdiutil detach` exit
+  code, retries the graceful detach across the few-second window where a
+  lingering `diskimages-helper` or Spotlight still holds the volume, treats
+  an already-torn-down volume as success, and only then falls back to the
+  forced detach (fulcrum v0.14.1: macos-x64 packaging failed twice in a row
+  with `couldn't eject "disk2" - Resource busy` followed by
+  `detach failed - No such file or directory`).
+
+- `raco rivet build` and `raco rivet i18n` no longer regenerate files for
+  platform hosts a project removed: the Swift and Windows typed clients and
+  embedded i18n tables are emitted only when their host directory exists,
+  matching the rule linux already followed and the conditional Kotlin client
+  (issue #311). Single-platform products no longer get deleted host
+  directories resurrected on every build, and the release freshness gate
+  stops demanding files nobody consumes.
+
+- Branded macOS DMG creation now detaches by stable mounted device and
+  tolerates a disappearing mount. The bounded Finder/Spotlight retry path
+  is preserved for `resource busy` and already-detached races.
+
+- The CLI no longer fails a completed command when the ambient log
+  transport dies (issue #339): failed stdout/stderr writes drop only the
+  affected output, preserving the child process result. Tolerant wrappers
+  also preserve caller-owned ambient ports when closed.
+
+## [0.13.0] - 2026-10-23
+
+### Added
 
 - Add an Android selected-device connection coordinator joining live
   canonical NSD resolution to one explicit pinned-TLS/RVD1 attempt on a
@@ -618,7 +670,6 @@
   JVM tests cover selection, successful authenticated handoff, cancellation
   before queued work, and stale native callbacks. Product secure storage,
   native UI and physical-device evidence remain separate.
-
 
 - Add the Apple post-RVD1 RVT1 device path: generated Swift APIs can target a
   shared RivetRPCClient protocol; a bounded network client correlates RPCs,
@@ -639,13 +690,6 @@
   envelope tests cover tampering, identity binding, and malformed records;
   Android SDK compilation covers the KeyStore adapter. This does not provide
   a product UI or hardware pairing acceptance.
-
-- Bind Android's RVT1 stream client to the payload and pending-request budgets
-  negotiated by an accepted RVD1 session. Reject oversized outgoing RPCs
-  without emitting a frame or poisoning later requests; oversized incoming
-  frames fail closed. Deterministic JVM tests cover both directions and
-  malformed acceptance budgets. This is companion transport policy, not a
-  claim of a complete Android app or physical-device acceptance.
 
 - Add reusable iOS/iPadOS companion orchestration and SwiftUI UI for explicit
   Bonjour selection, pinned reconnect, provisional RVD1 pairing, pairing-code
@@ -677,19 +721,6 @@
   can bind to the product's generated device surface without hand-written
   route strings. Server-side gateway scopes remain authoritative.
 
-- Make verification evidence and orchestration first-class for distributed
-  agents (issue #287). `raco rivet verify-remote` dispatches the
-  per-platform acceptance legs of one commit on GitHub Actions, waits for the
-  runs, downloads the archived `acceptance --json` reports, and folds them
-  into the verification matrix, so an agent edits on one OS and is judged by
-  the others. Acceptance evidence entries are now classified —
-  `accessibility-snapshot`, `screenshot`, `interaction-trace`, `log`, or
-  `generic` — and the report pins each declared artifact's kind, presence,
-  byte size, and SHA-256, while plain string evidence paths stay legal as
-  `generic`. The product CI guide archives every leg's report as
-  `acceptance-report-<platform>` with `if: always()`, which is exactly the
-  convention the new command consumes.
-
 - Add the crash-safe process-external Linux AppImage handoff (issue #290).
   `AppImageHandoff::LaunchReplacement` in the linked `rivet::platform` target
   writes a generated first-party shell script — the counterpart of the
@@ -703,18 +734,31 @@
   so the launch path is never left without an executable, and deb/rpm
   installations stay owned by the system package manager.
 
-## 0.12.0
+### Changed
 
-- Make cross-platform verification first-class. `raco rivet matrix
-  <report.json>... [--json]` folds the per-platform `acceptance --json`
-  reports for one commit into a single machine-readable verdict: a required
-  kind/platform cell is proven only by a passing suite on that platform,
-  missing platforms are never silently green, and the exit code is green only
-  when every required cell is proven — so an agent editing on one OS can
-  still be judged by the other platforms' evidence. `docs/product-acceptance.md`
-  now defines the guaranteed / conditional / platform-specific capability
-  classification, and the maintainer contract states that the local
-  operating system does not reduce the required verification scope.
+- Bind Android's RVT1 stream client to the payload and pending-request budgets
+  negotiated by an accepted RVD1 session. Reject oversized outgoing RPCs
+  without emitting a frame or poisoning later requests; oversized incoming
+  frames fail closed. Deterministic JVM tests cover both directions and
+  malformed acceptance budgets. This is companion transport policy, not a
+  claim of a complete Android app or physical-device acceptance.
+
+- Make verification evidence and orchestration first-class for distributed
+  agents (issue #287). `raco rivet verify-remote` dispatches the
+  per-platform acceptance legs of one commit on GitHub Actions, waits for the
+  runs, downloads the archived `acceptance --json` reports, and folds them
+  into the verification matrix, so an agent edits on one OS and is judged by
+  the others. Acceptance evidence entries are now classified —
+  `accessibility-snapshot`, `screenshot`, `interaction-trace`, `log`, or
+  `generic` — and the report pins each declared artifact's kind, presence,
+  byte size, and SHA-256, while plain string evidence paths stay legal as
+  `generic`. The product CI guide archives every leg's report as
+  `acceptance-report-<platform>` with `if: always()`, which is exactly the
+  convention the new command consumes.
+
+## [0.12.0] - 2026-10-19
+
+### Added
 
 - Ship the Windows runtime source list as a machine-consumable property
   sheet. `platform/windows/rivet-runtime-sources.props` is now the single
@@ -727,12 +771,6 @@
   step with `runtime/CMakeLists.txt`, and `platform/windows/README.md`
   documents both consumption contracts.
 
-- Fix generated C++ bounded-wait RPCs so each promise yields exactly one
-  future, reused for both the timeout wait and the result read. Void RPCs now
-  also fulfill their promise after decoding a successful response; previously
-  non-Void calls threw `future_already_retrieved` and Void calls always timed
-  out even when the backend had completed.
-
 - Add executable product acceptance contracts. `raco rivet acceptance
   --json` validates `rivet-acceptance.rktd`, rejects missing kind/platform
   coverage, launches each current-platform suite as an executable plus argv
@@ -741,19 +779,12 @@
   and the native UI extension contract now expose the same definition of done,
   so a build-only or unrun platform can no longer be described as accepted.
 
-- Set the Windows title-bar icon from the embedded exe resource. WinUI shows a generic placeholder in the title bar unless the window is handed an icon explicitly, so every shipped host ran with a foreign default glyph while taskbar and shortcuts showed the real brand icon — the icon was compiled into the exe (resource ID 1 since #283) but nothing ever loaded it. The host template now loads it with `LoadIconW` and hands it to `AppWindow.SetIcon` at construction; projects without a `windows-icon` declaration keep the placeholder. Existing products carry the same lines in their own `MainWindow` constructor (podlens landed it first).
-
 - Add the release gate. `raco rivet generate --check` regenerates every client file in memory and fails when the tree differs — the writer and the gate share one regeneration, so a hand-edited version stamp or a forgotten regeneration (four shipped-repo incidents in one week) cannot merge. `raco rivet doctor --release` validates in one command and one exit code: generated freshness, the committed schema baseline, hand-written host sources calling `fetch-update-manifest`/`select-update`/`download-update`/`fetch-sibling-asset` only with keywords the installed rivet accepts (read via `procedure-keywords` from the live functions, closing the payback `#:redirections` class), and every `rivet.git#...` pin being non-empty and consistent with the installed release (the autarx empty-ref incident). The update API keyword contract is a documented, test-guarded stable surface, and `docs/ci.md` warns about the empty `URL#` footgun.
-
-- Own the Linux runtime layout discovery and ship the GTK main-thread bridge. `rivet::linux_runtime::discover_layout()` locates `runtime/*.boot` plus `res/core.zo` beside the executable (an explicit-root overload serves tests), `layout_error_hint()` is the remediation message hosts display, and the host template consumes the library instead of carrying a private copy — the staged-versus-packaged layout is Rivet's contract, so the code that knows it lives with it. The template also ships `rpc_bridge.hpp`: `unpack` flattens a generated `Result<T>` (including `Result<void>`) into a value-or-error decided on the reader thread, and `post_to_main` runs the closure on the GTK main loop, freeing it there. A new GTK host starts with the correct pattern instead of rediscovering thread affinity the hard way.
-
-- Single-source user-visible strings. `raco rivet i18n` verifies the parity contract of `shared/i18n/{zh,en}.json` (flat string-to-string maps with identical key sets; violations name the file and key) and regenerates the embedded host tables (`GeneratedI18n.hpp` on Windows and Linux, `GeneratedI18n.swift` on macOS). The shipped loaders consult the active language, then the other language, then the key, identically across hosts, so a key can never exist in one host's fallback and not another's. The release gate fails when the parity contract breaks or the embedded tables drift from the shared source; projects without a `shared/i18n` source skip the check.
-
-- Generate bounded-wait RPC companions for the Windows and Linux C++ clients. Every RPC gains `name_within(arguments, std::chrono::milliseconds)`: the completion resolves a promise, the call waits up to the timeout, and a miss cancels the pending request through the existing request table — so long-lived polling UIs stop spawning a detached thread per tick. Void RPCs return `bool`; other results return `std::optional<T>`; backend errors still throw from the final get. The naming collision check treats `_within` as a generated companion, and the fix removes a latent generator defect the new Void fixture exposed: the Void async completion handler assigned into `Result<void>`, which has no value member and made every generated header with a Void RPC uncompilable.
 
 - Add `macos-localizations` packaging support. A `(macos-localizations "zh-Hans" "en")` declaration (BCP 47 identifiers, validated at project load) emits `CFBundleLocalizations` in Info.plist and stages marker `Contents/Resources/<lang>.lproj/InfoPlist.strings` files before `sign-macos!` runs, so AppKit renders the system-provided chrome (About/Quit menus, standard alerts) in the user's language instead of the development region's — replacing per-app plutil injection plus manual re-signing. Projects without the declaration build byte-identical bundles to before.
 
 - Add `raco rivet measure` for host apps. `measure size` lists every `dist/` artifact with its byte count and, with `--budget <file>` (glob rules, first match wins), exits nonzero when any artifact exceeds its budget so a bundle-size regression fails the build instead of shipping. `measure startup` runs the launch-survival smoke over the packaged artifact and reports the elapsed window. Per-RPC latency deliberately stays with the integration `--benchmark` mode, which measures the real embedded runtime end to end; `docs/benchmarks.md` documents the budget format and that boundary.
+
 - Add the updater scaffolding to `rivet/distribution`. A runtime binds the
   updater config, destination directory, settings bridge, and injectable
   transport hooks; `updater-runtime-check!` fetches, selects, and drives the
@@ -768,18 +799,6 @@
  (`resolve-rollout-bucket!`): drawn once from OS entropy, recovered on later
  runs, redrawn on corrupt stored values, degrading to an unpersisted draw when
  the store cannot write.
-
-
-- Let one update feed carry multiple installables per platform. Artifacts
-  gain an optional `component` discriminator (`app`, `cli`, or `tool`) that
-  participates in the manifest's duplicate-identity rule, writers emit the
-  legacy shape when no component is set, and `updater-config` selects by
-  component; a config without one keeps matching component-less entries
-  only. `raco rivet release --update-payload <installer>:<glob>[:<component>]`
-  (repeatable) expands project-relative globs into component-tagged feed
-  entries, so products shipping an app and a CLI — or a portable tar.gz
-  instead of the zip — stop splitting into two feeds. The
-  `updater-config` struct gains the component field as its last argument.
 
 - Add `fetch-sibling-asset` to `rivet/distribution` and the
   `raco rivet sign-manifest` subcommand. The sibling helper checks the HTTP
@@ -796,12 +815,7 @@
 - Extend the family boundary to Commerce: online payment orchestration and
   credential delivery remain optional product/service concerns and never
   become Rivet dependencies.
-- Bound the updater's network legs. `fetch-update-manifest` runs its
-  blocking connect inside a custodian-owned worker with configurable
-  connect and idle deadlines, and `download-update` enforces a stall
-  deadline (no bytes for N seconds) plus an optional total cap on the copy
-  loop, so a black-holed peer raises a retryable error instead of parking
-  the backend serve thread forever.
+
 - Add the Kotlin device-session client for Android companions. The RVD1
   records, the HMAC authentication proof and six-digit pairing-code
   transcripts, and the client state machine with its credential-persistence
@@ -814,9 +828,143 @@
   a driver interface so applications supply their own NSD stack while the
   browser keeps the canonical-only, bounded, vanished-result semantics.
   TLS transport and product integration remain platform work.
+
+- Add leaf-loadable distribution identity helpers for the canonical manifest
+  platform, architecture, installer-extension, and UTC RFC 3339 vocabulary.
+  Release tooling and the managed updater now consume the same implementation
+  instead of maintaining private mappings.
+
+- Add the Windows device-gateway transport. A CNG-persisted P-256
+  self-signed identity (rotatable by deletion), an SChannel TLS server over
+  any accepted socket with the `rivet-device/1` ALPN requirement, the
+  fail-closed `rivet-device._tcp` advertisement through DNS-SD, and a
+  bounded single-connection listener come together in
+  `rivet::windows::DeviceSessionService`, which feeds accepted sockets to
+  the portable `rivet::DeviceSessionHost`. X.509 SubjectPublicKeyInfo
+  extraction joined the portable runtime so companion pins are
+  byte-identical across platforms.
+
+- Add the portable C++ device-session host driver. Over any
+  `rivet::Transport`, `rivet::DeviceSessionHost` runs the RVD1 preface for
+  one accepted desktop connection, enforces the post-TLS deadline, surfaces
+  pairing codes without auto-approving, accepts the desktop user's
+  confirm/reject decision from another thread with transport writes
+  serialized against the run loop, waits on the pairing-window clock, and
+  hands the accepted stream to an application handler only after
+  acceptance. Deterministic pipe, clock, and multi-thread tests pin the
+  reconnect, pairing, rejection, timeout, cancellation, and malformed-preface
+  behavior; the Windows and Linux gateways become thin transports over it.
+
+- Add the portable C++ device-session preface for the Windows and Linux
+  gateways. `rivet/device_session.hpp` implements the RVD1 v1 records, the
+  HMAC authentication proof and six-digit pairing-code transcripts, and the
+  server-side state machine: reconnect authentication with an
+  indistinguishable unknown-device challenge and constant-time proof
+  comparison, dual-confirmation pairing over injected window/attempt and
+  secure-storage boundaries, canonical scope enforcement, stable reject
+  codes, and the post-TLS deadline. The shared
+  `device-session-golden.txt` vectors plus deterministic codec, transcript,
+  and state-machine tests pin the contract; TLS transport, listeners, and
+  discovery remain platform work.
+
+- Add the framework-only Apple session client for iOS companions.
+  `RivetDeviceAppleSessionClient` connects one explicitly selected endpoint
+  through a pinned reconnect or an explicit provisional-pairing TLS context,
+  drives the `RVD1` session client state machine, surfaces the pairing code
+  without auto-confirming it, persists each new credential through an injected
+  secure-storage boundary before accepting RVT1, enforces the post-TLS
+  deadline, and closes without a pairing fallback when authentication is
+  rejected. Connection, session-client, persistence, and deadline boundaries
+  are injectable for deterministic reconnect, pairing, persistence-failure,
+  timeout, cancellation, and malformed-preface tests; connection policy,
+  background lifecycle, and permission strings stay product-owned.
+
+- Add the framework-only Apple Bonjour browser for iOS companions. Browsing is
+  explicitly started and stopped, accepts only the canonical bounded Rivet TXT
+  record, bounds candidates and pending events, reports add/change/remove
+  lifecycle events, and clears candidates on failure or cancellation.
+  Discovery remains unauthenticated and never opens a connection; local-network
+  usage strings and Bonjour declarations stay owned by the consuming
+  application.
+
+- Connect accepted macOS device transports to a fresh `RivetDeviceSessionServer`
+  through `RivetDeviceAppleSessionHost`. The host enforces post-TLS deadlines,
+  reports pairing codes without auto-approval, switches to RVT1 only after
+  authenticated acceptance, and performs idempotent disconnect cleanup.
+
+- Add the first Apple companion-session security layers. Service-scoped,
+  device-local Keychain storage now persists pairing credentials on macOS and
+  iOS, while `RivetDeviceSession` supplies the bounded `RVD1` preface codec,
+  HMAC reconnect authentication, dual-confirmation pairing state machines, and
+  a credential-persistence gate. Language-neutral golden vectors and
+  deterministic malformed-input, ordering, timeout, and authentication tests
+  pin the contract before Network.framework integration.
+
+- Add `RivetDeviceAppleTransport` for the next Apple companion layer. It
+  configures Network.framework for TLS 1.2+, forward-secret AEAD suites, and
+  the `rivet-device/1` ALPN,
+  authenticates either an exact server SPKI SHA-256 pin or an explicit
+  provisional-pairing identity, extracts canonical SPKI DER from X.509, bounds
+  connection setup to 30 seconds, and preserves the one-way `RVD1` to RVT1
+  stream transition without exposing a listener or discovery service.
+
+- Add the disabled-by-default macOS device listener and per-install P-256 TLS
+  identity lifecycle. Private keys and their self-signed certificates stay in
+  the application Keychain namespace; explicit rotation invalidates the public
+  pin. Listener admission is capped before transport/session allocation, and
+  disable, failure, and termination close every accepted connection. Product
+  enablement remains a separate future step.
+
+- Add privacy-bounded Bonjour advertising to the macOS device listener. The
+  `_rivet-device._tcp` service exists only while the listener is ready, carries
+  a deterministic 128-byte-bounded TXT record with the session version, a
+  per-listener ephemeral identifier, and the pairing-window bit, and is removed
+  before shutdown. No API names, account/device identifiers, filenames, or user
+  content enter discovery; iOS browsing and product UI remain separate work.
+
+### Changed
+
+- Make cross-platform verification first-class. `raco rivet matrix
+  <report.json>... [--json]` folds the per-platform `acceptance --json`
+  reports for one commit into a single machine-readable verdict: a required
+  kind/platform cell is proven only by a passing suite on that platform,
+  missing platforms are never silently green, and the exit code is green only
+  when every required cell is proven — so an agent editing on one OS can
+  still be judged by the other platforms' evidence. `docs/product-acceptance.md`
+  now defines the guaranteed / conditional / platform-specific capability
+  classification, and the maintainer contract states that the local
+  operating system does not reduce the required verification scope.
+
+- Set the Windows title-bar icon from the embedded exe resource. WinUI shows a generic placeholder in the title bar unless the window is handed an icon explicitly, so every shipped host ran with a foreign default glyph while taskbar and shortcuts showed the real brand icon — the icon was compiled into the exe (resource ID 1 since #283) but nothing ever loaded it. The host template now loads it with `LoadIconW` and hands it to `AppWindow.SetIcon` at construction; projects without a `windows-icon` declaration keep the placeholder. Existing products carry the same lines in their own `MainWindow` constructor (podlens landed it first).
+
+- Own the Linux runtime layout discovery and ship the GTK main-thread bridge. `rivet::linux_runtime::discover_layout()` locates `runtime/*.boot` plus `res/core.zo` beside the executable (an explicit-root overload serves tests), `layout_error_hint()` is the remediation message hosts display, and the host template consumes the library instead of carrying a private copy — the staged-versus-packaged layout is Rivet's contract, so the code that knows it lives with it. The template also ships `rpc_bridge.hpp`: `unpack` flattens a generated `Result<T>` (including `Result<void>`) into a value-or-error decided on the reader thread, and `post_to_main` runs the closure on the GTK main loop, freeing it there. A new GTK host starts with the correct pattern instead of rediscovering thread affinity the hard way.
+
+- Single-source user-visible strings. `raco rivet i18n` verifies the parity contract of `shared/i18n/{zh,en}.json` (flat string-to-string maps with identical key sets; violations name the file and key) and regenerates the embedded host tables (`GeneratedI18n.hpp` on Windows and Linux, `GeneratedI18n.swift` on macOS). The shipped loaders consult the active language, then the other language, then the key, identically across hosts, so a key can never exist in one host's fallback and not another's. The release gate fails when the parity contract breaks or the embedded tables drift from the shared source; projects without a `shared/i18n` source skip the check.
+
+- Generate bounded-wait RPC companions for the Windows and Linux C++ clients. Every RPC gains `name_within(arguments, std::chrono::milliseconds)`: the completion resolves a promise, the call waits up to the timeout, and a miss cancels the pending request through the existing request table — so long-lived polling UIs stop spawning a detached thread per tick. Void RPCs return `bool`; other results return `std::optional<T>`; backend errors still throw from the final get. The naming collision check treats `_within` as a generated companion, and the fix removes a latent generator defect the new Void fixture exposed: the Void async completion handler assigned into `Result<void>`, which has no value member and made every generated header with a Void RPC uncompilable.
+
+- Let one update feed carry multiple installables per platform. Artifacts
+  gain an optional `component` discriminator (`app`, `cli`, or `tool`) that
+  participates in the manifest's duplicate-identity rule, writers emit the
+  legacy shape when no component is set, and `updater-config` selects by
+  component; a config without one keeps matching component-less entries
+  only. `raco rivet release --update-payload <installer>:<glob>[:<component>]`
+  (repeatable) expands project-relative globs into component-tagged feed
+  entries, so products shipping an app and a CLI — or a portable tar.gz
+  instead of the zip — stop splitting into two feeds. The
+  `updater-config` struct gains the component field as its last argument.
+
+- Bound the updater's network legs. `fetch-update-manifest` runs its
+  blocking connect inside a custodian-owned worker with configurable
+  connect and idle deadlines, and `download-update` enforces a stall
+  deadline (no bytes for N seconds) plus an optional total cap on the copy
+  loop, so a black-holed peer raises a retryable error instead of parking
+  the backend serve thread forever.
+
 - Document the product-level Permit composition boundary: Rivet remains a
   framework with general secure storage and update integrity, not a built-in
   entitlement, trial, activation, payment, or account system.
+
 - Give the installers a commercial first-run experience. The macOS DMG
   switches to the branded drag-to-install layout when the project declares
   `dmg-background`: the volume stages the bundle next to an `/Applications`
@@ -832,49 +980,18 @@
   executable postinst/postrm scripts that refresh the desktop database.
   All behavior is opt-in per project key; projects without the keys build
   byte-identical installers to before.
+
 - Recreate the Windows package destination before copying release payloads, so
   build/package/release retries over a dirty `dist/` tree are idempotent and
   cannot retain stale files or fail with `copy-file: destination exists`.
-- Add leaf-loadable distribution identity helpers for the canonical manifest
-  platform, architecture, installer-extension, and UTC RFC 3339 vocabulary.
-  Release tooling and the managed updater now consume the same implementation
-  instead of maintaining private mappings.
-- Add the Windows device-gateway transport. A CNG-persisted P-256
-  self-signed identity (rotatable by deletion), an SChannel TLS server over
-  any accepted socket with the `rivet-device/1` ALPN requirement, the
-  fail-closed `rivet-device._tcp` advertisement through DNS-SD, and a
-  bounded single-connection listener come together in
-  `rivet::windows::DeviceSessionService`, which feeds accepted sockets to
-  the portable `rivet::DeviceSessionHost`. X.509 SubjectPublicKeyInfo
-  extraction joined the portable runtime so companion pins are
-  byte-identical across platforms.
-- Add the portable C++ device-session host driver. Over any
-  `rivet::Transport`, `rivet::DeviceSessionHost` runs the RVD1 preface for
-  one accepted desktop connection, enforces the post-TLS deadline, surfaces
-  pairing codes without auto-approving, accepts the desktop user's
-  confirm/reject decision from another thread with transport writes
-  serialized against the run loop, waits on the pairing-window clock, and
-  hands the accepted stream to an application handler only after
-  acceptance. Deterministic pipe, clock, and multi-thread tests pin the
-  reconnect, pairing, rejection, timeout, cancellation, and malformed-preface
-  behavior; the Windows and Linux gateways become thin transports over it.
-- Add the portable C++ device-session preface for the Windows and Linux
-  gateways. `rivet/device_session.hpp` implements the RVD1 v1 records, the
-  HMAC authentication proof and six-digit pairing-code transcripts, and the
-  server-side state machine: reconnect authentication with an
-  indistinguishable unknown-device challenge and constant-time proof
-  comparison, dual-confirmation pairing over injected window/attempt and
-  secure-storage boundaries, canonical scope enforcement, stable reject
-  codes, and the post-TLS deadline. The shared
-  `device-session-golden.txt` vectors plus deterministic codec, transcript,
-  and state-machine tests pin the contract; TLS transport, listeners, and
-  discovery remain platform work.
+
 - Move the test suite under the `rivet` collection (`rivet/tests/`). A
   top-level `tests/` directory inside a multi-collection package publishes a
   generic `tests` collection that cannot coexist with any other package
   doing the same, which the package catalog reports as a conflict. The suite
   now follows the family layout used by the other Rivet libraries, and
   `raco test rivet/tests/` is the documented entry point.
+
 - Keep the package build farm green on hosts without desktop conveniences.
   Console executables are now resolved from the running installation's bin
   directory before PATH, so the build, launch-smoke, and AppImage process
@@ -883,76 +1000,42 @@
   libcrypto factory is unavailable, the manifest composer skips without an
   Ed25519 provider instead of raising, and CI-wiring checks tolerate packaged
   copies that omit dot-directories.
-- Add the framework-only Apple session client for iOS companions.
-  `RivetDeviceAppleSessionClient` connects one explicitly selected endpoint
-  through a pinned reconnect or an explicit provisional-pairing TLS context,
-  drives the `RVD1` session client state machine, surfaces the pairing code
-  without auto-confirming it, persists each new credential through an injected
-  secure-storage boundary before accepting RVT1, enforces the post-TLS
-  deadline, and closes without a pairing fallback when authentication is
-  rejected. Connection, session-client, persistence, and deadline boundaries
-  are injectable for deterministic reconnect, pairing, persistence-failure,
-  timeout, cancellation, and malformed-preface tests; connection policy,
-  background lifecycle, and permission strings stay product-owned.
-- Add the framework-only Apple Bonjour browser for iOS companions. Browsing is
-  explicitly started and stopped, accepts only the canonical bounded Rivet TXT
-  record, bounds candidates and pending events, reports add/change/remove
-  lifecycle events, and clears candidates on failure or cancellation.
-  Discovery remains unauthenticated and never opens a connection; local-network
-  usage strings and Bonjour declarations stay owned by the consuming
-  application.
-- Connect accepted macOS device transports to a fresh `RivetDeviceSessionServer`
-  through `RivetDeviceAppleSessionHost`. The host enforces post-TLS deadlines,
-  reports pairing codes without auto-approval, switches to RVT1 only after
-  authenticated acceptance, and performs idempotent disconnect cleanup.
+
+### Fixed
+
+- Fix generated C++ bounded-wait RPCs so each promise yields exactly one
+  future, reused for both the timeout wait and the result read. Void RPCs now
+  also fulfill their promise after decoding a successful response; previously
+  non-Void calls threw `future_already_retrieved` and Void calls always timed
+  out even when the backend had completed.
+
 - Repair generated-project package smoke tests after the schema compatibility
   gate became automatic. Workflows that intentionally replace the scaffold
   backend now explicitly regenerate and verify their reviewed schema baseline
   before build/package checks, preserving the gate instead of bypassing it.
-- Add the first Apple companion-session security layers. Service-scoped,
-  device-local Keychain storage now persists pairing credentials on macOS and
-  iOS, while `RivetDeviceSession` supplies the bounded `RVD1` preface codec,
-  HMAC reconnect authentication, dual-confirmation pairing state machines, and
-  a credential-persistence gate. Language-neutral golden vectors and
-  deterministic malformed-input, ordering, timeout, and authentication tests
-  pin the contract before Network.framework integration.
-- Add `RivetDeviceAppleTransport` for the next Apple companion layer. It
-  configures Network.framework for TLS 1.2+, forward-secret AEAD suites, and
-  the `rivet-device/1` ALPN,
-  authenticates either an exact server SPKI SHA-256 pin or an explicit
-  provisional-pairing identity, extracts canonical SPKI DER from X.509, bounds
-  connection setup to 30 seconds, and preserves the one-way `RVD1` to RVT1
-  stream transition without exposing a listener or discovery service.
-- Add the disabled-by-default macOS device listener and per-install P-256 TLS
-  identity lifecycle. Private keys and their self-signed certificates stay in
-  the application Keychain namespace; explicit rotation invalidates the public
-  pin. Listener admission is capped before transport/session allocation, and
-  disable, failure, and termination close every accepted connection. Product
-  enablement remains a separate future step.
-- Add privacy-bounded Bonjour advertising to the macOS device listener. The
-  `_rivet-device._tcp` service exists only while the listener is ready, carries
-  a deterministic 128-byte-bounded TXT record with the session version, a
-  per-listener ephemeral identifier, and the pairing-window bit, and is removed
-  before shutdown. No API names, account/device identifiers, filenames, or user
-  content enter discovery; iOS browsing and product UI remain separate work.
 
-## 0.11.0
+## [0.11.0] - 2026-10-14
+
+### Changed
 
 - Drop the IsolatedDeinit experimental feature from the released SwiftPM
   packages. Released Xcode toolchains reject experimental features outright,
   so package consumers could not compile RivetSystem away from trunk
   compilers; the clipboard change-observation teardown now uses a plain
   deinit over a nonisolated stored Timer, which every toolchain accepts.
+
 - Open the Windows taskboard reference window at a size that keeps every
   layout region usable. At the WinUI default window size the timing-chart
   row squeezed the task list into a virtualizing sliver whose row
   containers never realized — invisible in the UI and to UI Automation —
   and the native-UI end-to-end wait timed out waiting for the RPC-created
   row even though the RPC itself had succeeded.
+
 - Make packaging a clean native provenance boundary (#235). Windows package
   builds use MSBuild `Rebuild`, macOS recreates the SwiftPM scratch tree, and
   Linux already recreates its CMake tree; incremental caches can no longer
   produce a valid-looking distributable from older native objects.
+
 - Finish the shared host-side update story on Windows and Linux (#237) without
   duplicating the engine's security-critical Ed25519/parser/downloader stack.
   Signed release feeds now carry portable ZIP plus MSI on Windows and portable
@@ -961,39 +1044,51 @@
   failure-reporting `msiexec` quit/install/relaunch handoff with stale-attempt
   cleanup and lease release, while the Linux library adds install-shape and
   post-commit AppImage relaunch helpers around the existing atomic adapter.
+
 - Complete released-package consumption (#238). Generated macOS hosts resolve
   Rivet from its tagged root SwiftPM package rather than a checkout path;
   Windows and Linux hosts link the released package's platform targets; the
   old Linux source fragment is now explicitly private to `rivet::platform`.
   Both Windows static-library projects now declare ARM64 configurations.
-- Preserve the clean release output contract from #236: the unpacked staging
-  bundle is removed after installers, portable archives, manifests, SBOM, and
-  notices are produced. The canonical Linux source manifest and anti-drift
-  guard from #234 remain internal implementation details of the linkable
-  package rather than an invitation for downstream source compilation.
-- Fix the linkable Windows and Linux chart packages to carry the shared
-  chart batch codec/model implementation. The pre-release embedded roundtrip
-  caught the prior compile-green/link-red package before 0.11.0 shipped.
+
 - Isolate NuGet restore state for the sibling Windows host and chart library
   projects. Both libraries now participate in the transitive restore graph,
   so clean downstream builds receive the WinUI/C++/WinRT projection headers;
   canonical directory-valued MSBuild output paths also remove the old MSB8004
   warning from referenced-library builds.
+
 - Make the Windows host template's CRT selection explicit and consistent.
   Self-contained packages use MT/MTd while development builds use MD/MDd,
   and the selected mode is applied to the executable and forwarded to every
   released static library, preventing clean-package LNK2038 failures.
+
 - Make the Windows chart library independent of downstream precompiled
   headers by declaring its C++/WinRT dependencies directly, avoiding Win32
   macro leakage, and using the correct `Windows.UI.Color` type.
+
 - Update the Windows reference consumer to use the released `rivet::win_ui`
   namespace and the chart control's public default-construction contract.
+
 - Keep post-release verification compatible with the clean output contract.
   When the unpacked staging package is gone, `raco rivet verify` now validates
   the portable ZIP through an isolated temporary extraction with strict root
   layout checks and unconditional cleanup.
 
-## 0.10.0
+### Fixed
+
+- Preserve the clean release output contract from #236: the unpacked staging
+  bundle is removed after installers, portable archives, manifests, SBOM, and
+  notices are produced. The canonical Linux source manifest and anti-drift
+  guard from #234 remain internal implementation details of the linkable
+  package rather than an invitation for downstream source compilation.
+
+- Fix the linkable Windows and Linux chart packages to carry the shared
+  chart batch codec/model implementation. The pre-release embedded roundtrip
+  caught the prior compile-green/link-red package before 0.11.0 shipped.
+
+## [0.10.0] - 2026-10-13
+
+### Changed
 
 - Host platforms ship as linkable packages — downstream products never
   compile Rivet sources into their own build lists (constraint recorded
@@ -1009,14 +1104,35 @@
   (`.package(url: …, from: "0.10.0")`) beside the in-repo path package.
   The WinUI HWND bridge moves to `winui_window.hpp` so the Windows
   library compiles without Windows App SDK include paths.
-## 0.9.0
 
-- Close the last below-floor commercial capability gap with first-party
-  native file dialogs on every desktop platform. Windows uses Common Item
-  Dialogs, macOS uses asynchronous AppKit panels, and Linux uses GTK4 native
-  choosers with portal delegation. The adapters cover open, save, folder
-  selection, extension filters, cancellation, and open-file multi-selection
-  without adding file-picker traffic to RVT1.
+## [0.9.0] - 2026-10-13
+
+### Added
+
+- Add first-party plain-text clipboard read/write/change observation across
+  every desktop adapter. macOS uses `NSPasteboard` with main-run-loop
+  `changeCount` polling, Windows uses `CF_UNICODETEXT` plus a message-only
+  clipboard owner and `WM_CLIPBOARDUPDATE`, and Linux uses GTK4/GDK with
+  asynchronous reads suitable for Wayland ownership transfers. Native
+  observation stays on the platform UI thread and outside RVT1.
+
+- Add `docs/commercial-parity.md`: the honest scorecard against the Tauri 2
+  and Electron feature floors (above / at / below / roadmap per
+  capability), with rules of engagement — a product hand-rolling the same
+  capability twice is a library gap, below-floor rows outrank new surface
+  area, and the docs suite keeps the scorecard's tracked capability rows
+  (global shortcuts, clipboard, native file dialogs, mobile hosts) from
+  silently disappearing.
+
+- Documentation drift now fails CI instead of rotting silently. The docs
+  suite derives the current release version from `info.rkt` and rejects a
+  `docs/ci*.md` guide pinning any other tag, and it checks scribble
+  coverage in both directions: a public export without a manual mention
+  fails, and a manual entry for a binding that is no longer exported fails
+  (defstruct* forms synthesize their constructor, predicate, structure-type
+  binding, and accessors, mirroring the rendered output).
+
+### Changed
 
 - Make Linux a first-class product target everywhere users discover Rivet:
   the English and Chinese READMEs now include its badge, requirements,
@@ -1025,20 +1141,7 @@
   unsupported-host remediation no longer claims only Windows and macOS can
   build. Documentation tests pin all three targets to prevent this class of
   omission from returning.
-- Fix source-package smoke tests under `set -o pipefail`. Archive entries are
-  now read once and checked from a file, so `grep -q` cannot close a repeated
-  `unzip` pipeline early and turn a successful match into spurious exit 141.
-  Source releases also explicitly omit native build/output trees (the Racket
-  packager does not read `.gitignore`), and the isolated install overrides any
-  maintainer-machine installation-scope link instead of producing a false
-  “already installed” result.
 
-- Add first-party plain-text clipboard read/write/change observation across
-  every desktop adapter. macOS uses `NSPasteboard` with main-run-loop
-  `changeCount` polling, Windows uses `CF_UNICODETEXT` plus a message-only
-  clipboard owner and `WM_CLIPBOARDUPDATE`, and Linux uses GTK4/GDK with
-  asynchronous reads suitable for Wayland ownership transfers. Native
-  observation stays on the platform UI thread and outside RVT1.
 - Complete cross-platform global shortcuts. Linux already binds through the
   XDG portal; macOS gains `RivetGlobalShortcuts` (Carbon
   `RegisterEventHotKey`, main-thread event loop, explicit duplicate-trigger
@@ -1052,13 +1155,24 @@
   layout, not the alphabet. macOS parse and lifecycle tests are in the
   Swift suite; the Windows adapter is compile-gated by the WinUI CI host
   build.
-- Add `docs/commercial-parity.md`: the honest scorecard against the Tauri 2
-  and Electron feature floors (above / at / below / roadmap per
-  capability), with rules of engagement — a product hand-rolling the same
-  capability twice is a library gap, below-floor rows outrank new surface
-  area, and the docs suite keeps the scorecard's tracked capability rows
-  (global shortcuts, clipboard, native file dialogs, mobile hosts) from
-  silently disappearing.
+
+### Fixed
+
+- Close the last below-floor commercial capability gap with first-party
+  native file dialogs on every desktop platform. Windows uses Common Item
+  Dialogs, macOS uses asynchronous AppKit panels, and Linux uses GTK4 native
+  choosers with portal delegation. The adapters cover open, save, folder
+  selection, extension filters, cancellation, and open-file multi-selection
+  without adding file-picker traffic to RVT1.
+
+- Fix source-package smoke tests under `set -o pipefail`. Archive entries are
+  now read once and checked from a file, so `grep -q` cannot close a repeated
+  `unzip` pipeline early and turn a successful match into spurious exit 141.
+  Source releases also explicitly omit native build/output trees (the Racket
+  packager does not read `.gitignore`), and the isolated install overrides any
+  maintainer-machine installation-scope link instead of producing a false
+  “already installed” result.
+
 - Close the scribble coverage gap: the RVT1 framing and value-codec surface
   (`rivet/protocol` — frames, message-type constants, transport limits,
   read/write/encode/decode), application resources (`rivet/resources`),
@@ -1068,15 +1182,10 @@
   `current-install-kind`, and the missing `updater?` predicate now have
   manual entries. Every public export is covered and the rendered manual
   carries no undefined-tag warnings.
-- Documentation drift now fails CI instead of rotting silently. The docs
-  suite derives the current release version from `info.rkt` and rejects a
-  `docs/ci*.md` guide pinning any other tag, and it checks scribble
-  coverage in both directions: a public export without a manual mention
-  fails, and a manual entry for a binding that is no longer exported fails
-  (defstruct* forms synthesize their constructor, predicate, structure-type
-  binding, and accessors, mirroring the rendered output).
 
-## 0.8.1
+## [0.8.1] - 2026-10-13
+
+### Added
 
 - Add the macOS `RivetUpdate` Swift module: a shared host-side update client
   for installed `.app` bundles, so applications stop hand-rolling the same
@@ -1096,14 +1205,9 @@
   ends every sheet, terminates, and stops the run loop if the quit was
   deferred.
 
-## 0.8.0
+## [0.8.0] - 2026-10-13
 
-- Reject self-contradictory signed update manifests before publication or
-  client acceptance: artifact sets must be non-empty and positive-size,
-  minimum/previous versions must precede the release, and artifact
-  platform/architecture/installer identities must be unique. Signed wrappers
-  and payloads also reject trailing JSON values and fields outside their
-  versioned schemas.
+### Added
 
 - Add an opaque managed updater for the check/select/download lifecycle shared
   by downstream applications. It copies mutable configuration inputs and
@@ -1111,6 +1215,7 @@
   one background worker, progress, explicit cancellation, monotonic manifest,
   stall, and total deadlines, deterministic destinations, and terminal cleanup
   while leaving installation and restart with the native host.
+
 - `download-update` reports download progress: an optional `#:on-progress`
   callback receives cumulative bytes from zero through the final downloaded
   size. Intermediate reports are throttled to about one per percent of the
@@ -1118,6 +1223,55 @@
   watchdogs. In-app updaters can drive progress bars without copying Rivet's
   bounded, redirect-aware downloader. Interrupted or cancelled downloads
   remove their partial file as reliably as ordinary failures.
+
+- Add a Windows `rivet::system::TrayController` that owns tray window
+  subclassing, localized native menu presentation, command dispatch, and
+  automatic `TaskbarCreated` recovery. The reference Taskboard now exercises
+  the blessed tray-resident host pattern instead of leaving every application
+  to rediscover `TrackPopupMenu`'s foreground-window requirement.
+
+- The Windows tray icon (`rivet::system::TrayIcon`) can update its tooltip
+  (`SetTooltip`) and re-register itself after an Explorer restart
+  (`Readd`, called from the host's `TaskbarCreated` broadcast handler) —
+  state-aware tray apps no longer re-allocate the icon to relabel it and no
+  longer lose it the first time the shell restarts. `TrayIcon` owns an icon
+  copy so recovery does not impose a new lifetime requirement on callers.
+
+- Add Wayland-safe Linux global shortcuts through the XDG Desktop Portal,
+  including asynchronous consent/binding results, compositor activation tokens,
+  runtime capability discovery, and a hermetic mock-portal integration test.
+  Rivet deliberately provides no X11 `XGrabKey` fallback.
+
+- Added an exact public-export contract and a Racket 9.0 CI lane so accidental
+  API drift and minimum-version regressions fail before merge.
+
+### Changed
+
+- Make `settings-store` an opaque synchronized handle. The pre-1.0 API no
+  longer exports its constructor, path/lock/data fields, or mutation setters,
+  which allowed callers to bypass atomic persistence and replace the store's
+  lock. Transactions refresh under shared in-process and operating-system
+  locks to prevent stale handles from losing updates; stored JSON trees and
+  snapshots are deeply immutable. Use `make-settings-store` and the existing
+  controlled operations; `settings-store?` remains public.
+
+- Document one reproducible downstream install contract: pin Rivet's Git
+  package source and `setup-embed-racket` action to the same revision, and
+  install the package only after the minimal embeddable runtime is active.
+
+- Make Keel's validated `app-schema` the canonical in-memory input to Swift,
+  C++, and Kotlin client generation. Rivet now keeps only a fail-closed
+  Keel-to-RVT1 type adapter instead of reconstructing a parallel codegen schema
+  model, while preserving generated source and schema snapshot compatibility.
+
+### Fixed
+
+- Reject self-contradictory signed update manifests before publication or
+  client acceptance: artifact sets must be non-empty and positive-size,
+  minimum/previous versions must precede the release, and artifact
+  platform/architecture/installer identities must be unique. Signed wrappers
+  and payloads also reject trailing JSON values and fields outside their
+  versioned schemas.
 
 - Authenticate signed update-manifest payload bytes before parsing their JSON.
   Malformed, unauthenticated payloads now fail at the Ed25519 boundary instead
@@ -1132,48 +1286,71 @@
   state; the persistent empty lock file is not a crash marker. The prepared
   installation handle is opaque so callers cannot forge its lock identity.
 
-- Make `settings-store` an opaque synchronized handle. The pre-1.0 API no
-  longer exports its constructor, path/lock/data fields, or mutation setters,
-  which allowed callers to bypass atomic persistence and replace the store's
-  lock. Transactions refresh under shared in-process and operating-system
-  locks to prevent stale handles from losing updates; stored JSON trees and
-  snapshots are deeply immutable. Use `make-settings-store` and the existing
-  controlled operations; `settings-store?` remains public.
-- Add a Windows `rivet::system::TrayController` that owns tray window
-  subclassing, localized native menu presentation, command dispatch, and
-  automatic `TaskbarCreated` recovery. The reference Taskboard now exercises
-  the blessed tray-resident host pattern instead of leaving every application
-  to rediscover `TrackPopupMenu`'s foreground-window requirement.
-- The Windows tray icon (`rivet::system::TrayIcon`) can update its tooltip
-  (`SetTooltip`) and re-register itself after an Explorer restart
-  (`Readd`, called from the host's `TaskbarCreated` broadcast handler) —
-  state-aware tray apps no longer re-allocate the icon to relabel it and no
-  longer lose it the first time the shell restarts. `TrayIcon` owns an icon
-  copy so recovery does not impose a new lifetime requirement on callers.
-- Document one reproducible downstream install contract: pin Rivet's Git
-  package source and `setup-embed-racket` action to the same revision, and
-  install the package only after the minimal embeddable runtime is active.
-- Add Wayland-safe Linux global shortcuts through the XDG Desktop Portal,
-  including asynchronous consent/binding results, compositor activation tokens,
-  runtime capability discovery, and a hermetic mock-portal integration test.
-  Rivet deliberately provides no X11 `XGrabKey` fallback.
-
 - Bound and retry Ubuntu runner package-manager operations so a stalled mirror
   cannot consume an entire desktop validation job without a useful failure.
+
 - Removed the misleading `rivet-type` runtime descriptors from the pre-1.0
   public surface. Schema type identifiers are declaration grammar, while Keel
   is the canonical runtime-inspection model.
-- Added an exact public-export contract and a Racket 9.0 CI lane so accidental
-  API drift and minimum-version regressions fail before merge.
 
-- Make Keel's validated `app-schema` the canonical in-memory input to Swift,
-  C++, and Kotlin client generation. Rivet now keeps only a fail-closed
-  Keel-to-RVT1 type adapter instead of reconstructing a parallel codegen schema
-  model, while preserving generated source and schema snapshot compatibility.
 - Synchronize the English and Chinese CI guide with the pinned Ubuntu 24.04
   runner and remove a stale comment about the now-opaque State descriptor.
 
-## 0.7.0
+## [0.7.0] - 2026-10-12
+
+### Added
+
+- Add real Linux installer lifecycle gates: build x64 rpm/AppImage artifacts,
+  install and launch the rpm on Fedora 44 under native Wayland, launch the
+  AppImage outside the build tree on Ubuntu 24.04, uninstall the rpm, and
+  retain package/compositor/application diagnostics as CI artifacts.
+
+- Add first-party portable update installation for Windows, macOS, and Linux:
+  verified ZIP/AppImage payloads are staged, platform-signature checked,
+  atomically replaced, health-gated, durably committed, and recoverable after
+  interruption. Native MSI/MSIX/DMG/PKG/deb/rpm artifacts remain explicitly
+  owned by their system installer or package manager.
+
+### Changed
+
+- Adopt Keel as Rivet's transport-neutral schema contract. The new
+  `backend-schema->app-schema` and `current-backend-app-schema` adapters project
+  RPC, Event, State, Record, and Enum declarations into a validated,
+  deterministic Keel `app-schema` while RVT1 framing and native renderers stay
+  Rivet-owned. Align schema placement rules with Keel: `Void` is valid only as
+  a direct RPC result, not inside parameters, containers, Records, Events, or
+  States.
+
+- Split the Linux system adapter into focused single-instance, notification,
+  tray, autostart, secure-storage, and crash/shutdown implementation units,
+  with one private XDG/D-Bus support core and no public API change.
+
+- Make AppImage the signed Linux update payload when that format is enabled,
+  emit its SHA-256 sidecar, and add install-kind-aware update selection so
+  AppImage, portable, and package-manager installations cannot cross streams.
+
+- Graduate the Linux package-manager lifecycle gates from a single install to
+  two-version deb/rpm transactions: corrupt upgrades preserve the working
+  install, normal upgrades replace both metadata and payload, Debian rejects
+  implicit downgrade while Fedora verifies explicit local-RPM rollback and
+  re-upgrade, and uninstall remains complete under native Wayland.
+
+- Make embedded diagnostics opt-in across Racket, C++, and Swift. GUI hosts no
+  longer write to standard error by default, preventing Windows applications
+  from allocating a black console window on their first diagnostic; explicit
+  structured-log and stderr sinks remain supported.
+
+- Replace the accidental public backend registry structs and mutable State
+  cell accessors with an opaque `state?` handle and a single immutable
+  `backend-schema` reflection snapshot. Pre-1.0 tooling that used
+  `registered-*` or `*-info-*` should read the corresponding schema entry;
+  applications should use `state-ref` and `state-set!`.
+
+- Adopt a Wayland-first Linux display policy, document X11/XWayland as
+  best-effort GTK compatibility, and launch the packaged GTK4 host through a
+  headless native Wayland compositor in CI.
+
+### Fixed
 
 - Stage Racket's bundled foreign runtime libraries (`libeay32.dll`,
   `ssleay32.dll`, `libgmp-10.dll`) beside the Windows host executable.
@@ -1182,108 +1359,57 @@
   license verification), GMP for `gmp-lib` and `math` — and a package that
   only carried the Racket CS DLL died at startup or first crypto use with
   `ffi-lib: could not load foreign library`.
+
 - Pin the MSI's Add/Remove Programs tile to the configured Windows icon
   (`ARPPRODUCTICON`); shortcuts and the executable already inherited it
   from the compiled resource.
-- Adopt Keel as Rivet's transport-neutral schema contract. The new
-  `backend-schema->app-schema` and `current-backend-app-schema` adapters project
-  RPC, Event, State, Record, and Enum declarations into a validated,
-  deterministic Keel `app-schema` while RVT1 framing and native renderers stay
-  Rivet-owned. Align schema placement rules with Keel: `Void` is valid only as
-  a direct RPC result, not inside parameters, containers, Records, Events, or
-  States.
-- Split the Linux system adapter into focused single-instance, notification,
-  tray, autostart, secure-storage, and crash/shutdown implementation units,
-  with one private XDG/D-Bus support core and no public API change.
-- Make AppImage the signed Linux update payload when that format is enabled,
-  emit its SHA-256 sidecar, and add install-kind-aware update selection so
-  AppImage, portable, and package-manager installations cannot cross streams.
-- Graduate the Linux package-manager lifecycle gates from a single install to
-  two-version deb/rpm transactions: corrupt upgrades preserve the working
-  install, normal upgrades replace both metadata and payload, Debian rejects
-  implicit downgrade while Fedora verifies explicit local-RPM rollback and
-  re-upgrade, and uninstall remains complete under native Wayland.
-- Make embedded diagnostics opt-in across Racket, C++, and Swift. GUI hosts no
-  longer write to standard error by default, preventing Windows applications
-  from allocating a black console window on their first diagnostic; explicit
-  structured-log and stderr sinks remain supported.
-- Replace the accidental public backend registry structs and mutable State
-  cell accessors with an opaque `state?` handle and a single immutable
-  `backend-schema` reflection snapshot. Pre-1.0 tooling that used
-  `registered-*` or `*-info-*` should read the corresponding schema entry;
-  applications should use `state-ref` and `state-set!`.
-- Add real Linux installer lifecycle gates: build x64 rpm/AppImage artifacts,
-  install and launch the rpm on Fedora 44 under native Wayland, launch the
-  AppImage outside the build tree on Ubuntu 24.04, uninstall the rpm, and
-  retain package/compositor/application diagnostics as CI artifacts.
-- Add first-party portable update installation for Windows, macOS, and Linux:
-  verified ZIP/AppImage payloads are staged, platform-signature checked,
-  atomically replaced, health-gated, durably committed, and recoverable after
-  interruption. Native MSI/MSIX/DMG/PKG/deb/rpm artifacts remain explicitly
-  owned by their system installer or package manager.
-- Adopt a Wayland-first Linux display policy, document X11/XWayland as
-  best-effort GTK compatibility, and launch the packaged GTK4 host through a
-  headless native Wayland compositor in CI.
 
-## 0.6.1
+## [0.6.1] - 2026-10-10
+
+### Fixed
 
 - Fix the 0.6.0 family-release path: `manifest-compose --output` no longer
   treats the destination as another input, every release leg's Ed25519
   signature and key ID are verified before aggregation, and the command is
   listed in `raco rivet help`.
+
 - Make portable update archives honor the documented
   `<name>-<version>-<os>-<arch>.zip` convention and point per-platform update
   manifests at those archives instead of the separately published installer.
+
 - Carry `linux-binary-name` through deb/rpm desktop entries, AppImage staging
   and `AppRun`, dependency collection, and production verification. Native
   Linux formats now work with product executables instead of assuming
   `RivetHost`.
+
 - Make AppImage command capture check exit status and collect stderr without
   the serial-pipe deadlock risk of the previous `process*` implementation.
+
 - Keep the source-package release smoke test self-contained by validating its
   JSON contract with Racket instead of an incidental Python dependency.
+
 - Refresh the English and Chinese Linux capability summaries to reflect the
   shipped native installers and StatusNotifierItem tray implementation.
 
-## 0.6.0
+## [0.6.0] - 2026-10-10
+
+### Added
 
 - Add `raco rivet manifest-compose`: folds the per-platform signed
   update manifests from a multi-platform release into ONE family-wide
   signed manifest (one artifact per platform/architecture, identity
   fields verified identical across legs, Ed25519 wrapper unchanged) —
   replacing the per-product hand-rolled merge scripts. Fixes #175.
+
 - `raco rivet release` now emits a portable zip beside every installer
   (family naming, sha256 alongside) — the family update feed and
   locked-down machines consume it directly.
-- Document the multi-platform release matrix convention (runner labels,
-  per-arch Racket installs, family artifact naming, the compose step) in
-  docs/release-and-updates.md.
-- Windows and macOS hosts now shut the embedded backend down orderly on
-  session end. The Windows system adapter gains InstallShutdownHook
-  (SetConsoleCtrlHandler: CTRL_C/CLOSE/LOGOFF/SHUTDOWN) and the scaffold
-  wires it plus the window-close path to a thread-safe backend stop; the
-  macOS scaffold installs an NSApplicationDelegate whose
-  applicationShouldTerminate stops the backend for Cmd-Q, logout, and OS
-  shutdown. Mirrors the Linux InstallShutdownHook shipped by #128 and
-  wired into the scaffold by #168. Fixes #120.
-- Document the large-payload conventions (docs/large-payloads.md): cursor
-  pagination with fail-closed limit caps for report-shaped RPCs, stable-id
-  tree nodes with windowed children for virtualized trees, and typed
-  progress records instead of stringly-typed events, including the current
-  scope of cancellation. Fixes #133; covers the convention layer of #131
-  and #132.
+
 - Add rivet/testing: an ephemeral-port HTTP listener (racket/tcp cannot
   report the bound port; this probes once and returns both the port and
   the listener) plus a sequential request-capture fake server with
   loopback close-race handling. Test suites only; never enters an embedded
   payload. Fixes #98.
-
-- Cut ~100 MB (48%) from Windows release payloads. The packaged app no
-  longer ships MSBuild debug symbols (*.pdb, 60+ MB) or the ONNX and
-  DirectML inference runtimes (~40 MB) that Windows App SDK
-  self-contained deployment drags beside every app; Rivet hosts link no
-  Windows AI APIs, and the exclusion is pinned by an explicit list plus
-  a launch smoke on every package. Fixes #144.
 
 - Windows hosts now compile a VERSIONINFO resource into the exe. The
   generated app-icon.rc always carries the project identity
@@ -1301,40 +1427,11 @@
   GTK process stayed up, leaving a window that could not search or run
   anything (observed on Fulcrum 0.4.1: `kill` left a half-dead app that
   only SIGKILL would remove).
-- Honor `linux-binary-name` in `rivet.rktd`: the Linux build stage, package
-  staging, verification, and launch smoke now use the configured executable
-  name instead of the hardcoded scaffold name `RivetHost` (default
-  unchanged). Apps ship as their product name — `fulcrum`, not a generic
-  host binary — matching what the docs and desktop entries already say.
-  Partially addresses #169.
-- Build native Linux system installers from `raco rivet release`: a deb
-  (dpkg-deb, unprivileged, installs under /opt with a desktop entry and
-  pixmaps icon), an rpm (rpmbuild BUILDROOT, no distro-specific macros), and
-  an AppImage carrying the GTK4 dependency closure with compiled GSettings
-  schemas and pixbuf loaders so one file runs on older distributions. The
-  set is selectable via `linux-formats`; the signed tar.gz update payload
-  remains unchanged. Production verification validates each format with
-  its own tooling (dpkg-deb -x, rpm -qpl, --appimage-extract), and the
-  Linux CI matrix smoke-builds and verifies all three end to end.
 
 - Add a supported WinUI 3-to-`HWND` bridge. Generated Windows hosts expose
   `WindowHandle()` through the first-party system adapter, centralizing the
   Windows App SDK `IWindowNative` ABI and removing the need for title-based
   `FindWindowW` workarounds.
-- Load `raco rivet` subcommand modules lazily. A stale bytecode cache in a
-  linked checkout now fails inside the command entry point, which detects the
-  `instantiate-linklet` mismatch and prints the working remedy (clear
-  `compiled/` + `raco setup rivet`) instead of crashing raco dispatch with a
-  raw linklet dump. Partially addresses #145.
-- Align Swift and Kotlin state accessors with the generated RPC naming: they
-  are now `get_<state>`/`set_<state>` instead of a camelCase prefix glued to a
-  snake body (`getRepo_root`). This is a breaking rename for Swift/Kotlin call
-  sites; C++ was already snake_case and is unchanged.
-
-- Scope generated Swift Records and Enums under `RivetTypes`. Common domain
-  names such as `Task` and `Result` no longer shadow Swift concurrency or
-  standard-library types across the application module; native Swift call
-  sites now use `RivetTypes.<SchemaName>`.
 
 - Add a reusable checksum-pinned Linux embeddable-Racket setup action and a
   bilingual native-host CI guide. The guide requires WinUI, SwiftUI/AppKit,
@@ -1344,26 +1441,16 @@
   desktop color-scheme signal with the effective `gtk-theme-name` variant
   before creating widgets, preventing application CSS and native controls from
   landing on opposite light/dark palettes; pure resolution cases run in CI.
+
 - Add `raco rivet release --without-updates` for products that deliberately
   ship without an online update channel. The release still produces and
   verifies its platform installer, SBOM, and third-party notices while update
   credentials and the signed channel manifest are omitted explicitly.
 
-- Follow HTTP redirections (10 hops) in `fetch-update-manifest` and
-  `download-update`. GitHub release assets — the dominant update origin —
-  answer with a 302 to their CDN, so an updater pointing at
-  `releases/latest/download/…` previously verified an empty body and every
-  check failed.
-- Ensure isolated RPCs sent after an idle interval run immediately in embedded
-  Racket CS hosts instead of waiting for a later frame to wake request dispatch.
-- Prefer native 64-bit MSBuild when discovering Visual Studio, preventing the
-  32-bit host compiler from exhausting its address space on WinUI ARM64 builds.
 - Add an opt-in Linux `InstallShutdownHook` for SIGTERM/SIGINT. Its
   async-signal-safe self-pipe hands graceful state flushing to a normal watcher
   thread, while a repeated signal still terminates a stuck shutdown.
-- Compile the Racket backend dependency graph with `raco make` before creating
-  `core.zo`, so a same-length edit to a transitive source module cannot leave
-  stale bytecode in a successful native build.
+
 - Add the Linux tray contract: `rivet::system::TrayIcon` hosts an
   org.kde.StatusNotifierItem with a com.canonical.dbusmenu menu over the
   session bus (GDBus), the pairing every desktop watcher serves (GNOME via
@@ -1374,135 +1461,305 @@
   extension reloads. Verified end to end against the real desktop watcher
   (registration, property reads, menu layout, click dispatch) plus the
   graceful no-watcher path in an isolated D-Bus session.
+
 - Add optional human-readable `publisher` project metadata and use it for the
   Windows MSI `Manufacturer`/Apps & Features Publisher value. Legacy projects
   fall back to `display-name` instead of exposing a reverse-DNS identifier.
-- Keep macOS development and test executables outside an `.app` bundle from
-  entering `UNUserNotificationCenter`, whose missing bundle identity otherwise
-  raises an uncatchable Objective-C exception. Notification availability is now
-  explicit; authorization returns `false` and delivery throws a catchable error.
-- Normalize Swift declaration keywords such as `init` and `public` before
-  emitting client APIs, and put both source declarations plus the generated
-  identifier in the first line of native-name collision errors.
+
 - Add provider-neutral, layer-attributed JSONL diagnostics across the Racket
   backend, C++/Swift native clients, transports, and embedding bridges. Records
   identify lifecycle/RPC boundaries, status, last RVT1 event, and request id;
   stderr defaults and injectable sinks keep logging dependencies out of the
   runtime and leave the RVT1 wire contract unchanged.
+
 - Launch packaged GUI artifacts as the final verification gate when a graphical
   session is available. The executable starts from an unrelated temporary
   directory, must remain alive for five seconds, and is then terminated;
   premature exit reports bounded stdout/stderr. Headless environments report
   an explicit skip, and `package`/`verify --skip-launch-smoke` provide an
   intentional override without disabling structural or signature checks.
+
 - Generate application identity from `rivet.rktd` for every native client and
   stage the same values for Racket through `rivet/app-info`. Swift, C++, and
   Kotlin now receive display name, version, build, identifier, and release
   channel without app-local copies; the generated macOS window title uses the
   display name instead of the `RivetHost` process name.
-- Make the centralized macOS embedded-runtime configuration select its staged
-  resource root before Racket starts, so packaged backends can load foreign
-  dependencies such as libgmp, libcrypto, and libssl regardless of the launch
-  process's original working directory. The real embedded round-trip now loads
-  `rivet/distribution` to keep this dependency path covered in CI.
+
+### Changed
+
+- Document the multi-platform release matrix convention (runner labels,
+  per-arch Racket installs, family artifact naming, the compose step) in
+  docs/release-and-updates.md.
+
+- Windows and macOS hosts now shut the embedded backend down orderly on
+  session end. The Windows system adapter gains InstallShutdownHook
+  (SetConsoleCtrlHandler: CTRL_C/CLOSE/LOGOFF/SHUTDOWN) and the scaffold
+  wires it plus the window-close path to a thread-safe backend stop; the
+  macOS scaffold installs an NSApplicationDelegate whose
+  applicationShouldTerminate stops the backend for Cmd-Q, logout, and OS
+  shutdown. Mirrors the Linux InstallShutdownHook shipped by #128 and
+  wired into the scaffold by #168. Fixes #120.
+
+- Document the large-payload conventions (docs/large-payloads.md): cursor
+  pagination with fail-closed limit caps for report-shaped RPCs, stable-id
+  tree nodes with windowed children for virtualized trees, and typed
+  progress records instead of stringly-typed events, including the current
+  scope of cancellation. Fixes #133; covers the convention layer of #131
+  and #132.
+
+- Cut ~100 MB (48%) from Windows release payloads. The packaged app no
+  longer ships MSBuild debug symbols (*.pdb, 60+ MB) or the ONNX and
+  DirectML inference runtimes (~40 MB) that Windows App SDK
+  self-contained deployment drags beside every app; Rivet hosts link no
+  Windows AI APIs, and the exclusion is pinned by an explicit list plus
+  a launch smoke on every package. Fixes #144.
+
+- Build native Linux system installers from `raco rivet release`: a deb
+  (dpkg-deb, unprivileged, installs under /opt with a desktop entry and
+  pixmaps icon), an rpm (rpmbuild BUILDROOT, no distro-specific macros), and
+  an AppImage carrying the GTK4 dependency closure with compiled GSettings
+  schemas and pixbuf loaders so one file runs on older distributions. The
+  set is selectable via `linux-formats`; the signed tar.gz update payload
+  remains unchanged. Production verification validates each format with
+  its own tooling (dpkg-deb -x, rpm -qpl, --appimage-extract), and the
+  Linux CI matrix smoke-builds and verifies all three end to end.
+
+- Load `raco rivet` subcommand modules lazily. A stale bytecode cache in a
+  linked checkout now fails inside the command entry point, which detects the
+  `instantiate-linklet` mismatch and prints the working remedy (clear
+  `compiled/` + `raco setup rivet`) instead of crashing raco dispatch with a
+  raw linklet dump. Partially addresses #145.
+
+- Align Swift and Kotlin state accessors with the generated RPC naming: they
+  are now `get_<state>`/`set_<state>` instead of a camelCase prefix glued to a
+  snake body (`getRepo_root`). This is a breaking rename for Swift/Kotlin call
+  sites; C++ was already snake_case and is unchanged.
+
+- Scope generated Swift Records and Enums under `RivetTypes`. Common domain
+  names such as `Task` and `Result` no longer shadow Swift concurrency or
+  standard-library types across the application module; native Swift call
+  sites now use `RivetTypes.<SchemaName>`.
+
+- Follow HTTP redirections (10 hops) in `fetch-update-manifest` and
+  `download-update`. GitHub release assets — the dominant update origin —
+  answer with a 302 to their CDN, so an updater pointing at
+  `releases/latest/download/…` previously verified an empty body and every
+  check failed.
+
+- Compile the Racket backend dependency graph with `raco make` before creating
+  `core.zo`, so a same-length edit to a transitive source module cannot leave
+  stale bytecode in a successful native build.
+
 - Generate a default-deny Apple companion API from the shared Racket schema.
   Projects explicitly list `device-rpcs`; Rivet emits Codable request/response
   types, typed `RivetDeviceClient` methods, and phone-side
   `registerGeneratedBackend` routing, records export compatibility in schema
   snapshots, rejects `Any`, and cross-compiles the generated surface for iOS
   and watchOS in CI.
+
 - Centralize the canonical macOS embedded-runtime layout probe in
   `EmbeddedRacketConfiguration.resolvedDefault`. Generated and reference hosts
   now select packaged `Contents/Resources` or staged development layouts
   without duplicating app-side boot/core path discovery.
 
-## 0.5.0
+### Fixed
+
+- Honor `linux-binary-name` in `rivet.rktd`: the Linux build stage, package
+  staging, verification, and launch smoke now use the configured executable
+  name instead of the hardcoded scaffold name `RivetHost` (default
+  unchanged). Apps ship as their product name — `fulcrum`, not a generic
+  host binary — matching what the docs and desktop entries already say.
+  Partially addresses #169.
+
+- Ensure isolated RPCs sent after an idle interval run immediately in embedded
+  Racket CS hosts instead of waiting for a later frame to wake request dispatch.
+
+- Prefer native 64-bit MSBuild when discovering Visual Studio, preventing the
+  32-bit host compiler from exhausting its address space on WinUI ARM64 builds.
+
+- Keep macOS development and test executables outside an `.app` bundle from
+  entering `UNUserNotificationCenter`, whose missing bundle identity otherwise
+  raises an uncatchable Objective-C exception. Notification availability is now
+  explicit; authorization returns `false` and delivery throws a catchable error.
+
+- Normalize Swift declaration keywords such as `init` and `public` before
+  emitting client APIs, and put both source declarations plus the generated
+  identifier in the first line of native-name collision errors.
+
+- Make the centralized macOS embedded-runtime configuration select its staged
+  resource root before Racket starts, so packaged backends can load foreign
+  dependencies such as libgmp, libcrypto, and libssl regardless of the launch
+  process's original working directory. The real embedded round-trip now loads
+  `rivet/distribution` to keep this dependency path covered in CI.
+
+## [0.5.0] - 2026-09-30
+
+### Added
 
 - Give Windows installers a per-product identity and desktop presence. The WiX installer now derives each project's `UpgradeCode` from its identifier under a fixed Rivet namespace — the previous shared hardcoded code made two Rivet applications treat each other as upgrades and silently replace one another — and authors start-menu (in a per-app folder) and desktop shortcuts pointing at `RivetHost.exe`, removing the start-menu folder on uninstall. Shortcut components carry machine-scoped registry key paths, display names and identifiers stay XML-escaped, and `tests/windows-installer.rkt` covers code derivation, shortcut authoring, escaping, and a real `wix build` where WiX is installed. Applications installed from a release built before this change will side-by-side with the next version instead of upgrading in place; uninstall the old entry once after upgrading.
+
 - Add the first-party Linux system adapter in `platform/linux/system`, mirroring the Windows and macOS surfaces: an abstract-socket single-instance lease with activation forwarding (peer-credential checked, so activations from other local users are rejected), desktop notifications over `org.freedesktop.Notifications` with tagged replacement ids, XDG autostart entries, Secret Service binary secrets through libsecret (compiled when present, reported as a runtime capability), POSIX fatal-signal crash hooks, and a `Capabilities()` probe that reflects what the running session actually provides. The tray contract stays deliberately absent because StatusNotifierItem hosting is compositor-dependent. The Linux integration binary self-checks the adapter (`RivetIntegration --system`), CI runs it, and the Linux host packaging no longer embeds build-machine rpaths.
+
 - Add clean-runner desktop architecture gates. Windows ARM64 builds now force the x64-hosted MSVC toolchain (`PreferredToolArchitecture=x64`), avoiding the 32-bit HostX86 cross compiler whose address space cannot hold the WinUI precompiled header. A dedicated workflow now proves the full `doctor`/`new`/`build`/`package`/`verify` path on Windows ARM64 (`windows-11-arm`, checksum-pinned Racket 9.3 arm64 installer), macOS Intel (`macos-15-intel`), and Linux ARM64 (`ubuntu-24.04-arm`, Racket CS built from the pinned source tarball), completing build/package/verify evidence for every advertised desktop architecture; production release artifacts remain tag-driven.
+
 - Add Kotlin typed-client generation. `raco rivet build` and `raco rivet generate` now emit a coroutine-native typed client at `.rivet/generated/kotlin/dev/rivet/generated/GeneratedBackend.kt` alongside the Swift/C++ clients: RPCs become `suspend` functions, Records become data classes, Enums become `enum class` values carrying their stable wire name, Events become a sealed `RivetEvent` hierarchy with typed decoding, and shared State becomes typed `get`/`set` accessors over the runtime extension functions. Identifier normalization and collision checks cover the Kotlin surface, `inspect --json` exposes `generated-clients` for every language, and CI compiles the generated client from the shared schema-matrix backend with the pinned Gradle/Kotlin toolchain.
+
 - Add an agent-readable capability-sourcing contract. Generated projects now teach humans and coding agents how to choose among Racket packages, first-party native host APIs, safe FFI wrappers, argv-based CLI integrations, isolated sidecars, and owned implementations; `inspect --json` exposes the same decision order and release/security checklist as structured data.
+
 - Complete the Linux release path. `raco rivet release` now runs on Linux: the verified self-contained package is packed into a deterministic ustar/gzip archive and signed with a detached Ed25519 signature (`<installer>.tar.gz.sig`, base64), configured through `RIVET_LINUX_SIGN_PRIVATE_KEY` and `RIVET_LINUX_SIGN_KEY_ID`. `raco rivet verify --production` re-derives the archive from the packaged directory, requires a byte-identical match with the released installer, and validates the signature against `RIVET_LINUX_SIGN_PUBLIC_KEY`; update manifests record the artifact as platform `linux`, installer kind `targz`. `raco rivet package --production` on Linux now points to `raco rivet release`, which owns the installer-level signing flow.
 
-## 0.4.0
+## [0.4.0] - 2026-09-30
 
-- Require Racket 9.0+ with the CS runtime (`base #:version "9.0"`); the legacy BC engine and pre-9.0 releases are no longer supported. State the floor in the landing page and getting-started guides.
+### Added
+
 - Add an agent-native project contract: generated `AGENTS.md` guidance plus `raco rivet inspect --json` for versioned project identity, native edit points, target maturity, generated-path ownership, and safe command discovery.
+
 - Add validated application resource declarations, stable Racket-side resource lookup, Windows `.ico` compilation, and macOS `.icns` bundle metadata. Resources now participate in build, package, and verification instead of relying on platform-specific copy scripts.
-- Promote Linux from a manually built GTK4 experiment to a developer preview: new projects include the Linux host, code generation emits a `rivet::linux_runtime` client, and `doctor`, `build`, `dev`, `package`, and `verify` support a statically embedded Racket CS runtime with real end-to-end CI.
-- Make the portable Swift runtime available to iOS/iPadOS 16 and watchOS 9, and add a bounded, versioned `RivetDevice` request/response layer with a WatchConnectivity adapter for type-safe phone/watch companion communication.
+
 - Add a Kotlin RVT1 codec foundation for Android, pinned Gradle tooling, and CI coverage against the same protocol vectors used by Racket, C++, and Swift.
+
 - Add an Android coroutine client with bounded concurrent calls, Events, State helpers, backend errors, cancellation ordering, lifecycle enforcement, and deterministic Shutdown/stream cleanup.
 
-## 0.3.0
+### Changed
+
+- Require Racket 9.0+ with the CS runtime (`base #:version "9.0"`); the legacy BC engine and pre-9.0 releases are no longer supported. State the floor in the landing page and getting-started guides.
+
+- Promote Linux from a manually built GTK4 experiment to a developer preview: new projects include the Linux host, code generation emits a `rivet::linux_runtime` client, and `doctor`, `build`, `dev`, `package`, and `verify` support a statically embedded Racket CS runtime with real end-to-end CI.
+
+- Make the portable Swift runtime available to iOS/iPadOS 16 and watchOS 9, and add a bounded, versioned `RivetDevice` request/response layer with a WatchConnectivity adapter for type-safe phone/watch companion communication.
+
+## [0.3.0] - 2026-09-29
+
+### Added
 
 - Added installable, searchable Scribble documentation for the core backend, system services, secure distribution APIs, and CLI workflow.
-- Registered the normal installation path as `raco pkg install --auto rivet` and corrected the package license metadata to the SPDX `MIT` license identifier.
+
 - Added an RVT1-independent `rivet/distribution` layer with SemVer channel policy, signed update manifests, Ed25519 verification, bounded downloads, SHA-256 artifact verification, staged rollout, install/restart callbacks, and rollback policy.
+
 - Added `raco rivet release` to compose production packaging, WiX MSI or notarized DMG creation, update metadata, CycloneDX SBOM, third-party notices, and license audit output.
+
 - Added `rivet/system` APIs for single-instance activation, notification/tray services, autostart, secure storage, atomic settings, structured logging, and provider-neutral crash hooks.
+
 - Added first-party Windows implementations using Win32, Credential Manager, registry login startup, and Shell notifications, plus macOS implementations using AppKit, Keychain, UserNotifications, and ServiceManagement.
+
 - Added project-level release channels, URL schemes, and file associations; macOS packaging emits the corresponding bundle metadata.
-- Prepared Windows native builds and package naming for ARM64 while preserving the existing x64 path.
+
 - Added manifest signature/tampering, version/channel, rollout, artifact-integrity, rollback, settings, logging, and system-adapter tests.
+
 - Added an experimental GTK4/Linux embedded-host slice with real Racket CS round-trip coverage; CLI code generation, packaging, and compositor policy remain follow-up work.
 
-## 0.2.0
+### Changed
+
+- Registered the normal installation path as `raco pkg install --auto rivet` and corrected the package license metadata to the SPDX `MIT` license identifier.
+
+- Prepared Windows native builds and package naming for ARM64 while preserving the existing x64 path.
+
+## [0.2.0] - 2026-09-28
 
 Rivet 0.2 hardens the native runtime contract and release path while preserving the existing WinUI 3 / SwiftUI architecture, and completes the first-run developer experience for the first public release.
+### Added
+
+- Added English and Chinese getting-started guides that take a new project through `doctor`, `dev`, the generated native hosts, packaging, and verification.
+
+- Newly scaffolded applications include a self-guiding README with the normal edit locations, development loop, packaging commands, and English/Chinese walkthrough links.
+
+- `raco rivet package` now verifies the produced dependency closure, and `raco rivet verify` can re-audit an existing Windows/macOS artifact.
+
+### Changed
 
 - First-run installation no longer requires cloning and linking a Rivet checkout; the documented user path installs directly from the GitHub package source.
-- Added English and Chinese getting-started guides that take a new project through `doctor`, `dev`, the generated native hosts, packaging, and verification.
+
 - The project homepage now makes **Get Started / 快速开始** the primary call to action, routes each language to its matching guide, and preserves the existing browser-language and explicit-language-override behavior.
+
 - `raco rivet doctor` now prints actionable remediation guidance for incomplete Racket, Windows C++, and Apple developer toolchains while keeping `doctor --json` data-only for automation.
-- Newly scaffolded applications include a self-guiding README with the normal edit locations, development loop, packaging commands, and English/Chinese walkthrough links.
+
 - `raco rivet new` now prints an explicit `Next:` sequence and points developers to the generated README plus both getting-started guides.
+
 - Deterministic embedded Racket lifecycle on macOS, including idempotent stop and restart rejection.
+
 - Standalone Swift `RivetClient` instances now use the same one-shot lifecycle: start is reserved before the Hello read, concurrent starts are rejected, and stop/startup races cannot resurrect a stopped client.
+
 - Typed Event schema validation and generated Swift/C++ Event APIs.
+
 - Native identifier collision detection and language-specific codegen string escaping.
+
 - Bounded RVT1 frame/value byte size, value nesting, total value-node count, concurrent backend and native pending requests, declared/incoming API-name size, and queued backend output.
+
 - Racket List encoding applies the value-node budget while discovering list length instead of fully traversing oversized Lists before rejecting them; improper Lists fail explicitly without formatting the entire value.
+
 - Typed Racket value validation applies the same List nesting and total-node budgets before encoding, avoids `list?`/`andmap` full traversals, and keeps `Any` opaque so validation itself remains bounded.
+
 - Racket protocol encoding reports unsupported application values without formatting the object itself, so custom writers cannot amplify or replace the original codec failure.
+
 - Synchronized request cancellation/completion ownership and non-zero UInt64 Event ID allocation; Event IDs wrap from `2^64-1` back to `1`, while terminal requests keep their pending slot until their Response/Error is admitted to the bounded output queue.
+
 - Duplicate Request IDs and illegal inbound frame types that collide with a pending request use first-request-wins semantics, preventing a second terminal frame from consuming the original native caller's continuation; IDs become reusable after release.
+
 - Native Windows/macOS request-ID allocators skip zero and still-pending IDs across UInt64 wraparound; cancellation is latched until its Request frame is written so Cancel cannot overtake Request on the wire.
+
 - Native Cancel writes are linearized with pending-request ownership, so a response cannot release an ID between the final ownership check and the Cancel write and let a stale cancellation cross into a later wrapped request that reuses the same ID.
+
 - Windows transport shutdown is serialized across concurrent `stop()` calls, blocks new Request/Cancel writes at the Shutdown boundary, and keeps the transport object alive until the native reader thread has exited before destroying its pipe handles.
+
 - State commits defer request cancellation only across the commit-to-`$state`-Event admission window, keeping the pending slot occupied so a committed State cannot lose its native notification under output backpressure.
+
 - Backend reader/writer supervision propagates output-port failure and stops producers instead of leaving the server blocked behind a dead writer.
+
 - State data locking is separated from per-State update/Event ordering, so output backpressure cannot block pure Racket `state-ref` calls while concurrent setters still preserve `$state` Event order.
+
 - Request-local handling for malformed application RPC requests and response-serialization failures, with bounded backend Error diagnostics that cannot consume terminal-response ownership before encoding succeeds.
+
 - Diagnostic construction avoids formatting arbitrary application values or entire malformed decoded trees before final Error truncation, preventing custom writers or large values from amplifying failure reporting work.
+
 - Request workers convert every Racket raised value, including base exceptions and non-exception values, into bounded request-local Errors so unusual application raises cannot leak pending slots or strand native callers.
+
 - State initial values and updates are preflighted as complete `$state` Events, so serialization failures cannot partially commit backend state without notifying native clients.
+
 - Application version, build, display-name, identifier, and Windows/macOS minimum-version metadata are centralized in `rivet.rktd` with backwards-compatible defaults.
+
 - Shared RVT1 golden vectors consumed by Racket, C++, and Swift tests.
+
 - Deterministic 512-value RVT1 property corpora in Racket, C++, and Swift replay the same PRNG sequence, verify canonical round-trips/truncation rejection, and assert a shared encoded-byte fingerprint.
+
 - An opt-in Clang/libFuzzer harness exercises native RVT1 value/frame decoding under ASan and UBSan; pull requests run a bounded fuzz smoke campaign seeded from the shared golden vectors, with a reproducible per-run seed and self-contained crash/timeout/OOM payloads in CI logs.
+
 - Strict UTF-8 validation and unknown message-type rejection across protocol implementations.
+
 - Racket validates frame IDs as unsigned 64-bit values before writing any bytes, matching native UInt64 semantics and preventing local argument errors from leaving partial frames on the transport.
+
 - Generated Windows RPC/State completion APIs provide non-blocking, cancellable WinUI-friendly calls while preserving the existing `std::future` API.
-- `raco rivet package` now verifies the produced dependency closure, and `raco rivet verify` can re-audit an existing Windows/macOS artifact.
+
 - Explicit `--production` packaging supports Windows Authenticode + RFC 3161 timestamping and macOS Developer ID signing + notarization/stapling without storing publisher credentials in project files.
+
 - `raco rivet doctor` reports the exact selected Racket/native artifacts, `doctor --json` exposes the same diagnostics to CI/Agents, and `raco rivet clean` safely removes only generated project artifacts.
+
 - Racket runtime discovery uses bounded installation-layout probes instead of recursive prefix scans, keeping `doctor` and builds fast even when Racket is installed under a large system prefix such as `/usr`.
+
 - Windows toolchain discovery resolves a Visual Studio installation once and derives a complete MSVC toolset from bounded directories instead of spawning `vswhere.exe` separately for every compiler utility.
+
 - Tag-driven release workflow with version/changelog validation and packaged Racket artifacts.
 
-## 0.1.0
+## [0.1.0] - 2026-09-18
 
 Initial Rivet runtime milestone.
+### Added
 
 - RVT1 protocol implemented in Racket, C++, and Swift.
+
 - Embedded Racket CS hosts for WinUI 3 and SwiftUI.
+
 - Typed RPC and State schema validation with generated Swift/C++ clients.
+
 - Shared State get/set operations and `$state` change events.
+
 - Request, response, error, event, cancellation, and shutdown lifecycle.
+
 - `raco rivet new`, `doctor`, `build`, `dev`, and `package`.
+
 - Generated WinUI and SwiftUI starters exercise shared State end to end.
+
 - Exact Racket runtime discovery; no adjacent-version fallback.
+
 - Self-contained Windows package output and hardened-runtime macOS app bundles.
+
 - Cross-platform protocol tests and native host CI smoke builds.

@@ -76,6 +76,17 @@ jobs:
           raco test rivet/tests/
           raco rivet help
 
+      - name: Build reference manual
+        # The released package must render its registered manual, matching CI.
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/rivet-docs"
+          raco scribble ++xref-in setup/xref load-collections-xref \
+            --htmls --dest "$RUNNER_TEMP/rivet-docs" \
+            rivet/scribblings/rivet.scrbl
+          test -s "$RUNNER_TEMP/rivet-docs/rivet/index.html"
+
       - name: Build source package
         shell: bash
         run: |
