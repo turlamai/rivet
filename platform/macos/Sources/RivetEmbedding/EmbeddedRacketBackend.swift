@@ -404,39 +404,35 @@ private func runEmbeddedRacket(
     inputFD: Int32,
     outputFD: Int32
 ) -> Int32 {
-    let result: Int32 = config.executable.path.withCString { executable in
-        config.petiteBoot.path.withCString { petite in
-            config.schemeBoot.path.withCString { scheme in
-                config.racketBoot.path.withCString { racket in
-                    config.core.path.withCString { core in
-                        config.moduleName.withCString { module in
-                            config.entryName.withCString { entry in
-                                var cconfig = rivet_racket_config(
-                                    exec_file: executable,
-                                    petite_boot: petite,
-                                    scheme_boot: scheme,
-                                    racket_boot: racket,
-                                    core_zo: core,
-                                    module_name: module,
-                                    entry_name: entry,
-                                    collects_dir: nil,
-                                    config_dir: nil
-                                )
-                                return rivet_racket_run(&cconfig, inputFD, outputFD)
-                            }
-                        }
-                    }
-                }
-            }
-        }
+    // Materialize explicit NUL-terminated CChar buffers instead of using
+    // String.withCString: on the iOS simulator the runtime's slow
+    // withCString path was observed spinning forever on the serving
+    // thread (84% CPU, 40+ minutes) before rivet_racket_run was ever
+    // reached. One allocation per path, then plain pointer passes.
+    func cChars(_ value: String) -> [CChar] {
+        Array(value.utf8CString)
     }
-
-    if result != 0 {
-        Darwin.close(inputFD)
-        Darwin.close(outputFD)
-    }
-    return result
+    let executableCS = cChars(config.executable.path)
+    let petiteCS = cChars(config.petiteBoot.path)
+    let schemeCS = cChars(config.schemeBoot.path)
+    let racketCS = cChars(config.racketBoot.path)
+    let coreCS = cChars(config.core.path)
+    let moduleCS = cChars(config.moduleName)
+    let entryCS = cChars(config.entryName)
+    var cconfig = rivet_racket_config(
+        exec_file: executableCS,
+        petite_boot: petiteCS,
+        scheme_boot: schemeCS,
+        racket_boot: racketCS,
+        core_zo: coreCS,
+        module_name: moduleCS,
+        entry_name: entryCS,
+        collects_dir: nil,
+        config_dir: nil
+    )
+    return rivet_racket_run(&cconfig, inputFD, outputFD)
 }
+
 
 public enum EmbeddedBackendError: Error, CustomStringConvertible {
     case alreadyStarted
