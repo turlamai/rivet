@@ -26,7 +26,10 @@ project adheres to [Semantic Versioning](https://semver.org/).
 - The changelog follows the family Keep a Changelog format: version
   sections carry their release-tag dates and Added/Changed/Fixed
   categories, and the previously duplicated `## 0.15.2` headings are
-  merged into one section. Entry text is unchanged.
+  merged into one section. Entry text is unchanged. The CI and release
+  version-consistency gates were updated to require the dated
+  `## [MAJOR.MINOR.PATCH] - YYYY-MM-DD` section the new format defines,
+  and docs/releasing.md describes it.
 
 ### Fixed
 

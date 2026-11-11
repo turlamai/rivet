@@ -6,7 +6,7 @@ Rivet framework releases are tag-driven. The repository package version lives in
 
 1. Merge the release changes into `main`.
 2. Confirm the `CI`, `Embedded Roundtrip`, and protocol fuzz workflows are green on `main`. Applications built with Rivet must also compile every first-party host in pull-request CI on the same runner image class used for release; see [continuous integration](ci.md).
-3. Confirm `info.rkt` contains the intended semantic version and `CHANGELOG.md` contains the matching `## MAJOR.MINOR.PATCH` section.
+3. Confirm `info.rkt` contains the intended semantic version and `CHANGELOG.md` contains the matching `## [MAJOR.MINOR.PATCH] - YYYY-MM-DD` section (Keep a Changelog format).
 4. Create an **annotated** tag named `vMAJOR.MINOR.PATCH`, for example `v0.2.0`, on the intended commit from `main` history, then push that tag.
 5. The `Release` workflow validates tag provenance before publishing: the tag must be an annotated Git tag object, its target must match the checked-out release commit, and that commit must be an ancestor of `main`.
 6. The workflow then validates the tag/version/changelog relationship, reruns the Racket test suite and CLI smoke check, builds the source package with `raco pkg create`, installs that **exact ZIP** into an isolated Racket user environment, exercises core modules and project scaffolding, writes a SHA-256 checksum, and only then publishes the release files.

@@ -106,7 +106,8 @@ jobs:
             echo "info.rkt release-version must be MAJOR.MINOR.PATCH" >&2
             exit 1
           fi
-          grep -Fxq "## $release_version" CHANGELOG.md
+          # Keep a Changelog format: the release version must have a dated section.
+          grep -Eq "^## \[$release_version\] - [0-9]{4}-[0-9]{2}-[0-9]{2}$" CHANGELOG.md
           package_dir="$RUNNER_TEMP/rivet-package"
           mkdir -p "$package_dir"
           raco pkg create --from-dir --source --format zip --dest "$package_dir" "$PWD"
