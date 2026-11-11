@@ -139,6 +139,14 @@ if marker not in text:
     text = text.rstrip() + "\n#define FFI_EXEC_STATIC_TRAMP 1\n"
     open(path, "w").write(text)
 HPATCH
+    # tramp.c's static-tramp block uses size_t without including stddef.h
+    # (upstream only ever compiled that block on cygwin/Linux, where other
+    # headers leak it in).
+    tramp_src="$source_dir/src/bc/foreign/libffi/src/tramp.c"
+    if ! grep -q "stddef.h" "$tramp_src"; then
+      sed -e '1s/^/#include <stddef.h>\n/' "$tramp_src" > "$tramp_src.new" \
+        && mv "$tramp_src.new" "$tramp_src"
+    fi
     make -j"$jobs"
     make install
   )
