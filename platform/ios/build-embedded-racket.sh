@@ -143,7 +143,7 @@ HPATCH
     # (upstream only ever compiled that block on cygwin/Linux, where other
     # headers leak it in).
     tramp_src="$source_dir/src/bc/foreign/libffi/src/tramp.c"
-    { printf '#include <stddef.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <sys/types.h>\n#include <sys/mman.h>\n'; cat "$tramp_src"; } \
+    { printf '#include <stddef.h>\n'; cat "$tramp_src"; } \
       > "$tramp_src.new" && mv "$tramp_src.new" "$tramp_src"
     make -j"$jobs"
     make install
