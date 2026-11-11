@@ -93,10 +93,14 @@ enum SharedBackend {
         // on the main thread that would hang the app launch itself.
         Task.detached {
             do {
-                let config = try BackendRuntime.configuration(
+                var config = try BackendRuntime.configuration(
                     moduleName: RivetGeneratedConfig.moduleName,
                     entryName: RivetGeneratedConfig.entryName
                 )
+                config.diagnosticSink = { record in
+                    let line = "rivet-diag [\(record.layer)] \(record.event): \(record.status)\n"
+                    FileHandle.standardError.write(line.data(using: .utf8)!)
+                }
                 let started_backend = EmbeddedRacketBackend(configuration: config)
                 // Publish the backend BEFORE `start()`: the start call
                 // serves the VM on this thread and never returns, so the
