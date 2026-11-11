@@ -38,3 +38,6 @@ Thumbs.db
 pb-stages/
 toolchain.sh
 Evidence/
+ios-fixture/
+pb-stages/
+Evidence/

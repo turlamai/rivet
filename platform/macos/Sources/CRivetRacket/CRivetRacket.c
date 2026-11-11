@@ -22,8 +22,14 @@ int rivet_racket_run(const rivet_racket_config *config, int in_fd, int out_fd) {
   boot.collects_dir = config->collects_dir;
   boot.config_dir = config->config_dir;
 
+  fprintf(stderr, "rivet: racket_boot begin\n");
+  fflush(stderr);
   racket_boot(&boot);
+  fprintf(stderr, "rivet: racket_boot done\n");
+  fflush(stderr);
   racket_embedded_load_file(config->core_zo, 1);
+  fprintf(stderr, "rivet: core.zo loaded\n");
+  fflush(stderr);
 
   ptr quote = Sstring_to_symbol("quote");
   ptr module = Sstring_to_symbol(config->module_name);
