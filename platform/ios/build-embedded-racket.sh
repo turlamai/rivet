@@ -123,6 +123,22 @@ build_target_libffi() {
     LDFLAGS="-arch $arch -isysroot $sdk" \
     "$source_dir/src/bc/foreign/libffi/configure" \
       --host="$arch-apple-darwin" --prefix="$prefix"
+    # Enable FFI_EXEC_STATIC_TRAMP for Apple targets: libffi's configure
+    # enables static trampolines for cygwin/Linux only, leaving Apple arm64
+    # on runtime-mmap'd executable trampoline pages. In an iOS-simulator
+    # process the host kernel's W^X enforcement hangs that mmap forever —
+    # observed as the pb VM boot parking inside S_ffi_closure during
+    # racket_boot. Static trampolines live in pre-signed __TEXT pages and
+    # need no runtime executable mapping.
+    python3 - "$build_dir/fficonfig.h" <<'HPATCH'
+import sys
+path = sys.argv[1]
+text = open(path).read()
+marker = "#define FFI_EXEC_STATIC_TRAMP"
+if marker not in text:
+    text = text.rstrip() + "\n#define FFI_EXEC_STATIC_TRAMP 1\n"
+    open(path, "w").write(text)
+HPATCH
     make -j"$jobs"
     make install
   )
