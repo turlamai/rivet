@@ -108,7 +108,7 @@ jobs:
           rm -f "$(dirname "$destination")"/*.CHECKSUM
           (cd dist && sha256sum "rivet-${RIVET_VERSION}.zip" > SHA256SUMS)
           awk -v version="$RIVET_VERSION" '
-            $0 == "## " version { capture = 1; next }
+            $0 ~ ("^## \\[" version "\\] - [0-9]{4}-[0-9]{2}-[0-9]{2}$") { capture = 1; next }
             capture && /^## / { exit }
             capture { print }
           ' CHANGELOG.md > dist/release-notes.md
