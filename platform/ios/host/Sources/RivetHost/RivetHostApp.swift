@@ -42,47 +42,34 @@ final class AppModel: ObservableObject {
     @Published var count: Int64 = 0
     @Published var ready = false
 
-    private var backend: EmbeddedRacketBackend?
-
     func start() {
-        guard backend == nil else { return }
-
-        do {
-            let config = try BackendRuntime.configuration(
-                moduleName: RivetGeneratedConfig.moduleName,
-                entryName: RivetGeneratedConfig.entryName
-            )
-            let backend = EmbeddedRacketBackend(configuration: config)
-            self.backend = backend
-            ApplicationDelegate.orderlyShutdown = { [weak backend] in
-                backend?.stop()
-            }
-
-            Task.detached { [backend] in
-                do {
-                    try backend.start()
-                    let api = RivetAPI(client: backend.client)
-                    let initialCount = try await api.get_counter()
-                    await MainActor.run {
-                        self.count = initialCount
-                        self.ready = true
-                        self.status = "Embedded Racket CS is ready"
-                    }
-                } catch {
-                    await MainActor.run {
-                        self.ready = false
-                        self.status = "Backend error: \(error)"
-                    }
+        guard !SharedBackend.started else { return }
+        SharedBackend.start()
+        if let error = SharedBackend.lastError {
+            status = "Configuration error: \(error)"
+            return
+        }
+        guard let backend = SharedBackend.current else { return }
+        Task.detached { [weak self] in
+            do {
+                let api = RivetAPI(client: backend.client)
+                let initialCount = try await api.get_counter()
+                await MainActor.run {
+                    self?.count = initialCount
+                    self?.ready = true
+                    self?.status = "Embedded Racket CS is ready"
+                }
+            } catch {
+                await MainActor.run {
+                    self?.ready = false
+                    self?.status = "Backend error: \(error)"
                 }
             }
-        } catch {
-            status = "Configuration error: \(error)"
         }
     }
 
     /// The backend keeps serving across background transitions; iOS suspends
-    /// the process rather than expecting the app to tear its state down. An
-    /// explicit stop here would only add a restart path to keep correct.
+    /// the process rather than expecting the app to tear its state down.
     func handleScenePhase(_ phase: ScenePhase) {
         // Reserved for product-owned background work (refresh budgets,
         // state snapshots). The embedded backend lifecycle is deliberately
@@ -90,7 +77,7 @@ final class AppModel: ObservableObject {
     }
 
     func increment() {
-        guard let backend, ready else { return }
+        guard let backend = SharedBackend.current, ready else { return }
         let next = count + 1
 
         Task {
@@ -101,14 +88,5 @@ final class AppModel: ObservableObject {
                 status = "State error: \(error)"
             }
         }
-    }
-
-    /// Exposed for the process-death acceptance harness: the backend's
-    /// observable state (the counter) must survive an orderly stop/start.
-    func stopBackendForTest() {
-        backend?.stop()
-        backend = nil
-        ready = false
-        status = "Backend stopped"
     }
 }

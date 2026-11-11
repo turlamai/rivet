@@ -72,3 +72,70 @@ enum BackendRuntimeError: Error, CustomStringConvertible {
         }
     }
 }
+
+// The embedded Racket CS runtime is a single instance per process:
+// `Sscheme_init` refuses a second boot ("call Sscheme_deinit first to
+// terminate"), so the app and the test suite MUST share one backend.
+// `startShared()` is idempotent and returns the running backend; a
+// deliberate `stop()` allows a fresh start (the process-death lifecycle
+// test exercises exactly that cycle).
+@MainActor
+enum SharedBackend {
+    private static var backend: EmbeddedRacketBackend?
+    private static var startupError: Error?
+    private(set) static var started = false
+
+    static func start() {
+        guard backend == nil, !started else { return }
+        started = true
+        // The VM boot blocks until the server thread is ready (tens of
+        // seconds while core.zo loads); never block the calling thread —
+        // on the main thread that would hang the app launch itself.
+        Task.detached {
+            do {
+                let config = try BackendRuntime.configuration(
+                    moduleName: RivetGeneratedConfig.moduleName,
+                    entryName: RivetGeneratedConfig.entryName
+                )
+                let started_backend = EmbeddedRacketBackend(configuration: config)
+                // Publish the backend BEFORE `start()`: the start call
+                // serves the VM on this thread and never returns, so the
+                // handoff must happen first. RPC calls issued meanwhile
+                // queue until the boot completes.
+                await MainActor.run {
+                    SharedBackend.backend = started_backend
+                    ApplicationDelegate.orderlyShutdown = { started_backend.stop() }
+                }
+                try started_backend.start()
+            } catch {
+                await MainActor.run {
+                    SharedBackend.startupError = error
+                    SharedBackend.started = false
+                }
+            }
+        }
+    }
+
+    static func stop() {
+        backend?.stop()
+        backend = nil
+        started = false
+    }
+
+    static var current: EmbeddedRacketBackend? { backend }
+
+    /// Waits (bounded) for the detached boot to finish AND the embedded
+    /// VM to reach its serving state, returning the running backend — or
+    /// nil when startup failed (see `lastError`).
+    @MainActor
+    static func waitForStart(timeout: TimeInterval = 180) async -> EmbeddedRacketBackend? {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if let error = startupError { _ = error; return nil }
+            if let running = backend, running.isReady { return running }
+            try? await Task.sleep(nanoseconds: 200_000_000)
+        }
+        return backend
+    }
+    static var lastError: Error? { startupError }
+}

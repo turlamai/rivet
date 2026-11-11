@@ -202,6 +202,16 @@ public final class EmbeddedRacketBackend: @unchecked Sendable {
         self.configuration = configuration
     }
 
+    /// True once the embedded server thread finished booting the VM and is
+    /// serving the contract. RPC calls issued earlier queue internally and
+    /// are served when the boot completes; poll this (or just call) to
+    /// sequence host-side startup.
+    public var isReady: Bool {
+        lifecycle.lock()
+        defer { lifecycle.unlock() }
+        return state == .running
+    }
+
     public func start(onEvent: RivetClient.EventHandler? = nil) throws {
         lifecycle.lock()
         guard state == .created else {

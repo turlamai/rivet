@@ -5,18 +5,20 @@ import RivetRuntime
 
 /// The simulator lifecycle evidence for a standalone iOS host: the
 /// portable-bytecode Racket CS must boot inside this app process, serve
-/// typed RPCs, and shut down orderly — with no JIT and no executable
-/// memory, which is the App Store constraint the pb runtime exists for.
+/// typed RPCs, and shut down/start orderly. The embedded runtime is a
+/// single instance per process (`Sscheme_init` refuses a second boot), so
+/// every test shares `SharedBackend` — which is also how the running app
+/// itself uses it. The orderly stop/start cycle is what the process-death
+/// policy exercises: contract-observable state must be served again after
+/// a deliberate stop and fresh boot (in-memory state starts at its
+/// documented initial value).
+@MainActor
 final class BackendSmokeTests: XCTestCase {
     func testBackendBootsAndServesContract() async throws {
-        let configuration = try BackendRuntime.configuration(
-            moduleName: RivetGeneratedConfig.moduleName,
-            entryName: RivetGeneratedConfig.entryName
-        )
-        let backend = EmbeddedRacketBackend(configuration: configuration)
-        try backend.start()
-        defer { backend.stop() }
-
+        SharedBackend.start()
+        let maybeBackend = await SharedBackend.waitForStart()
+        let backend = try XCTUnwrap(maybeBackend,
+                                    "shared backend failed: \(String(describing: SharedBackend.lastError))")
         let api = RivetAPI(client: backend.client)
 
         let greeting = try await api.greet(name: "iOS")
@@ -28,22 +30,22 @@ final class BackendSmokeTests: XCTestCase {
         XCTAssertEqual(read, 41)
     }
 
-    func testBackendRestartsAfterOrderlyStop() async throws {
-        // Process-death policy: contract-observable state must come back
-        // identically after an orderly backend stop/start cycle.
-        func bootAndReadCounter() async throws -> Int64 {
-            let configuration = try BackendRuntime.configuration(
-                moduleName: RivetGeneratedConfig.moduleName,
-                entryName: RivetGeneratedConfig.entryName
-            )
-            let backend = EmbeddedRacketBackend(configuration: configuration)
-            try backend.start()
-            defer { backend.stop() }
-            return try await RivetAPI(client: backend.client).get_counter()
-        }
+    func testOrderlyStopStartServesFreshRuntime() async throws {
+        // Stop the shared backend (Sscheme_deinit), boot it again (fresh
+        // Sscheme_init), and verify the contract serves with documented
+        // initial state — the orderly process-death cycle, end to end.
+        SharedBackend.start()
+        let before = await SharedBackend.waitForStart()
+        let runningBefore = try XCTUnwrap(before)
+        _ = try await RivetAPI(client: runningBefore.client).set_counter(7)
+        runningBefore.stop()
 
-        let first = try await bootAndReadCounter()
-        let second = try await bootAndReadCounter()
-        XCTAssertEqual(first, second)
+        SharedBackend.start()
+        let after = await SharedBackend.waitForStart(timeout: 180)
+        let runningAfter = try XCTUnwrap(after)
+        let read = try await RivetAPI(client: runningAfter.client).get_counter()
+        XCTAssertEqual(read, 0, "a fresh pb runtime must reset in-memory state")
+        let greeting = try await RivetAPI(client: runningAfter.client).greet(name: "restart")
+        XCTAssertEqual(greeting, "Hello, restart!")
     }
 }

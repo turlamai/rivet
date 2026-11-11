@@ -34,6 +34,24 @@
 		4A0001012A00000021 /* RivetHostTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "RivetHostTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXContainerItemProxy section */
+		4A000A012A00000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4A0008012A00000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4A0005012A00000001;
+			remoteInfo = RivetHost;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+		4A000B012A00000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4A0005012A00000001 /* RivetHost */;
+			targetProxy = 4A000A012A00000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin PBXFrameworksBuildPhase section */
 		4A0003012A00000001 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
@@ -145,6 +163,9 @@
 			packageProductDependencies = (
 				4A0002012A00000004 /* RivetRuntime */,
 				4A0002012A00000005 /* RivetEmbedding */,
+			);
+			dependencies = (
+				4A000B012A00000001 /* PBXTargetDependency */,
 			);
 		};
 /* End PBXNativeTarget section */
@@ -345,7 +366,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RivetHost.app/$(BUILT_PRODUCT_NAME)";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RivetHost.app/RivetHost";
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -364,7 +385,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RivetHost.app/$(BUILT_PRODUCT_NAME)";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RivetHost.app/RivetHost";
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
