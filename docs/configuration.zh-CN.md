@@ -105,6 +105,7 @@ Rivet 应用由项目根目录的 `rivet.rktd` 文件配置。
   `^[A-Za-z0-9][A-Za-z0-9._-]*$`。该值会贯穿 build、package、verify、启动
   冒烟测试和生成的 `.desktop` 条目。
 - `linux-formats` — 可选子集 `("deb" "rpm" "appimage")`，选择 `raco rivet release` 构建哪些原生 Linux 安装格式。默认三种都构建；签名的 tar.gz 更新负载无论如何都会生成。
+- `share-paths` — 可选的路径列表，列出来自共享盘或映射盘的绝对路径或项目相对路径。`raco rivet doctor` 会在 `network-shares` 中报告每个路径的 redirector 状态，并在映射盘状态不是 `OK` 时给出 `unreachable-network-share` 警告，且不会触碰该共享盘。产品还应使用 `rivet/share-watch` 门禁共享盘相关操作；见[诊断](diagnostics.zh-CN.md#windows-网络共享盘)。
 - `macos-resource-files` — 唯一项目相对文件的列表，会在签名前原样复制到 macOS bundle 的 `Contents/Resources` 根目录。典型消费者是 `InternetAccessPolicy.plist`：Little Snitch 类防火墙会从资源根读取它，并向用户展示按主机的用途和拒绝后果。名称与 rivet 管理的 bundle 文件（打包的图标）冲突时会失败关闭。
 - `dmg-background` — 可选的项目相对 `.png`，用作 DMG 窗口背景。声明后 `raco rivet release` 会切换到品牌化拖拽安装布局：卷内有 `/Applications` 符号链接，DMG 窗口固定为 660x400 几何尺寸并放置两个图标。PNG 应按 1320x800（窗口的 2 倍）渲染以在 Retina 上保持清晰；宽高比必须与窗口一致，打包器会把暂存副本降采样到 660x400，因为 Finder 按原生像素绘制背景而不缩放（否则会裁切布局）。保留底部约 28pt 空白（窗口边界包含标题栏），并让图标标签区域保持空闲。不声明该项时 DMG 保持普通单文件夹镜像。
 - `windows-license` — 可选的项目相对 `.rtf` 文件，显示在 MSI 向导的许可页。不声明时，发布流水线会把仓库 `LICENSE` 文本（或 `LICENSE.txt`/`COPYING`）自动渲染成 RTF；两者都没有的项目会发布一条中性提示，指向随应用安装的许可证。

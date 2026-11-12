@@ -9,6 +9,7 @@
          racket/string
          racket/system
          setup/dirs
+         "../rivet/share-watch.rkt"
          "codegen.rkt"
          "i18n.rkt"
          "project.rkt"
@@ -117,6 +118,32 @@
              'message "The WinUI 3 host requires the Windows Store application-type MSBuild props, but the detected Visual Studio/Build Tools installation does not provide them."
              'remediation "Open Visual Studio Installer, modify the installation, and add the `Microsoft.VisualStudio.Workload.UniversalBuildTools` workload (C++ Universal Windows Platform tools). MSVC and a Windows SDK alone are not sufficient for the WinUI 3 host; rerun `raco rivet doctor` afterwards."))))
 
+;; A mapped drive in "Reconnecting" parks every filesystem call on the
+;; engine's single OS thread for the SMB timeout. Surface the redirector
+;; state from the declared `share-paths` instead of letting the product
+;; discover it as an unresponsive backend.
+(define (share-path-findings project
+                             #:status-probe [status-probe mapped-drive-status])
+  (filter
+   values
+   (for/list ([declared (in-list (project-share-paths project))])
+     (define value (string->path declared))
+     (define path (if (absolute-path? value)
+                      value
+                      (project-path project declared)))
+     (define status (status-probe path))
+     (and (memq status
+                '(reconnecting unavailable disconnected connecting other))
+          (hash 'code "unreachable-network-share"
+                'severity "warning"
+                'message
+                (format
+                 "The configured share path ~a is on a mapped drive whose redirector state is ~a."
+                 (path->string path)
+                 status)
+                'remediation
+                "Reconnect the mapped drive, or point `share-paths` at a reachable location. Rivet's share scans run only while the state table says OK; a dead share otherwise parks the engine's single OS thread for the SMB timeout.")))))
+
 (define (doctor-report)
   (define os (system-type 'os))
   (define arch (system-type 'arch))
@@ -192,6 +219,18 @@
                'message "The project has no committed rivet-schema.json compatibility baseline."
                'remediation "Run `raco rivet schema --output rivet-schema.json`, review and commit it, then add `raco rivet schema check rivet-schema.json --json` to CI."))
         '()))
+  (define share-findings
+    (if project (share-path-findings project) '()))
+  (define network-shares
+    (if project
+        (for/list ([declared (in-list (project-share-paths project))])
+          (define value (string->path declared))
+          (define path (if (absolute-path? value)
+                           value
+                           (project-path project declared)))
+          (hash 'path (path->string path)
+                'status (symbol->string (mapped-drive-status path))))
+        '()))
   (define warnings
     (append schema-warnings
             (if (and windows-tools project)
@@ -199,7 +238,8 @@
                 '())
             (if project
                 (windows-icon-source-warnings (rivet-project-root project))
-                '())))
+                '())
+            share-findings))
   (hash 'os (symbol->string os)
         'architecture (format "~a" arch)
         'rivet-version (installed-rivet-release-version)
@@ -212,6 +252,7 @@
         'runtime (and runtime (runtime->report runtime))
         'runtime-error runtime-error
         'project-readiness project-readiness
+        'network-shares network-shares
         'warnings warnings
         'tools tools))
 
@@ -801,4 +842,5 @@
   (if (zero? (hash-ref report 'failed)) 0 1))
 
 (module+ test-support
-  (provide windows-application-type-warnings))
+  (provide windows-application-type-warnings
+           share-path-findings))

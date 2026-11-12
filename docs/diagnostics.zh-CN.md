@@ -62,6 +62,31 @@ Linux 源码构建可能把嵌入产物放在运行 `raco` 的 Racket 安装之�
 仅发布时需要的工具不会被视为开发阻塞项。缺少 Windows `signtool`、macOS 公证工具
 或 Gatekeeper 评估支持时会被报告为可选，开发打包仍然可用。
 
+### Windows 网络共享盘
+
+Racket CS 的所有 Racket 线程运行在同一个 OS 线程上，因此一次落在已映射但已断开
+的 SMB 共享盘上的文件系统调用会冻结整个引擎：所有 RPC 都不再响应。子进程也无济于事
+（它同样触碰死共享盘），`kill-thread` 也无法救出停在 win32 调用里的线程。
+
+在 `rivet.rktd` 中声明共享盘路径：
+
+```racket
+(share-paths "\\\\server\\department\\mailbox")
+```
+
+`raco rivet doctor` 会在 `network-shares` 中报告每个路径的 redirector 状态，并在映射盘
+处于 `Reconnecting`、`Unavailable`、`Disconnected` 或 `Connecting` 时给出
+`unreachable-network-share` 警告。探测使用无参数的 `net use`，只读本地状态表，不会打开
+共享盘；绝不要使用 `net use <盘符>`（它会与服务器通信，像其他 SMB 调用一样挂起）。
+
+应用应通过 `rivet/share-watch` 扫描共享盘，而不是直接对共享路径调用 `directory-list`：
+
+- `share-reachable?` 根据状态表门禁操作。
+- `share-directory-snapshot` 在 `place`（独立的 OS 线程和引擎）中列目录，并带超时。
+  死共享盘只能拖住 worker；引擎会杀掉它并得到 `timeout` 状态。
+- `start-share-watcher` 轮询路径，并在状态或条目变化时回调；首次回调携带初始状态。
+- 没有映射盘符的 UNC 路径没有状态表条目；其可达性由快照超时判定。
+
 ## `raco rivet doctor --json`
 
 在 CI、Agent、编辑器集成或 bug 报告收集器中使用 JSON 模式：
@@ -86,8 +111,11 @@ raco rivet doctor --json
 - `runtime-error`
 - `project-readiness` — 在项目内运行时包含 `root` 和
   `schema-baseline-configured`
+- `network-shares` — 每个声明的 `share-paths` 条目的 `path` 和 redirector
+  `status`（例如 `ok`、`reconnecting`、`unavailable` 或 `not-mapped`）
 - `warnings` — 稳定的 `code`、`severity`、`message` 和 `remediation` 条目；
-  已知 code 为 `missing-schema-baseline` 和 `invalid-winui-window-icon-path`
+  已知 code 为 `missing-schema-baseline`、`invalid-winui-window-icon-path`
+  和 `unreachable-network-share`
 - `tools`
 
 `runtime` 包含上文描述的精确运行时产物路径。`tools` 包含平台相关的可执行文件路径。

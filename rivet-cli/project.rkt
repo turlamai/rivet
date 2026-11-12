@@ -36,6 +36,7 @@
          project-windows-installer-bitmaps
          project-linux-formats
          project-linux-desktop-id
+         project-share-paths
          project-linux-binary-name
          project-macos-min-version
          project-windows-min-version)
@@ -293,6 +294,18 @@
                    (positive? (string-length v))
                    (regexp-match? #px"^[A-Za-z0-9][A-Za-z0-9._-]*$" v)))
             "executable file name such as \"fulcrum\" (letters, digits, '.', '_', '-')")
+  ;; Paths a product reads from a shared or mapped location. `raco rivet
+  ;; doctor` reports each mapped drive's redirector status, so a product does
+  ;; not discover a dead department share only when its RPC loop stalls.
+  (optional 'share-paths
+            (lambda (v)
+              (and (list? v)
+                   (andmap (lambda (item)
+                             (and (string? item)
+                                  (positive? (string-length item))
+                                  (not (regexp-match? #rx"[\r\n]" item))))
+                           v)))
+            "list of absolute or project-relative paths on shared or mapped storage")
   value)
 
 (define (load-config path)
@@ -431,6 +444,9 @@
 
 (define (project-linux-formats project)
   (project-ref project 'linux-formats (lambda () '("deb" "rpm" "appimage"))))
+
+(define (project-share-paths project)
+  (project-ref project 'share-paths (lambda () '())))
 
 (define (project-linux-desktop-id project)
   (project-ref project 'linux-desktop-id (lambda () (project-name project))))

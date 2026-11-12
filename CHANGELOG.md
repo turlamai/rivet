@@ -9,6 +9,14 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- `rivet/share-watch` for Windows share-backed products (issue #446):
+  `share-reachable?` reads the redirector's state table with parameterless
+  `net use`, `share-directory-snapshot` scans in a place with a timeout, and
+  `start-share-watcher` reports status and entry changes. A new `share-paths`
+  project setting makes `raco rivet doctor` report each mapped drive's state
+  and warn with `unreachable-network-share` before a dead share parks the
+  engine thread. The blocking-call pattern is documented in the diagnostics
+  guide.
 - Repository hygiene gates (issue #455): CI now rejects the retired owner
   spellings anywhere outside `LICENSE`, `CHANGELOG.md`, and the gate scripts,
   and regenerates the taskboard clients before diffing the committed Swift and

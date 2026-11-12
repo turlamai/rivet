@@ -432,3 +432,37 @@ RKT
   (lambda ()
     (when (directory-exists? temp-gate-root)
       (delete-directory/files temp-gate-root))))
+
+;; A mapped share that the redirector reports as not-OK is surfaced as a
+;; warning without touching the share itself.
+(define share-project-root
+  (make-temporary-file "rivet-share-doctor-~a" 'directory))
+(dynamic-wind
+ void
+ (lambda ()
+   (define project
+     (rivet-project share-project-root
+                    #hasheq((name . "Share Doctor")
+                            (share-paths . ("department")))))
+   (define findings
+     (share-path-findings project
+                          #:status-probe (lambda (_path) 'reconnecting)))
+   (check-equal? (length findings) 1)
+   (check-equal? (hash-ref (car findings) 'code)
+                 "unreachable-network-share")
+   (check-true
+    (regexp-match?
+     #rx"department"
+     (hash-ref (car findings) 'message)))
+   ;; A healthy or unmapped path produces no warning.
+   (check-equal?
+    (share-path-findings project
+                         #:status-probe (lambda (_path) 'not-mapped))
+    '())
+   (check-equal?
+    (share-path-findings project
+                         #:status-probe (lambda (_path) 'ok))
+    '()))
+ (lambda ()
+   (when (directory-exists? share-project-root)
+     (delete-directory/files share-project-root))))
