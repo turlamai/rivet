@@ -180,10 +180,11 @@
 (define (run-flatpak-command! who executable . arguments)
   (unless executable
     (raise-arguments-error who "required executable was not found"))
-  (define output (open-output-string))
+  ;; Stream the builder's own diagnostics to stderr: a truncated capture in
+  ;; the exception message hides the failing module, and flatpak-builder's
+  ;; progress is useful in CI logs.
   (define status
-    (parameterize ([current-output-port output]
-                   [current-error-port output])
+    (parameterize ([current-output-port (current-error-port)])
       (apply system*/exit-code executable arguments)))
   (unless (zero? status)
     (raise-arguments-error
@@ -191,8 +192,7 @@
      "external command failed"
      "executable" executable
      "arguments" arguments
-     "exit-code" status
-     "output" (string-trim (get-output-string output)))))
+     "exit-code" status)))
 
 (define (quiet-command? executable . arguments)
   (and executable
