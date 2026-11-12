@@ -7,6 +7,8 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-11-12
+
 ### Added
 
 - Bring the documentation front door to the family standard: the README
