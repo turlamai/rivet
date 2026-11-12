@@ -59,6 +59,12 @@
 (define (share-reachable? path)
   (and (memq (mapped-drive-status path) '(ok not-mapped unknown)) #t))
 
+;; Racket 9.1+ makes the place descriptor itself a place channel; earlier
+;; supported versions require the explicit accessor. Resolve the channel once
+;; so both shapes work without an arity error on a descriptor.
+(define (place-communication-channel worker)
+  (if (place-channel? worker) worker (place-channel worker)))
+
 (define (reply->state root reply)
   (match reply
     [(vector 'ok entries)
@@ -82,8 +88,9 @@
      (share-state 'unsupported (vector))]
     [else
      (define worker (dynamic-place (current-share-scan-worker) 'main))
-     (place-channel-put worker (vector 'scan (path->string root)))
-     (define reply (sync/timeout timeout worker))
+     (define channel (place-communication-channel worker))
+     (place-channel-put channel (vector 'scan (path->string root)))
+     (define reply (sync/timeout timeout channel))
      (cond
        [(not reply)
         (place-kill worker)
