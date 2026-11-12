@@ -234,7 +234,10 @@
   (unless flatpak
     (error 'create-flatpak-bundle!
            "flatpak was not found; install the flatpak package"))
-  (verify-flatpak-runtime! flatpak)
+  ;; An override owns its runtime choice; the generated manifest always uses
+  ;; the framework pin and is checked here.
+  (unless override
+    (verify-flatpak-runtime! flatpak))
   (define icon (project-linux-icon project))
   (define output (flatpak-bundle-path project))
   (make-directory* (project-path project "dist"))
