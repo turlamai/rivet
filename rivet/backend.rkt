@@ -1,5 +1,13 @@
 #lang racket/base
 
+;; The engine's single backend module, kept whole on purpose (issue #456).
+;; Three concerns share one registry and one emitter lifetime: the typed
+;; schema DSL (define-rpc/event/state/record/enum and validation), the serve
+;; loop with its request workers, and schema reflection for codegen. If it
+;; grows further, split along those boundaries into dsl / serve / reflection
+;; modules and keep this file as the public re-export, not into per-form
+;; files.
+
 (require ffi/unsafe/port
          racket/async-channel
          racket/list

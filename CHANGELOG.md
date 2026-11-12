@@ -7,6 +7,21 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Repository hygiene gates (issue #455): CI now rejects the retired owner
+  spellings anywhere outside `LICENSE`, `CHANGELOG.md`, and the gate scripts,
+  and regenerates the taskboard clients before diffing the committed Swift and
+  C++ output. The retired spelling had already reached the site footer in
+  `docs/index.html`; that user-visible surface is corrected to TurLamAI.
+
+### Changed
+
+- `platform/linux` and `platform/windows` Integration samples are documented
+  as intentionally byte-identical and guarded by a parity test; `rivet/backend`
+  now records its DSL / serve / reflection split boundary for future growth
+  (issue #456).
+
 ## [0.16.0] - 2026-11-12
 
 ### Added
