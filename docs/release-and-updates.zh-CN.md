@@ -43,7 +43,8 @@ Flatpak bundle 把同一个已验证 tar.gz 包进 GNOME Platform 50 runtime。r
 lz4/ncurses 模块 pin 由 Rivet 负责（它们是 payload 在 runtime 之外仅有的 `NEEDED` 项）；
 产品在 `flatpak-finish-args` 中声明沙箱，并可用 `flatpak-manifest` 替换整个 manifest。
 bundle 以非特权方式加上 `--disable-rofiles-fuse` 构建，沿用同一版本化产物命名，并生成
-`.sha256` sidecar。Flatpak 安装通过 Flatpak remote 升级，因此该 bundle 刻意不进入签名的
+`.sha256` sidecar。`flatpak-builder` 用 `eu-strip` 剥离闭包；以
+`--no-install-recommends` 安装软件包的机器还需要 `elfutils`。Flatpak 安装通过 Flatpak remote 升级，因此该 bundle 刻意不进入签名的
 自更新 feed。
 
 有意不提供在线更新通道的应用可以运行 `raco rivet release --without-updates`。该命令仍会
