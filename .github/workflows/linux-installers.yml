@@ -554,6 +554,14 @@ jobs:
           bash .github/scripts/apt-retry.sh --sudo install --yes --no-install-recommends \
             desktop-file-utils flatpak flatpak-builder libgtk-4-dev libsecret-1-dev
           raco pkg install --auto --no-docs --name rivet --link "$PWD"
+      - name: Install the GNOME runtime and SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          flatpak --user remote-add --if-not-exists flathub \
+            https://flathub.org/repo/flathub.flatpakrepo
+          flatpak --user install -y --noninteractive flathub \
+            "org.gnome.Platform//50" "org.gnome.Sdk//50"
       - name: Build the Flatpak smoke bundle
         shell: bash
         run: |
@@ -594,16 +602,12 @@ jobs:
           raco rivet verify
           test -n "$(find dist -maxdepth 1 -name '*.flatpak' -print -quit)"
           test -n "$(find dist -maxdepth 1 -name '*.flatpak.sha256' -print -quit)"
-      - name: Install the runtime and import the produced bundle
+      - name: Import and inspect the produced bundle
         shell: bash
         run: |
           set -euo pipefail
           diagnostics="$RUNNER_TEMP/rivet-flatpak-diagnostics"
           mkdir -p "$diagnostics"
-          flatpak --user remote-add --if-not-exists flathub \
-            https://flathub.org/repo/flathub.flatpakrepo
-          flatpak --user install -y --noninteractive flathub \
-            "org.gnome.Platform//50" "org.gnome.Sdk//50"
           bundle="$(find "$RUNNER_TEMP/rivet-flatpak-smoke/Smoke/dist" -maxdepth 1 -name '*.flatpak' -print -quit)"
           test -n "$bundle"
           cp "$bundle" "$diagnostics/"
