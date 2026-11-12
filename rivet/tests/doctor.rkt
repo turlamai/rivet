@@ -392,6 +392,31 @@ RKT
          "dependency pins are non-empty and match the installed release"
          #rx"empty ref")))
 
+    ;; A Racket `format` placeholder in an installer script
+    ;; (`rivet.git#~a`, the ci-install-windows-deps.rkt shape) binds its
+    ;; argument at runtime, so it is neither an empty ref nor comparable
+    ;; against the installed release. The prose check above leaves an
+    ;; empty-ref CHANGELOG behind; restore a harmless line first.
+    (call-with-output-file
+     (build-path project-root "CHANGELOG.md")
+     #:exists 'truncate
+     (lambda (out) (displayln "installed Rivet from a pinned commit" out)))
+    (make-directory* (build-path project-root "scripts"))
+    (call-with-output-file
+     (build-path project-root "scripts" "ci-install-windows-deps.rkt")
+     #:exists 'truncate
+     (lambda (out)
+       (displayln #<<RKT
+#lang racket/base
+(define rivet-pin (or (getenv "RIVET_PIN") "v1.2.3"))
+(define rivet-url (format "https://github.com/turlamai/rivet.git#~a" rivet-pin))
+RKT
+       out)))
+    (define template-report (release-doctor-report project))
+    (release-check-passed?
+     template-report
+     "dependency pins are non-empty and match the installed release")
+
     ;; The scanner itself is exported so products can run just this check.
     ;; updater-usage.rkt still holds the red-2 drifted call here, so the
     ;; direct scan must report the violation against the live contract.
