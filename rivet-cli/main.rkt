@@ -242,7 +242,8 @@
            (case fmt
              [("deb") ((command "deb" 'deb-installer-path) (current-project!))]
              [("rpm") ((command "rpm" 'rpm-installer-path) (current-project!))]
-             [("appimage") ((command "appimage" 'appimage-installer-path) (current-project!))]))
+             [("appimage") ((command "appimage" 'appimage-installer-path) (current-project!))]
+             [("flatpak") ((command "flatpak" 'flatpak-bundle-path) (current-project!))]))
          (say "release ~a: ~a" fmt extra)))
      (if manifest
          (say "signed update manifest: ~a" manifest)

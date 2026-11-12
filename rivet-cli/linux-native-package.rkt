@@ -59,10 +59,15 @@
 (define (installed-share-root)
   "usr/share")
 
-(define (write-desktop-entry! project destination)
+;; Native installers execute from /opt; Flatpak supplies its own command and
+;; icon identity because the sandbox mounts the payload elsewhere.
+(define (write-desktop-entry! project destination
+                              #:exec [exec #f]
+                              #:icon-name [icon-name #f])
   (define name (project-name project))
   (define display-name (project-display-name project))
   (define executable (project-linux-binary-name project))
+  (define command (or exec (format "/opt/~a/~a" name executable)))
   (make-parent-directory* destination)
   (call-with-output-file destination
     #:exists 'truncate/replace
@@ -73,14 +78,16 @@
       (entry "Type" "Application")
       (entry "Version" "1.0")
       (entry "Name" display-name)
-      (entry "Exec" (format "/opt/~a/~a" name executable))
-      (entry "TryExec" (format "/opt/~a/~a" name executable))
+      (entry "Exec" command)
+      (entry "TryExec" command)
       (entry "Terminal" "false")
       (entry "Categories" "Utility;")
-      (if (project-linux-icon project)
-          (entry "Icon" name)
-          (eprintf
-           "rivet: warning: no `linux-icon` declared in rivet.rktd — the Linux desktop entry will ship without an icon\n")))))
+      (cond
+        [icon-name (entry "Icon" icon-name)]
+        [(project-linux-icon project) (entry "Icon" name)]
+        [else
+         (eprintf
+          "rivet: warning: no `linux-icon` declared in rivet.rktd — the Linux desktop entry will ship without an icon\n")]))))
 
 (define (stage-native-icon! project destination)
   ;; Returns #t when an icon was staged. Sized hicolor themes are not used

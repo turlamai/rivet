@@ -9,6 +9,14 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Flatpak bundle support in `raco rivet release` (issue #449): add
+  `"flatpak"` to `linux-formats` and declare the product's sandbox in
+  `flatpak-finish-args` (or replace the manifest with `flatpak-manifest`).
+  Rivet generates the GNOME Platform 50 manifest with the pinned lz4/ncurses
+  closure, wraps the verified release tar.gz, writes the versioned
+  `.flatpak` and its `.sha256` sidecar, and verifies the artifact. A Linux CI
+  job builds and imports the bundle. Flatpak updates stay owned by Flatpak
+  remotes, not the signed self-update feed.
 - `rivet/share-watch` for Windows share-backed products (issue #446):
   `share-reachable?` reads the redirector's state table with parameterless
   `net use`, `share-directory-snapshot` scans in a place with a timeout, and
