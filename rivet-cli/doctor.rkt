@@ -541,10 +541,13 @@
                   #rx"[.]rkt$"))
 
 ;; The ref position also matches the variable-mediated forms a workflow
-;; install step uses (`${{ env.RIVET_PIN }}`, `${RIVET_PIN}`, `$env:RIVET_PIN`);
-;; a plain character-class scan saw those as empty refs (issue #310).
+;; install step uses (`${{ env.RIVET_PIN }}`, `${RIVET_PIN}`, `$env:RIVET_PIN`)
+;; and the Racket `format` placeholder a .rkt installer script substitutes
+;; at runtime (`rivet.git#~a`); a plain character-class scan saw the
+;; workflow forms as empty refs (issue #310) and the template form caught
+;; the same way in product ci-install-windows-deps.rkt scripts.
 (define pin-regex
-  #px"rivet\\.git#(\\$\\{\\{ ?env\\.[A-Za-z_][A-Za-z0-9_]* ?\\}\\}|\\$\\{[A-Za-z_][A-Za-z0-9_]*\\}|\\$env:[A-Za-z_][A-Za-z0-9_]*|[A-Za-z0-9._-]*)")
+  #px"rivet\\.git#(\\$\\{\\{ ?env\\.[A-Za-z_][A-Za-z0-9_]* ?\\}\\}|\\$\\{[A-Za-z_][A-Za-z0-9_]*\\}|\\$env:[A-Za-z_][A-Za-z0-9_]*|~a|[A-Za-z0-9._-]*)")
 
 (define (mediated-var-name ref)
   (define match
@@ -628,6 +631,11 @@
      (list 'finding
            (format "~a: dependency pin `rivet.git#` has an empty ref and silently tracks the default branch; pin a tag or commit SHA"
                    path))]
+    ;; A Racket `format` placeholder binds its argument at runtime, so the
+    ;; static scan can neither read the pinned value nor confuse the
+    ;; template with the empty-ref incident shape (`URL#`).
+    [(string-prefix? ref "~")
+     (list 'ok ref)]
     ;; Tag-shaped refs must name the installed release; commit SHAs cannot
     ;; be compared and are accepted as-is. The comparison runs only on
     ;; configuration files: markdown prose documents history — a changelog

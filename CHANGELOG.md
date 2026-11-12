@@ -33,6 +33,13 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- The release gate's dependency-pin scan no longer reports a Racket
+  `format` template (`rivet.git#~a`, the `ci-install-windows-deps.rkt`
+  shape used by several products) as an empty ref. The placeholder binds
+  its argument at runtime, so it is neither the autarx `URL#` incident
+  shape nor comparable against the installed release; the scan now
+  recognizes it alongside the workflow-mediated forms from issue #310.
+
 - `info.rkt` now declares the package `name` (the field was missing) and
   registers `raco rivet` exactly once — the duplicate root-level
   `raco-commands` registration alongside `rivet-cli/info.rkt` is gone.
