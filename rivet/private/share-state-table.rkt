@@ -64,7 +64,7 @@
 (define (net-use-table)
   (define executable (net-use-executable))
   (cond
-    [(not executable) (hash)]
+    [(not executable) #f]
     [else
      (define out (open-output-string))
      (define err (open-output-string))
@@ -72,9 +72,9 @@
        (parameterize ([current-output-port out]
                       [current-error-port err])
          (system*/exit-code executable "use")))
-     (if (zero? status)
-         (parse-net-use (get-output-string out))
-         (hash))]))
+     ;; #f distinguishes "the probe itself failed" from a healthy empty
+     ;; table, so a drive is not mistaken for a local path.
+     (and (zero? status) (parse-net-use (get-output-string out)))]))
 
 (define (drive-for-path path)
   (match (path->string (path->complete-path path))
@@ -98,4 +98,8 @@
           [(not drive) 'not-mapped]
           [else
            (define statuses (or table (net-use-table)))
-           (hash-ref statuses drive 'not-mapped)])])]))
+           (if statuses
+               (hash-ref statuses drive 'not-mapped)
+               ;; The state table was unreachable; the scan-place timeout is
+               ;; the remaining guard rather than a false "local path".
+               'unknown)])])]))

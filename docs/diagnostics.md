@@ -73,7 +73,10 @@ Applications should scan through `rivet/share-watch` instead of calling
 - `share-reachable?` gates work on the state table.
 - `share-directory-snapshot` lists a directory in a `place` — its own OS
   thread and engine — with a timeout. A stalled share stalls only the worker;
-  the engine kills it and gets a `timeout` state.
+  the engine kills it and gets a `timeout` state. If the operating system
+  cannot cancel a worker parked inside the SMB syscall, that thread is
+  abandoned; the engine keeps serving and the next scan starts a fresh
+  worker.
 - `start-share-watcher` polls a path and calls back with status and entry
   changes; the first callback carries the initial state.
 - UNC paths without a drive mapping have no state-table entry; the snapshot

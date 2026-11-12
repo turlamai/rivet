@@ -83,7 +83,9 @@ Racket CS 的所有 Racket 线程运行在同一个 OS 线程上，因此一次�
 
 - `share-reachable?` 根据状态表门禁操作。
 - `share-directory-snapshot` 在 `place`（独立的 OS 线程和引擎）中列目录，并带超时。
-  死共享盘只能拖住 worker；引擎会杀掉它并得到 `timeout` 状态。
+  死共享盘只能拖住 worker；引擎会杀掉它并得到 `timeout` 状态。如果操作系统无法取消
+  停在 SMB 系统调用里的 worker，该线程会被放弃；引擎继续服务，下一次扫描会启动新的
+  worker。
 - `start-share-watcher` 轮询路径，并在状态或条目变化时回调；首次回调携带初始状态。
 - 没有映射盘符的 UNC 路径没有状态表条目；其可达性由快照超时判定。
 
