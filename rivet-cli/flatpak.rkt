@@ -22,6 +22,7 @@
          racket/string
          racket/system
          "../rivet/distribution/crypto.rkt"
+         "../rivet/distribution/identity.rkt"
          "artifact-file.rkt"
          "linux-native-package.rkt"
          "project.rkt")
@@ -60,13 +61,16 @@
      "identifier" identifier))
   identifier)
 
+;; Release assets use the family architecture spelling (x64/arm64), matching
+;; the tar.gz and portable zip; Flatpak's own spelling (x86_64/aarch64) is
+;; only needed when a manifest states an architecture explicitly.
 (define (flatpak-bundle-path project)
   (project-path
    project "dist"
    (format "~a-~a-linux-~a.flatpak"
            (project-name project)
            (project-version project)
-           (flatpak-architecture))))
+           (architecture-symbol))))
 
 (define (render-flatpak-manifest project tar-gz
                                  #:finish-args [finish-args #f]
@@ -201,8 +205,11 @@
          (zero? (apply system*/exit-code executable arguments)))))
 
 (define (verify-flatpak-runtime! flatpak)
-  (define runtime (format "org.gnome.Platform//~a" flatpak-runtime-version))
-  (define sdk (format "org.gnome.Sdk//~a" flatpak-runtime-version))
+  (define arch (flatpak-architecture))
+  (define runtime
+    (format "org.gnome.Platform/~a/~a" arch flatpak-runtime-version))
+  (define sdk
+    (format "org.gnome.Sdk/~a/~a" arch flatpak-runtime-version))
   (unless (and (quiet-command? flatpak "--user" "info" runtime)
                (quiet-command? flatpak "--user" "info" sdk))
     (raise-arguments-error

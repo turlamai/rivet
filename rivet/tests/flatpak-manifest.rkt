@@ -58,7 +58,7 @@
               (lambda ()
                 (flatpak-app-id (rivet-project temp-root
                                                (config #:identifier "demo")))))
-   (check-regexp-match #rx"-linux-(x86_64|aarch64)\\.flatpak$"
+   (check-regexp-match #rx"-linux-(x64|arm64)\\.flatpak$"
                        (path->string (flatpak-bundle-path project)))
    (check-true
     (string-prefix? (path->string (flatpak-bundle-path project))
