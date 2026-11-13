@@ -6,7 +6,9 @@
          racket/file
          racket/port
          racket/string
+         racket/system
          "../../rivet/distribution/crypto.rkt"
+         "../../rivet-cli/openssl-tool.rkt"
          "../../rivet-cli/update-keys.rkt")
 
 (define temp-root (make-temporary-file "rivet-update-keys-~a" 'directory))
@@ -65,6 +67,17 @@
      (base64-decode
       (string->bytes/utf-8 (hash-ref report 'public-key-raw-base64))))
     32)
+
+   ;; The PEM must round-trip through the same OpenSSL 3 that sign-manifest
+   ;; uses for its PEM conversion; a non-standard provider encoding would
+   ;; make a generated key unusable for release signing.
+   (define openssl (openssl-3-executable))
+   (when openssl
+     (check-equal?
+      (system*/exit-code openssl "pkey" "-in" (path->string key-path)
+                        "-outform" "DER"
+                        "-out" (path->string (build-path temp-root "roundtrip.der")))
+      0))
 
    ;; The default path is a project-scoped home directory; the explicit path
    ;; above keeps this test hermetic. Replacing a key needs --force.

@@ -50,23 +50,16 @@
                   ".rivet")
               "update-signing-key.pem"))
 
-(define (factory-value module-path symbol)
-  (with-handlers ([exn:fail? (lambda (_) #f)])
-    (dynamic-require module-path symbol)))
-
-(define (key-from-factory factory)
-  (and factory
-       (with-handlers ([exn:fail? (lambda (_) #f)])
-         (define implementation (get-pk 'eddsa factory))
-         (and implementation
-              (generate-private-key implementation '((curve ed25519)))))))
-
+;; Generate through libcrypto only: its PKCS#8 encoding is the one OpenSSL
+;; (and therefore the PEM path in `sign-manifest`) reads back. Sodium and
+;; decaf can sign and verify, but their private-key datum is not guaranteed
+;; to be OpenSSL-compatible; the OpenSSL 3 fallback below writes the
+;; standard encoding instead.
 (define (native-ed25519-key)
-  (for/or ([factory (in-list
-                     (list libcrypto-factory
-                           (factory-value 'crypto/sodium 'sodium-factory)
-                           (factory-value 'crypto/decaf 'decaf-factory)))])
-    (key-from-factory factory)))
+  (with-handlers ([exn:fail? (lambda (_) #f)])
+    (define implementation (get-pk 'eddsa libcrypto-factory))
+    (and implementation
+         (generate-private-key implementation '((curve ed25519))))))
 
 (define (pem-bytes der)
   (define encoded (bytes->string/utf-8 (base64-encode der #"")))

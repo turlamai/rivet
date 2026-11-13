@@ -196,14 +196,20 @@
  (file->string sidecar))
 
 ;; A PEM private key is converted once by the command, so a product wrapper
-;; does not need its own openssl conversion step.
+;; does not need its own openssl conversion step. Generate the pair with
+;; OpenSSL 3: a sodium/decaf provider's private-key datum is not necessarily
+;; an OpenSSL-compatible PKCS#8 encoding, and this test is about PEM support.
 (define openssl (openssl-3-executable))
 (when openssl
   (define pem-key (build-path root "private.pem"))
+  (define pem-public (build-path root "pem-public.der"))
   (check-equal?
-   (system*/exit-code openssl "pkey"
-                     "-inform" "DER" "-in" (path->string private-key-path)
-                     "-outform" "PEM" "-out" (path->string pem-key))
+   (system*/exit-code openssl "genpkey" "-algorithm" "ed25519"
+                     "-out" (path->string pem-key))
+   0)
+  (check-equal?
+   (system*/exit-code openssl "pkey" "-in" (path->string pem-key)
+                     "-pubout" "-outform" "DER" "-out" (path->string pem-public))
    0)
   (define pem-output (build-path root "pem-update.json"))
   (sign-manifest!
@@ -215,13 +221,13 @@
            'base-url "https://dl.example/app/"
            'key-id "release-2026"
            'private-key (path->string pem-key)
-           'public-key (path->string public-key-path)
+           'public-key (path->string pem-public)
            'output (path->string pem-output)
            'published-at "2026-10-16T00:00:00Z"))
   (define pem-manifest
     (call-with-input-file pem-output
       (lambda (in)
-        (verify-signed-manifest in (read-ed25519-public-key public-key-path)))))
+        (verify-signed-manifest in (read-ed25519-public-key pem-public)))))
   (check-equal? (update-manifest-version pem-manifest) "1.2.3"))
 
 ;; --- fail-closed publish ---------------------------------------------------
