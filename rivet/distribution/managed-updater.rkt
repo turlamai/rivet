@@ -27,8 +27,9 @@
 
 (struct updater
   (application-id current-version channel platform architecture install-kind
+                  component
                   public-key resolved-key key-id trusted-keys manifest-url
-                  data-directory
+                  data-directory destination
                   rollout-bucket maximum-manifest-bytes maximum-download-bytes
                   check-timeout stall-timeout total-timeout
                   fetch-manifest download
@@ -93,11 +94,13 @@
                       #:platform [platform (current-update-platform)]
                       #:architecture [architecture (current-update-architecture)]
                       #:install-kind [install-kind #f]
+                      #:component [component #f]
                       #:public-key public-key
                       #:key-id key-id
                       #:trusted-keys [trusted-keys '()]
                       #:manifest-url manifest-url
                       #:data-directory data-directory
+                      #:destination [destination #f]
                       #:rollout-bucket rollout-bucket
                       #:maximum-manifest-bytes
                       [maximum-manifest-bytes (* 1024 1024)]
@@ -125,6 +128,11 @@
      'make-updater
      "(or/c #f 'portable 'targz 'msi 'appimage 'package-manager)"
      install-kind))
+  (unless (or (not component) (memq component '(app cli tool)))
+    (raise-argument-error
+     'make-updater "(or/c #f 'app 'cli 'tool)" component))
+  (unless (or (not destination) (procedure? destination))
+    (raise-argument-error 'make-updater "(or/c #f procedure?)" destination))
   (unless (and (string? key-id) (not (string=? key-id "")))
     (raise-argument-error 'make-updater "non-empty string?" key-id))
   ;; Key-rotation dual-trust window (issue #370): additional
@@ -161,7 +169,7 @@
   (updater (string->immutable-string application-id)
            (string->immutable-string current-version)
            channel platform architecture
-           install-kind
+           install-kind component
            (if (bytes? public-key)
                (bytes->immutable-bytes public-key)
                public-key)
@@ -169,7 +177,7 @@
            (string->immutable-string key-id)
            trusted-keys
            (string->immutable-string manifest-url)
-           (path->complete-path data-directory) rollout-bucket
+           (path->complete-path data-directory) destination rollout-bucket
            maximum-manifest-bytes maximum-download-bytes check-timeout
            stall-timeout total-timeout
            (current-managed-fetch-manifest) (current-managed-download)
@@ -239,7 +247,7 @@
                   (updater-key-id instance)
                   (updater-rollout-bucket instance)
                   (updater-maximum-download-bytes instance)
-                  #f))
+                  (updater-component instance)))
 
 (define (available-result instance candidate)
   (define manifest (update-candidate-manifest candidate))
@@ -251,7 +259,10 @@
            'build (update-manifest-build manifest)
            'publishedAt (update-manifest-published-at manifest)
            'installer (symbol->string (update-artifact-installer artifact))
-           'sizeBytes (update-artifact-size artifact))))
+           'sizeBytes (update-artifact-size artifact)
+           ;; Not part of the state RPC — product CLIs use it to report the
+           ;; pinned download URL the signed manifest selected.
+           'url (update-artifact-url artifact))))
 
 (define (record-check-error! instance error)
   (with-updater-lock
@@ -324,10 +335,13 @@
     result))
 
 (define (candidate-destination instance candidate)
+  (define custom (updater-destination instance))
   (path->complete-path
-   (default-destination (updater-application-id instance)
-                        (updater-data-directory instance)
-                        candidate)))
+   (if custom
+       (custom candidate)
+       (default-destination (updater-application-id instance)
+                            (updater-data-directory instance)
+                            candidate))))
 
 (define (publish-download-failure! instance worker error)
   (with-updater-lock
