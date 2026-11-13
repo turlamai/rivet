@@ -186,6 +186,7 @@
         (printf "GitHub secret (DER base64, e.g. UPDATE_ED25519_PRIVATE_KEY_B64):\n")
         (printf "  ~a\n" der-base64)
         (printf "Public key SPKI hex:\n  ~a\n" spki-hex)
+        (printf "Public key SPKI base64:\n  ~a\n" spki-base64)
         (printf "Public key raw 32-byte base64 (for native verifiers that embed base64):\n")
         (printf "  ~a\n" raw-base64)
         (printf "Update module (replace the pinned key with these two literals):\n")
