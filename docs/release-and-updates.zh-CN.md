@@ -30,13 +30,22 @@ CycloneDX SBOM 和 `THIRD_PARTY_NOTICES.txt`。签名通道始终包含便携 zi
 manifest 仍需要其独立的 Ed25519 密钥。
 
 Linux 上发布还会构建原生系统安装器：`.deb`（dpkg-deb，非特权，安装到 `/opt/<name>` 并带
-desktop entry）、`.rpm`（rpmbuild BUILDROOT，与发行版无关）和 `.AppImage`（打包 GTK4
-依赖闭包，因此同一文件可在较旧发行版运行）。用 `linux-formats` 项目设置选择集合。签名的
-tar.gz 和便携 zip 始终保留为发布资产。启用 AppImage 时，签名 manifest 同时携带便携 ZIP
-和 AppImage 条目，各自带精确 URL、大小、SHA-256 和安装器类型；发布还会写出面向人的
-`.AppImage.sha256` sidecar，但客户端信任签名 feed。包管理器安装通过包管理器升级；
-AppImage 安装使用 Rivet 的已验证原子替换。AppImage 打包需要 `rivet.rktd` 中的
-`linux-icon` PNG——该格式要求顶层图标，Rivet 会失败关闭而不是发布占位图。
+desktop entry）、`.rpm`（rpmbuild BUILDROOT，与发行版无关）、`.AppImage`（打包 GTK4
+依赖闭包，因此同一文件可在较旧发行版运行）以及可选的 `.flatpak` bundle。用
+`linux-formats` 项目设置选择集合。签名的 tar.gz 和便携 zip 始终保留为发布资产。启用
+AppImage 时，签名 manifest 同时携带便携 ZIP 和 AppImage 条目，各自带精确 URL、大小、
+SHA-256 和安装器类型；发布还会写出面向人的 `.AppImage.sha256` sidecar，但客户端信任
+签名 feed。包管理器安装通过包管理器升级；AppImage 安装使用 Rivet 的已验证原子替换。
+AppImage 打包需要 `rivet.rktd` 中的 `linux-icon` PNG——该格式要求顶层图标，Rivet 会
+失败关闭而不是发布占位图。
+
+Flatpak bundle 把同一个已验证 tar.gz 包进 GNOME Platform 50 runtime。runtime 选择与
+lz4/ncurses 模块 pin 由 Rivet 负责（它们是 payload 在 runtime 之外仅有的 `NEEDED` 项）；
+产品在 `flatpak-finish-args` 中声明沙箱，并可用 `flatpak-manifest` 替换整个 manifest。
+bundle 以非特权方式加上 `--disable-rofiles-fuse` 构建，沿用同一版本化产物命名，并生成
+`.sha256` sidecar。`flatpak-builder` 用 `eu-strip` 剥离闭包；以
+`--no-install-recommends` 安装软件包的机器还需要 `elfutils`。Flatpak 安装通过 Flatpak remote 升级，因此该 bundle 刻意不进入签名的
+自更新 feed。
 
 有意不提供在线更新通道的应用可以运行 `raco rivet release --without-updates`。该命令仍会
 build、package、平台签名、校验，并产出安装器、SBOM 和第三方 notices；只跳过 channel

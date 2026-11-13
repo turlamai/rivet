@@ -257,7 +257,8 @@
 ;; user manual.
 (define documented-modules
   '(rivet rivet/app-info rivet/backend rivet/chart rivet/keel rivet/protocol
-    rivet/resources rivet/system rivet/testing rivet/distribution))
+    rivet/resources rivet/share-watch rivet/system rivet/testing
+    rivet/distribution))
 
 (define ident-chars "A-Za-z0-9_!?<>=/\\+\\-*:.#")
 (define (mentioned? name text)

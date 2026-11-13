@@ -197,6 +197,26 @@ For local Rivet development, a linked checkout remains appropriate. Pin that
 checkout and the setup action to the same revision in CI. A host compiled
 against one Rivet revision and released with another is not a useful gate.
 
+## Repository hygiene gates
+
+Two repository-wide checks run in the Racket job because a build/test job does
+not cover them:
+
+- **Legacy owner allowlist.** `bash .github/scripts/check-owner-hygiene.sh`
+  fails when `TuringLambda AI`, `TuringLambdaAI` used as a display or copyright
+  name, or bare `turinglambdaai` appears in a tracked file. The allowlist is
+  deliberately small: `LICENSE` (the former-name provenance note),
+  `CHANGELOG.md` (history), and the gate scripts themselves. Reuse the script
+  from a product workflow so UI copy, generated headers, fixtures, and site
+  pages are covered; per-repo signing guards only scan update URLs.
+- **Generated-file parity.** Where a repository commits generated clients,
+  CI regenerates them and fails on `git diff` instead of trusting review.
+  This repository runs `raco rivet generate` in `examples/taskboard` and
+  diffs the committed Swift and C++ clients. Products that also commit
+  generated C string tables should run that generator in the same step.
+  `raco rivet generate --check` reports stale, missing, and hand-edited
+  clients for projects that do not commit the Kotlin companion output.
+
 ## Release gate
 
 Before pushing a tag, require all native-host jobs above and the product's

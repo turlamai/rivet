@@ -535,3 +535,93 @@ jobs:
           name: fedora-rpm-wayland-diagnostics
           path: /tmp/rivet-fedora-diagnostics
           if-no-files-found: warn
+
+  flatpak:
+    name: Flatpak bundle on Ubuntu 24.04
+    runs-on: ubuntu-24.04
+    # The GNOME runtime and SDK download is large and the pinned lz4/ncurses
+    # modules compile inside the sandbox; keep a realistic wall clock.
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up embeddable Racket CS
+        uses: ./.github/actions/setup-embed-racket
+      - name: Install Rivet and Flatpak tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash .github/scripts/apt-retry.sh --sudo update
+          bash .github/scripts/apt-retry.sh --sudo install --yes --no-install-recommends \
+            desktop-file-utils elfutils flatpak flatpak-builder libgtk-4-dev libsecret-1-dev
+          raco pkg install --auto --no-docs --name rivet --link "$PWD"
+      - name: Install the GNOME runtime and SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          flatpak --user remote-add --if-not-exists flathub \
+            https://flathub.org/repo/flathub.flatpakrepo
+          flatpak --user install -y --noninteractive flathub \
+            "org.gnome.Platform//50" "org.gnome.Sdk//50"
+      - name: Build the Flatpak smoke bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/rivet-flatpak-smoke"
+          mkdir -p "$root"
+          cd "$root"
+          raco rivet new Smoke
+          cd Smoke
+          mkdir -p assets
+          python3 - <<'PY'
+          import struct, zlib
+          from pathlib import Path
+
+          def chunk(tag, data):
+              crc = zlib.crc32(tag + data) & 0xFFFFFFFF
+              return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", crc)
+
+          ihdr = struct.pack(">IIBBBBB", 1, 1, 8, 6, 0, 0, 0)
+          idat = zlib.compress(b"\x00\x00\x00\x00\xff")
+          Path("assets/icon.png").write_bytes(
+              b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) +
+              chunk(b"IDAT", idat) + chunk(b"IEND", b""))
+
+          path = Path("rivet.rktd")
+          original = path.read_text(encoding="utf-8")
+          updated = original.replace(
+              '(resources . ())',
+              '(resources . ("assets")) '
+              '(linux-icon . "assets/icon.png") '
+              '(linux-formats . ("flatpak")) '
+              '(flatpak-finish-args . ("--socket=x11" "--device=dri" "--share=ipc"))')
+          if updated == original:
+              raise SystemExit("failed to configure the Flatpak smoke")
+          path.write_text(updated, encoding="utf-8")
+          PY
+          raco rivet release --development --without-updates
+          raco rivet verify
+          test -n "$(find dist -maxdepth 1 -name '*.flatpak' -print -quit)"
+          test -n "$(find dist -maxdepth 1 -name '*.flatpak.sha256' -print -quit)"
+      - name: Import and inspect the produced bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          diagnostics="$RUNNER_TEMP/rivet-flatpak-diagnostics"
+          mkdir -p "$diagnostics"
+          bundle="$(find "$RUNNER_TEMP/rivet-flatpak-smoke/Smoke/dist" -maxdepth 1 -name '*.flatpak' -print -quit)"
+          test -n "$bundle"
+          cp "$bundle" "$diagnostics/"
+          flatpak install --user -y --noninteractive "$bundle"
+          app_id="$(flatpak list --user --columns=application | grep -i '\.smoke$' | head -1)"
+          test -n "$app_id"
+          flatpak info --user "$app_id" | tee "$diagnostics/flatpak-info.txt"
+          flatpak uninstall --user -y "$app_id"
+          sha256sum "$bundle" > "$diagnostics/SHA256SUMS"
+          raco rivet doctor --json > "$diagnostics/doctor.json"
+      - name: Upload Flatpak diagnostics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: flatpak-diagnostics
+          path: ${{ runner.temp }}/rivet-flatpak-diagnostics
+          if-no-files-found: warn

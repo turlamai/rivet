@@ -46,6 +46,12 @@ jobs:
       - name: Test bounded apt retry wrapper
         shell: bash
         run: bash .github/scripts/test-apt-retry.sh
+      - name: Test owner-hygiene gate
+        shell: bash
+        run: bash .github/scripts/test-check-owner-hygiene.sh
+      - name: Enforce owner hygiene
+        shell: bash
+        run: bash .github/scripts/check-owner-hygiene.sh
       - name: Test Apple release preflight without publisher credentials
         run: python3 .github/scripts/test-apple-review-preflight.py
       - name: Set up Racket CS
@@ -61,6 +67,19 @@ jobs:
         run: raco test rivet/tests/
       - name: Test Taskboard real RVT1 persistence and storage failures
         run: raco test examples/taskboard/tests/
+      - name: Generated client parity (taskboard)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd examples/taskboard
+          raco rivet generate
+          cd "$GITHUB_WORKSPACE"
+          # A hand-edited or stale generated client cannot merge: the
+          # committed Swift and C++ files must be the generator's output.
+          git diff --exit-code -- \
+            examples/taskboard/windows/GeneratedBackend.hpp \
+            examples/taskboard/macos-host/Sources/RivetHost/GeneratedBackend.swift \
+            examples/taskboard/linux/GeneratedBackend.hpp
       - name: Build Scribble documentation
         shell: bash
         run: |

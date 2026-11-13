@@ -10,6 +10,7 @@
                      rivet/keel
                      rivet/protocol
                      rivet/resources
+                     rivet/share-watch
                      rivet/system
                      rivet/testing))
 
@@ -497,6 +498,67 @@ The build writes @filepath{rivet-app-info.rktd} into the application resource
 root on every platform. The procedures fail explicitly when that generated
 file is absent or malformed, so update checks cannot silently use a stale
 hardcoded fallback.
+
+@section{Network Shares}
+
+@defmodule[rivet/share-watch]
+
+On Windows, a filesystem call that parks on a mapped-but-disconnected SMB
+share blocks the single OS thread that runs every Racket thread, freezing the
+engine and every RPC. Reachability therefore comes from the redirector's
+state table (parameterless @exec{net use}), and directory scans run in a
+@racket[place] so a stalled share can stall only the worker.
+
+@defstruct*[share-entry ([name string?]
+                         [path path?]
+                         [directory? boolean?]
+                         [size exact-nonnegative-integer?]
+                         [modify-seconds exact-nonnegative-integer?])]{
+One entry returned by @racket[share-directory-snapshot].}
+
+@defstruct*[share-state ([status symbol?]
+                         [entries (vectorof share-entry?)])]{
+The result of a share scan. The status is @racket['ok], @racket['unreachable],
+@racket['missing], @racket['timeout], @racket['unsupported], or
+@racket['error].}
+
+@defproc[(share-state-ok? [state share-state?]) boolean?]{
+Returns true when the scan succeeded.}
+
+@defproc[(mapped-drive-status [path path-string?]) symbol?]{
+Returns the redirector status for the drive containing @racket[path]:
+@racket['ok], @racket['reconnecting], @racket['unavailable],
+@racket['disconnected], @racket['connecting], @racket['other],
+@racket['not-mapped], or @racket['unknown] for a UNC path. The probe reads the
+local state table and never opens the share.}
+
+@defproc[(share-reachable? [path path-string?]) boolean?]{
+Returns true for a healthy mapped drive, a local path, and a UNC path whose
+reachability is decided by the scan timeout.}
+
+@defproc[(share-directory-snapshot [path path-string?]
+                                   [#:timeout timeout real? 5.0]) share-state?]{
+Lists @racket[path] in a worker place and waits at most @racket[timeout]
+seconds. A timeout kills the worker and returns @racket['timeout]; a mapped
+drive whose state is not @racket['ok] returns @racket['unreachable] without
+touching the share.}
+
+@defproc[(start-share-watcher [path path-string?]
+                              [#:interval interval real? 5.0]
+                              [#:timeout timeout real? 5.0]
+                              [#:on-change on-change
+                               (-> share-state? any/c) void]) share-watcher?]{
+Polls @racket[path] and calls @racket[on-change] whenever the status or the
+entry set changes. The first callback carries the initial state.}
+
+@defproc[(share-watcher? [value any/c]) boolean?]{
+Recognizes a running or stopped share watcher.}
+
+@defproc[(share-watcher-state [watcher share-watcher?]) share-state?]{
+Returns the most recent scan state.}
+
+@defproc[(share-watcher-stop! [watcher share-watcher?]) void?]{
+Stops the watcher thread. Safe to call from its own callback.}
 
 @section{System Services}
 
