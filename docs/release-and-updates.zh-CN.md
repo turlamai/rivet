@@ -242,7 +242,11 @@ Authenticode 或深度严格代码签名；开发构建可注入显式校验器�
 执行已认证检查和选择，`updater-download!` 启动一个有界后台 worker，`updater-state` 返回
 不可变、JSON 安全的轮询快照。`updater-cancel!` 中断活动传输。托管 worker 使用单调的
 无进度和总时限，在取消或超时时清理部分文件，并拒绝并发的 check/download 操作。它有意停在
-已验证的下载产物：安装同意、提权、重启和健康策略仍属于原生宿主和下文平台安装 API。
+已验证的下载产物：安装同意、提权、重启和健康策略仍属于原生宿主和下文平台安装 API。只需
+控制暂存位置的产品传 `#:destination`（候选 → 路径）；必须在发布终态前安装已验证产物的
+产品——家族中的 Linux AppImage 原地替换即此情形——传 `#:after-download`（已验证路径、
+候选 → 对外发布的路径）。该钩子在大小与 SHA-256 校验之后、`phase "downloaded"` 之前运行；
+抛错会走正常错误阶段使下载失败。
 
 `raco rivet new --with-updates` 会生成这套表面的起步版本：`app/update.rkt` 用应用身份、
 持久 rollout 桶和 `shared/update.rktd` 包装 `make-updater`；在填入 feed URL、Ed25519 公钥和

@@ -29,7 +29,7 @@
   (application-id current-version channel platform architecture install-kind
                   component
                   public-key resolved-key key-id trusted-keys manifest-url
-                  data-directory destination
+                  data-directory destination after-download
                   rollout-bucket maximum-manifest-bytes maximum-download-bytes
                   check-timeout stall-timeout total-timeout
                   fetch-manifest download
@@ -101,6 +101,7 @@
                       #:manifest-url manifest-url
                       #:data-directory data-directory
                       #:destination [destination #f]
+                      #:after-download [after-download #f]
                       #:rollout-bucket rollout-bucket
                       #:maximum-manifest-bytes
                       [maximum-manifest-bytes (* 1024 1024)]
@@ -133,6 +134,8 @@
      'make-updater "(or/c #f 'app 'cli 'tool)" component))
   (unless (or (not destination) (procedure? destination))
     (raise-argument-error 'make-updater "(or/c #f procedure?)" destination))
+  (unless (or (not after-download) (procedure? after-download))
+    (raise-argument-error 'make-updater "(or/c #f procedure?)" after-download))
   (unless (and (string? key-id) (not (string=? key-id "")))
     (raise-argument-error 'make-updater "non-empty string?" key-id))
   ;; Key-rotation dual-trust window (issue #370): additional
@@ -177,7 +180,8 @@
            (string->immutable-string key-id)
            trusted-keys
            (string->immutable-string manifest-url)
-           (path->complete-path data-directory) destination rollout-bucket
+           (path->complete-path data-directory) destination after-download
+           rollout-bucket
            maximum-manifest-bytes maximum-download-bytes check-timeout
            stall-timeout total-timeout
            (current-managed-fetch-manifest) (current-managed-download)
@@ -435,6 +439,12 @@
                           (when (eq? worker (updater-worker instance))
                             (state-set*/locked! instance 'percent percent)))))
                      #:progress-every 1))
+                  ;; The product may install or post-process the verified
+                  ;; artifact here (for example an AppImage in-place swap);
+                  ;; the path it returns is what the state publishes.
+                  (define final-path
+                    (let ([hook (updater-after-download instance)])
+                      (if hook (hook path candidate) path)))
                   (with-updater-lock
                    instance
                    (lambda ()
@@ -447,7 +457,7 @@
                         'phase "downloaded"
                         'percent 100
                         'message #f
-                        'downloadedPath (path->string path)))))))))
+                        'downloadedPath (path->string final-path)))))))))
        (set-updater-operation! instance 'download)
        (set-updater-worker! instance worker)
        (set-updater-cancel-reason! instance #f)
