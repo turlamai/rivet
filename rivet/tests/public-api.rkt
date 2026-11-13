@@ -107,7 +107,7 @@
       update-manifest-minimum-version update-manifest-previous-version
       update-manifest-published-at update-manifest-rollback-allowed?
       update-manifest-rollout update-manifest-version update-manifest?
-      updater-cancel! updater-check! updater-download!
+      updater-cancel! updater-candidate updater-check! updater-download!
       updater-runtime-box updater-runtime-check! updater-runtime-config
       updater-runtime-destination-dir updater-runtime-download
       updater-runtime-download! updater-runtime-fetch
