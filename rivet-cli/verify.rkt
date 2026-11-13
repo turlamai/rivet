@@ -566,11 +566,29 @@
      (dynamic-wind
        void
        (lambda ()
-         (unzip archive
-                (make-filesystem-entry-reader
-                 #:dest extraction-root
-                 #:exists 'error)
-                #:preserve-attributes? #t)
+         ;; ditto writes the macOS bundle with its framework symlinks
+         ;; (Versions/Current -> 9.3_CS, Racket -> Versions/Current/Racket);
+         ;; Racket's unzip materializes them as tiny files holding the link
+         ;; target, so the extracted Racket.framework has no Mach-O main
+         ;; binary and codesign reports "code object is not signed at all".
+         ;; Extract with the same tool that wrote it.
+         (if (eq? (system-type 'os) 'macosx)
+             (let ([ditto (or (find-executable-path "ditto")
+                              (error 'verify-project-package!
+                                     "ditto was not found"))])
+               (unless (zero? (system*/exit-code
+                               ditto "-x" "-k"
+                               (path->string archive)
+                               (path->string extraction-root)))
+                 (raise-arguments-error
+                  'verify-project-package!
+                  "ditto failed to extract the portable archive"
+                  "archive" (path->string archive))))
+             (unzip archive
+                    (make-filesystem-entry-reader
+                     #:dest extraction-root
+                     #:exists 'error)
+                    #:preserve-attributes? #t))
          (define entries (directory-list extraction-root #:build? #t))
          (unless (= (length entries) 1)
            (raise-arguments-error
