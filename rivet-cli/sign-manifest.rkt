@@ -42,10 +42,12 @@
   (unless (memq architecture '(x64 arm64))
     (raise-arguments-error who "artifact architecture must be x64 or arm64"
                            "value" spec))
-  (unless (feed-installer-symbol? installer)
+  ;; A hand-built product feed may carry any release installer shape; the
+  ;; products that use dmg/exe already consume it through select-update.
+  (unless (installer-symbol? installer)
     (raise-arguments-error
      who
-     "artifact installer must be zip, targz, msi, deb, rpm, or appimage"
+     "artifact installer must be zip, targz, msi, msix, exe, dmg, pkg, deb, rpm, or appimage"
      "value" spec))
   (define component
     (and (= (length parts) 5)

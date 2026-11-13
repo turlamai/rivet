@@ -65,7 +65,18 @@
 (check-exn #rx"--artifact expects"
            (lambda () (parse-sign-manifest-arguments (list "--artifact" "macos:arm64:zip"))))
 (check-exn #rx"artifact installer must be"
-           (lambda () (parse-sign-manifest-arguments (list "--artifact" "macos:arm64:exe:App.zip"))))
+           (lambda () (parse-sign-manifest-arguments (list "--artifact" "macos:arm64:unknown:App.zip"))))
+
+;; Hand-built feeds may use the release installer shapes (payback dmg,
+;; regexmate exe), not only the self-update feed's preferred set.
+(define-values (dmg-artifacts _dmg-options)
+  (parse-sign-manifest-arguments
+   (list "--artifact" "macos:arm64:dmg:App.dmg")))
+(check-equal? (requested-artifact-installer (car dmg-artifacts)) 'dmg)
+(define-values (exe-artifacts _exe-options)
+  (parse-sign-manifest-arguments
+   (list "--artifact" "windows:x64:exe:App.exe")))
+(check-equal? (requested-artifact-installer (car exe-artifacts)) 'exe)
 
 ;; A feed may carry several installables per platform; the trailing
 ;; component discriminator selects the CLI/tool artifact (issue #271).

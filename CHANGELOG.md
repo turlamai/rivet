@@ -48,9 +48,11 @@ project adheres to [Semantic Versioning](https://semver.org/).
   (issue #456).
 - `raco rivet sign-manifest` accepts PEM private keys (converted once through
   OpenSSL 3), a trailing `:<component>` discriminator on `--artifact`, and
-  repeatable `--alias` feed names. Identity fields (`--application-id`,
-  `--version`, `--build`, `--channel`) now default to the current project, so
-  a product wrapper passes only its feed policy and artifact matrix. The
+  repeatable `--alias` feed names. It also accepts every release installer
+  shape (`dmg`, `exe`, `pkg`, `msix`) in a hand-built feed, not only the
+  self-update set. Identity fields (`--application-id`, `--version`,
+  `--build`, `--channel`) now default to the current project, so a product
+  wrapper passes only its feed policy and artifact matrix. The
   `--rollback-allowed`/`--sidecars` flags no longer break when followed by
   more arguments.
 
