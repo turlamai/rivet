@@ -478,9 +478,13 @@
     ;; key set the channel manifest declares (issue #358). Extra keys widen
     ;; trust beyond the qualified policy; missing keys mean the bundle was
     ;; not signed with the policy at all. Both fail the release.
+    ;; `codesign -d` prints only Executable=/…; the flag word lives in the
+    ;; CodeDirectory line that `-v` adds (`flags=0x10000(runtime)`). Asking
+    ;; for the plain form made this gate fail every production-signed
+    ;; bundle, even though the signature carried the runtime flag.
     (define signature-description
       (capture-command! who codesign-tool
-                        "-d" (path->string app)))
+                        "-dv" (path->string app)))
     (unless (regexp-match? #rx"\\(runtime\\)" signature-description)
       (raise-arguments-error who
                              "production macOS package is not signed with the hardened runtime"
