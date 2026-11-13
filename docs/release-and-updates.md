@@ -252,7 +252,9 @@ artifact before publishing the terminal phase — the Linux AppImage in-place
 swap is the case in the family — pass `#:after-download` (verified path,
 candidate → published path). The hook runs after size and SHA-256
 verification and before `phase "downloaded"`; raising fails the download
-through the normal error phase.
+through the normal error phase. `updater-candidate` exposes the authenticated
+candidate (artifact SHA-256, installer, rollback policy) for hosts that own
+the native install handoff.
 
 `raco rivet new --with-updates` generates a starter version of this surface:
 `app/update.rkt` wraps `make-updater` with the app identity, a persistent

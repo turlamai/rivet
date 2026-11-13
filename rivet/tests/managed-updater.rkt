@@ -116,6 +116,7 @@
         (lambda (out) (display "verified" out)))
       destination)
     (define successful (make-test-updater root successful-download))
+    (check-false (updater-candidate successful))
     (define mutable-version (string-copy "1.0.0"))
     (define copied-input
       (make-test-updater root successful-download
@@ -156,6 +157,13 @@
     (check-equal? (hash-ref available 'status) "available")
     (check-equal? (hash-ref available 'url)
                   "https://updates.example/app.zip")
+    ;; The candidate accessor exposes the authenticated artifact for
+    ;; products that own the native install handoff.
+    (define selected (updater-candidate successful))
+    (check-true (update-candidate? selected))
+    (check-equal? (update-artifact-installer
+                   (update-candidate-artifact selected))
+                  'zip)
     (check-equal? (hash-ref (updater-state successful) 'phase) "available")
     (check-equal? (hash-ref (updater-state successful) 'availableVersion)
                   "2.0.0")
