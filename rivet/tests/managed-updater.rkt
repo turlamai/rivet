@@ -13,6 +13,21 @@
                    "2026-10-13T00:00:00Z" "0.0.0" "1.0.0"
                    #t 100 (list artifact)))
 
+;; A feed may carry one component per platform; the updater selects the
+;; component the product declares.
+(define app-artifact
+  (update-artifact 'windows 'x64 "https://updates.example/app-2.zip"
+                   (make-string 64 #\b) 120 'zip '() 'app))
+(define app-manifest
+  (update-manifest "dev.rivet.managed-test" "2.0.0" 2 'stable
+                   "2026-10-13T00:00:00Z" "0.0.0" "1.0.0"
+                   #t 100 (list app-artifact)))
+(define (app-fetch _url _key
+                   #:key-id [_key-id #f]
+                   #:trusted-keys [_trusted-keys #f]
+                   #:maximum-bytes [_maximum-bytes (* 1024 1024)])
+  app-manifest)
+
 (check-eq? (update-architecture-for 'x86_64) 'x64)
 (check-eq? (update-architecture-for 'amd64) 'x64)
 (check-eq? (update-architecture-for 'aarch64) 'arm64)
@@ -30,6 +45,8 @@
                            #:check-timeout [check-timeout 1.0]
                            #:stall-timeout [stall-timeout 1.0]
                            #:total-timeout [total-timeout 2.0]
+                           #:component [component #f]
+                           #:destination [destination #f]
                            #:fetch [fetch fake-fetch])
   (parameterize ([current-managed-fetch-manifest fetch]
                  [current-managed-download download])
@@ -39,10 +56,12 @@
      #:platform 'windows
      #:architecture 'x64
      #:install-kind 'portable
+     #:component component
      #:public-key 'test-key
      #:key-id "test-2026"
      #:manifest-url "https://updates.example/update-stable.json"
      #:data-directory root
+     #:destination destination
      #:rollout-bucket 17
      #:check-timeout check-timeout
      #:stall-timeout stall-timeout
@@ -133,6 +152,8 @@
     (check-true (immutable? (hash-ref available 'availableVersion)))
     (check-true (immutable? (hash-ref available 'publishedAt)))
     (check-equal? (hash-ref available 'status) "available")
+    (check-equal? (hash-ref available 'url)
+                  "https://updates.example/app.zip")
     (check-equal? (hash-ref (updater-state successful) 'phase) "available")
     (check-equal? (hash-ref (updater-state successful) 'availableVersion)
                   "2.0.0")
@@ -143,6 +164,32 @@
     (check-equal? (hash-ref completed 'percent) 100)
     (check-true (file-exists? (hash-ref completed 'downloadedPath)))
     (check-false (updater-cancel! successful))
+
+    ;; Component selection and a product-controlled destination: payback's
+    ;; feed carries the 'app component and names its own staging path.
+    (define custom-destination
+      (build-path root "custom" "component.zip"))
+    (define component-updater
+      (make-test-updater root successful-download #:fetch app-fetch
+                         #:component 'app
+                         #:destination (lambda (_candidate)
+                                         custom-destination)))
+    (define component-available (updater-check! component-updater))
+    (check-equal? (hash-ref component-available 'status) "available")
+    (check-equal? (hash-ref component-available 'url)
+                  "https://updates.example/app-2.zip")
+    (updater-download! component-updater)
+    (define component-done (updater-wait component-updater 2.0))
+    (check-not-false component-done)
+    (check-equal? (hash-ref component-done 'phase) "downloaded")
+    (check-equal? (hash-ref component-done 'downloadedPath)
+                  (path->string custom-destination))
+    (check-true (file-exists? custom-destination))
+    (define wrong-component
+      (make-test-updater root successful-download #:fetch app-fetch
+                         #:component 'cli))
+    (check-equal? (hash-ref (updater-check! wrong-component) 'status)
+                  "up-to-date")
 
     ;; Only one operation owns an updater. Cancellation interrupts the worker
     ;; and produces a stable terminal state instead of leaking exn:break.

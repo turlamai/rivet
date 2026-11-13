@@ -1046,11 +1046,13 @@ Returns the architecture symbol used by Rivet release manifests.}
            (or/c 'x64 'arm64) (current-update-architecture)]
           [#:install-kind install-kind
            (or/c #f 'portable 'targz 'msi 'appimage 'package-manager) #f]
+          [#:component component (or/c #f 'app 'cli 'tool) #f]
           [#:public-key public-key any/c]
           [#:key-id key-id string?]
           [#:trusted-keys trusted-keys (listof (cons/c string? bytes?)) '()]
           [#:manifest-url manifest-url string?]
           [#:data-directory data-directory path-string?]
+          [#:destination destination (or/c #f (-> update-candidate? path-string?)) #f]
           [#:rollout-bucket rollout-bucket (integer-in 0 99)]
           [#:maximum-manifest-bytes maximum-manifest-bytes
            exact-positive-integer? (* 1024 1024)]
@@ -1066,9 +1068,14 @@ selection, bounded background download, progress, cancellation, and terminal
 state. @racket[public-key] may be a parsed Ed25519 key or DER bytes, which are
 decoded lazily during the first check. @racket[rollout-bucket] must be a stable
 per-installation value from 0 through 99; do not choose a new random value on
-each check. Unsupported platforms and architectures fail at construction
-instead of silently selecting the wrong artifact. Installation and restart
-remain owned by the native host or platform adapter.}
+each check. @racket[component] selects a component-tagged artifact
+(@racket['app], @racket['cli], or @racket['tool]); the default @racket[#f]
+selects the component-less artifact. @racket[destination] maps the selected
+candidate to the product's staging path; when it is @racket[#f], the default
+name under @racket[data-directory] is used. Unsupported platforms and
+architectures fail at construction instead of silently selecting the wrong
+artifact. Installation and restart remain owned by the native host or
+platform adapter.}
 
 On Windows, pass @racket['msi] for an MSI-installed copy; release manifests
 carry a signed MSI entry alongside the portable ZIP, and the linked host
@@ -1083,7 +1090,9 @@ Recognizes an updater created by @racket[make-updater].}
 Synchronously fetches and authenticates the manifest under
 @racket[check-timeout], selects the matching candidate, and returns a JSON-safe
 immutable result whose @racket['status] is @racket["available"],
-@racket["up-to-date"], or @racket["error"].}
+@racket["up-to-date"], or @racket["error"]. An available result also carries
+the artifact @racket['url], size, installer symbol, build, and published
+time for product CLIs and automation.}
 
 @defproc[(updater-download! [instance updater?]) void?]{
 Starts the selected download on one background worker. A second check or
