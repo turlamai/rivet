@@ -1112,6 +1112,13 @@ error state.}
 Requests cancellation of an active download. Returns @racket[#t] when a worker
 was interrupted and @racket[#f] when no download was active.}
 
+@defproc[(updater-candidate [instance updater?]) (or/c update-candidate? #f)]{
+Returns the authenticated candidate the last successful check selected, or
+@racket[#f] before any check selects one. The candidate survives a failed or
+cancelled download so a product can report the offered artifact and retry;
+a new check clears it first. Products that own the native install handoff use
+it for the artifact SHA-256, installer kind, and rollback policy.}
+
 @defproc[(updater-state [instance updater?]) hash?]{
 Returns an immutable, synchronized, JSON-safe snapshot with phase, percent,
 message, downloaded path, available version, and current version fields.

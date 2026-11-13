@@ -19,6 +19,7 @@
 (provide updater?
          make-updater
          updater-state
+         updater-candidate
          updater-check!
          updater-download!
          updater-cancel!
@@ -33,7 +34,7 @@
                   rollout-bucket maximum-manifest-bytes maximum-download-bytes
                   check-timeout stall-timeout total-timeout
                   fetch-manifest download
-                  lock snapshot candidate operation worker cancel-reason)
+                  lock snapshot selected-candidate operation worker cancel-reason)
   #:mutable)
 
 (define current-managed-fetch-manifest (make-parameter fetch-update-manifest))
@@ -203,6 +204,16 @@
     (raise-argument-error 'updater-state "updater?" instance))
   (with-updater-lock instance (lambda () (updater-snapshot instance))))
 
+;; Products that own the install handoff need the authenticated candidate
+;; (artifact SHA-256, installer kind, rollback policy) after the check; the
+;; candidate also survives a failed or cancelled download for an explicit
+;; retry, and a new check clears it first.
+(define (updater-candidate instance)
+  (unless (updater? instance)
+    (raise-argument-error 'updater-candidate "updater?" instance))
+  (with-updater-lock instance
+    (lambda () (updater-selected-candidate instance))))
+
 (define (resolved-public-key instance)
   (or (updater-resolved-key instance)
       (let ([key (if (bytes? (updater-public-key instance))
@@ -286,7 +297,7 @@
      (when (updater-operation instance)
        (error 'updater-check! "another updater operation is already running"))
      (set-updater-operation! instance 'check)
-     (set-updater-candidate! instance #f)
+     (set-updater-selected-candidate! instance #f)
      (set-updater-snapshot!
       instance
       (hash-set* (initial-state (updater-current-version instance))
@@ -327,7 +338,7 @@
      instance
      (lambda ()
        (set-updater-operation! instance #f)
-       (set-updater-candidate! instance candidate)
+       (set-updater-selected-candidate! instance candidate)
        (state-set*/locked!
         instance
         'phase (if candidate "available" "up-to-date")
@@ -403,7 +414,7 @@
      (lambda ()
        (when (updater-operation instance)
          (error 'updater-download! "another updater operation is already running"))
-       (define candidate (updater-candidate instance))
+       (define candidate (updater-selected-candidate instance))
        (unless candidate
          (error 'updater-download! "no update is available; run updater-check! first"))
        (define key (resolved-public-key instance))

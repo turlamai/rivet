@@ -61,7 +61,10 @@ project adheres to [Semantic Versioning](https://semver.org/).
   product-owned staging paths, and in-place install steps such as the Linux
   AppImage swap use the shared check/download state machine.
   `updater-check!` also returns the selected artifact `url` for product CLIs
-  and automation.
+  and automation. `updater-candidate` returns the authenticated candidate so
+  products that own the native install handoff can read its SHA-256,
+  installer kind, and rollback policy; it survives a failed or cancelled
+  download and is cleared by the next check.
 
 ## [0.16.0] - 2026-11-12
 

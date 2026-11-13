@@ -246,7 +246,8 @@ Authenticode 或深度严格代码签名；开发构建可注入显式校验器�
 控制暂存位置的产品传 `#:destination`（候选 → 路径）；必须在发布终态前安装已验证产物的
 产品——家族中的 Linux AppImage 原地替换即此情形——传 `#:after-download`（已验证路径、
 候选 → 对外发布的路径）。该钩子在大小与 SHA-256 校验之后、`phase "downloaded"` 之前运行；
-抛错会走正常错误阶段使下载失败。
+抛错会走正常错误阶段使下载失败。`updater-candidate` 向自行负责原生安装交接的宿主暴露
+已认证候选（产物 SHA-256、安装器类型、回滚策略）。
 
 `raco rivet new --with-updates` 会生成这套表面的起步版本：`app/update.rkt` 用应用身份、
 持久 rollout 桶和 `shared/update.rktd` 包装 `make-updater`；在填入 feed URL、Ed25519 公钥和
