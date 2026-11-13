@@ -311,6 +311,8 @@ raco rivet release --update-payload <installer>:<glob>[:<component>]
 raco rivet manifest-compose <inputs...> [--output <file>]
                                    Compose update manifests
 raco rivet sign-manifest ...       Compose and sign a verified family update manifest
+raco rivet update-keys --key-id <id>  Generate the Ed25519 update keypair
+raco rivet check-release-version [tag]  Check VERSION, rivet.rktd, carriers, and tag
 raco rivet verify-release-assets ...  Verify signed release asset parity
 raco rivet i18n                    Verify shared/i18n parity and regenerate tables
 raco rivet measure                 Report packaged artifact sizes and launch survival

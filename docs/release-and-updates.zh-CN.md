@@ -44,6 +44,25 @@ manifest，且不读取任何 `RIVET_UPDATE_*` 凭据。可与 `--development` �
 存在之前演练未签名发布流程。省略 `--without-updates` 会保持上述失败关闭行为：三项更新
 设置全部必需，部分配置即为错误。
 
+## 共享更新工具链
+
+自行发布更新产物的产品（应用旁边的 CLI、旧 feed 别名或手工产物矩阵）使用三个 Rivet 命令，
+不再维护各自的更新脚本：
+
+- `raco rivet update-keys --key-id <id>` 在 `~/.<project>/update-signing-key.pem`（或 `--key`）
+  生成 Ed25519 密钥对，输出 DER base64 secret、完整 SPKI hex 以及供 verifier 模块使用的
+  32 字节 raw hex；文件已存在时必须显式 `--force`。`--json` 为自动化输出相同字段。key id
+  是信任根决策，命令不会自动编造。
+- `raco rivet check-release-version [tag]` 要求 `rivet.rktd` 版本与 `VERSION`（或
+  `--version-file`）及 tag 一致；只有 `--allow-rc` 才接受 `v<version>-rc.N`；并检查每个
+  `--carrier <file>` 包含该版本。它取代各仓库的版本预检脚本，包括后端 fallback 这类额外 carrier。
+- `raco rivet sign-manifest` 从显式列出的产物构建签名 channel manifest，支持 DER 或 PEM
+  私钥、末尾 `:<component>`（`app`、`cli`、`tool`）以及用于过渡 feed 名的 `--alias <file>`
+  （字节一致）。产品只保留自己的产物命名与策略。
+
+因此产品 wrapper 只需几行：取得 version/build，调用 `check-release-version`，把产物列表交给
+`sign-manifest` 并发布。Rivet 不会猜测产品的产物矩阵；那属于产品知识。
+
 Windows MSI CI 现在会在首次 MSI 安装后从真实的 `Program Files` 安装位置启动可执行文件，
 检查原生窗口就绪、有序关闭和进程终止。第二次验收再次启动已安装 v1，并在 **v1 仍在运行**
 时升级到 v2，演练真实的 MSI/Restart Manager 路径。它要求完成且不延迟重启、旧可执行文件

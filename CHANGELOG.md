@@ -7,6 +7,28 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- `raco rivet update-keys` generates the Ed25519 update keypair in the
+  family verifier shape (issue #453): PKCS#8 PEM, the DER base64 secret, the
+  full SPKI hex, the raw 32-byte hex, and the raw base64 native verifiers
+  embed. It defaults the key path to `~/.<project>/update-signing-key.pem`,
+  sets mode 0600, refuses to overwrite without `--force`, and emits the same
+  fields as JSON for automation.
+- `raco rivet check-release-version [tag]` owns the shared release preflight:
+  `VERSION`, the `rivet.rktd` version, an optional tag (with `--allow-rc` for
+  `v<version>-rc.N`), and any declared `--carrier` files must agree.
+
+### Changed
+
+- `raco rivet sign-manifest` accepts PEM private keys (converted once through
+  OpenSSL 3), a trailing `:<component>` discriminator on `--artifact`, and
+  repeatable `--alias` feed names. Identity fields (`--application-id`,
+  `--version`, `--build`, `--channel`) now default to the current project, so
+  a product wrapper passes only its feed policy and artifact matrix. The
+  `--rollback-allowed`/`--sidecars` flags no longer break when followed by
+  more arguments.
+
 ## [0.16.0] - 2026-11-12
 
 ### Added

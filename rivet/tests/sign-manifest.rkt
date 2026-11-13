@@ -7,10 +7,12 @@
 (require rackunit
          racket/file
          racket/path
+         racket/system
          crypto
          crypto/all
          "../../rivet/distribution/crypto.rkt"
          "../../rivet/distribution/manifest.rkt"
+         "../../rivet-cli/openssl-tool.rkt"
          "../../rivet-cli/sign-manifest.rkt")
 
 (use-all-factories!)
@@ -64,6 +66,18 @@
            (lambda () (parse-sign-manifest-arguments (list "--artifact" "macos:arm64:zip"))))
 (check-exn #rx"artifact installer must be"
            (lambda () (parse-sign-manifest-arguments (list "--artifact" "macos:arm64:exe:App.zip"))))
+
+;; A feed may carry several installables per platform; the trailing
+;; component discriminator selects the CLI/tool artifact (issue #271).
+(define-values (component-artifacts _component-options)
+  (parse-sign-manifest-arguments
+   (list "--artifact" "linux:x64:targz:App-cli.tar.gz:cli")))
+(check-equal? (requested-artifact-component (car component-artifacts)) 'cli)
+(check-exn #rx"artifact component must be"
+           (lambda ()
+             (parse-sign-manifest-arguments
+              (list "--artifact" "linux:x64:zip:App.zip:docs"))))
+(check-false (requested-artifact-component (car targz-artifacts)))
 (check-exn #rx"--base-url must be an HTTPS URL"
            (lambda () (parse-sign-manifest-arguments (list "--base-url" "http://dl.example/"))))
 (check-exn #rx"unknown argument"
@@ -82,9 +96,10 @@
   #:exists 'truncate/replace
   (lambda (out) (write-bytes (make-bytes 2048 7) out)))
 
+(define stable-alias (build-path root "update-stable.json"))
 (define output
   (sign-manifest!
-   (list (requested-artifact 'macos 'arm64 'zip (path->string artifact)))
+   (list (requested-artifact 'macos 'arm64 'zip (path->string artifact) #f))
    (hasheq 'application-id "dev.example"
            'version "1.2.3"
            'build 7
@@ -94,9 +109,13 @@
            'private-key (path->string private-key-path)
            'public-key (path->string public-key-path)
            'output (path->string (build-path root "update.json"))
+           'aliases (list (path->string stable-alias))
            'sidecars? #t
            'published-at "2026-10-16T00:00:00Z")))
 (check-true (file-exists? output))
+;; A transition alias is a byte-identical second feed name.
+(check-true (file-exists? stable-alias))
+(check-equal? (file->bytes stable-alias) (file->bytes output))
 
 ;; Without --output the feed follows the channel, matching `raco rivet release`
 ;; (`dist/update-<channel>.json`) so per-leg manifests compose by one name.
@@ -104,7 +123,7 @@
 (define default-output
   (parameterize ([current-directory default-root])
     (sign-manifest!
-     (list (requested-artifact 'macos 'arm64 'zip (path->string artifact)))
+     (list (requested-artifact 'macos 'arm64 'zip (path->string artifact) #f))
      (hasheq 'application-id "dev.example"
              'version "1.2.3"
              'build 7
@@ -116,6 +135,41 @@
              'published-at "2026-10-16T00:00:00Z"))))
 (check-equal? (path->string default-output) "dist/update-beta.json")
 (check-true (file-exists? (build-path default-root "dist" "update-beta.json")))
+
+;; Identity defaults to the current project, so a product wrapper passes only
+;; its feed policy and artifact matrix.
+(define defaults-root (make-temporary-file "rivet-sign-project-~a" 'directory))
+(call-with-output-file (build-path defaults-root "rivet.rktd")
+  #:exists 'truncate/replace
+  (lambda (out)
+    (write (hasheq 'name "demo"
+                   'version "9.9.9"
+                   'build 42
+                   'identifier "dev.example.defaults"
+                   'backend "app/backend.rkt"
+                   'module "backend"
+                   'entry "start"
+                   'protocol 1)
+           out)))
+(define defaults-output
+  (parameterize ([current-directory defaults-root])
+    (sign-manifest!
+     (list (requested-artifact 'macos 'arm64 'zip (path->string artifact) #f))
+     (hasheq 'base-url "https://dl.example/app/"
+             'key-id "release-2026"
+             'private-key (path->string private-key-path)
+             'public-key (path->string public-key-path)
+             'output (path->string (build-path defaults-root "update.json"))
+             'published-at "2026-10-16T00:00:00Z"))))
+(define defaults-manifest
+  (call-with-input-file defaults-output
+    (lambda (in)
+      (verify-signed-manifest in (read-ed25519-public-key public-key-path)))))
+(check-equal? (update-manifest-application-id defaults-manifest)
+              "dev.example.defaults")
+(check-equal? (update-manifest-version defaults-manifest) "9.9.9")
+(check-equal? (update-manifest-build defaults-manifest) 42)
+(check-equal? (update-manifest-channel defaults-manifest) 'stable)
 
 ;; The published feed verifies with the public half and carries the exact
 ;; artifact facts.
@@ -141,6 +195,35 @@
  #px"^[0-9a-f]{64}  App-1\\.2\\.3-macos-arm64\\.zip"
  (file->string sidecar))
 
+;; A PEM private key is converted once by the command, so a product wrapper
+;; does not need its own openssl conversion step.
+(define openssl (openssl-3-executable))
+(when openssl
+  (define pem-key (build-path root "private.pem"))
+  (check-equal?
+   (system*/exit-code openssl "pkey"
+                     "-inform" "DER" "-in" (path->string private-key-path)
+                     "-outform" "PEM" "-out" (path->string pem-key))
+   0)
+  (define pem-output (build-path root "pem-update.json"))
+  (sign-manifest!
+   (list (requested-artifact 'macos 'arm64 'zip (path->string artifact) #f))
+   (hasheq 'application-id "dev.example"
+           'version "1.2.3"
+           'build 7
+           'channel 'stable
+           'base-url "https://dl.example/app/"
+           'key-id "release-2026"
+           'private-key (path->string pem-key)
+           'public-key (path->string public-key-path)
+           'output (path->string pem-output)
+           'published-at "2026-10-16T00:00:00Z"))
+  (define pem-manifest
+    (call-with-input-file pem-output
+      (lambda (in)
+        (verify-signed-manifest in (read-ed25519-public-key public-key-path)))))
+  (check-equal? (update-manifest-version pem-manifest) "1.2.3"))
+
 ;; --- fail-closed publish ---------------------------------------------------
 
 ;; A wrong public key deletes the output instead of leaving an unverified
@@ -157,7 +240,7 @@
 (check-exn #rx"verification failed|unexpected key|malformed|could not decode"
            (lambda ()
              (sign-manifest!
-              (list (requested-artifact 'linux 'x64 'zip (path->string other-artifact)))
+              (list (requested-artifact 'linux 'x64 'zip (path->string other-artifact) #f))
               (hasheq 'application-id "dev.example"
                       'version "1.0.0"
                       'build 1
@@ -224,3 +307,4 @@
                               (read-ed25519-public-key public-key-path))))))))
 
 (delete-directory/files root)
+(when (directory-exists? defaults-root) (delete-directory/files defaults-root))
