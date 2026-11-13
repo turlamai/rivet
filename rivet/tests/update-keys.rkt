@@ -42,7 +42,9 @@
      (base64-decode
       (string->bytes/utf-8
        (hash-ref report 'private-key-der-base64))))
-   (check-equal? (bytes-length der) 83)
+   ;; PKCS#8 encodes either the private key alone (48 bytes) or the
+   ;; OneAsymmetricKey form with the public half (83 bytes); both are valid.
+   (check-not-false (memv (bytes-length der) '(48 83)))
    (define der-path (build-path temp-root "private.der"))
    (call-with-output-file der-path
      #:exists 'truncate/replace

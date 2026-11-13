@@ -142,22 +142,27 @@
      'update-keys
      "the private key already exists; delete it or pass --force to replace it"
      "key" key-path))
-  (define key (native-ed25519-key))
+  ;; Prefer OpenSSL 3 for generation: its PKCS#8 PEM is the encoding every
+  ;; product verifier and `sign-manifest` read back. Racket keygen remains
+  ;; the fallback for hosts without an OpenSSL 3 binary.
+  (define openssl (openssl-3-executable))
   (define-values (der spki)
     (cond
-      [key
-       (define der (pk-key->datum key 'PrivateKeyInfo))
-       (write-private-key! key-path der force?)
-       (values der (pk-key->datum key 'SubjectPublicKeyInfo))]
+      [openssl
+       (define-values (der spki)
+         (openssl-generate! openssl key-path))
+       (unless (eq? (system-type 'os) 'windows)
+         (file-or-directory-permissions key-path #o600))
+       (values der spki)]
       [else
-       ;; No Racket provider can generate Ed25519 here; OpenSSL 3 writes the
-       ;; same PKCS#8 PEM and exports the two public encodings.
-       (define openssl (openssl-3-executable))
-       (unless openssl
+       (define key (native-ed25519-key))
+       (unless key
          (raise-arguments-error
           'update-keys
           "no Ed25519 provider is available: install OpenSSL 3 or set OPENSSL_BIN"))
-       (openssl-generate! openssl key-path)]))
+       (define der (pk-key->datum key 'PrivateKeyInfo))
+       (write-private-key! key-path der force?)
+       (values der (pk-key->datum key 'SubjectPublicKeyInfo))]))
   (define raw-key
     (subbytes spki (- (bytes-length spki) 32)))
   (define der-base64 (bytes->string/utf-8 (base64-encode der #"")))
