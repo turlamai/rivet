@@ -18,6 +18,7 @@
   '("new" "doctor" "entitlements" "inspect" "acceptance" "matrix"
     "verify-remote" "schema" "clean" "support-bundle" "build" "generate" "dev" "package"
     "release" "manifest-compose" "verify-release-assets" "sign-manifest"
+    "update-keys" "check-release-version"
     "i18n" "measure" "compliance" "apple-review" "verify" "help"))
 
 (for ([command (in-list commands)])

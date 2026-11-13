@@ -32,6 +32,16 @@ migration or actual profile schema. AppImage packaging requires a `linux-icon` P
 
 Applications that deliberately ship without an online update channel can run `raco rivet release --without-updates`. The command still builds, packages, platform-signs, verifies, and emits the installer, SBOM, and third-party notices; it skips only the channel manifest and does not read any `RIVET_UPDATE_*` credentials. Combine it with `--development` to exercise the unsigned release flow before publisher credentials exist. Omitting `--without-updates` keeps the fail-closed behavior above: all three update settings are required, and a partial configuration is an error.
 
+## Shared update toolchain
+
+Products that publish their own release legs (a CLI next to the app, a legacy feed alias, or a hand-built artifact matrix) use three Rivet commands instead of maintaining their own update scripts:
+
+- `raco rivet update-keys --key-id <id>` generates the Ed25519 keypair at `~/.<project>/update-signing-key.pem` (or `--key`), prints the DER base64 secret, the full SPKI hex, and the raw 32-byte hex for the verifier module, and refuses to overwrite without `--force`. `--json` emits the same fields for automation. Key ids are a trust-root decision, so the command never invents one.
+- `raco rivet check-release-version [tag]` requires the `rivet.rktd` version to match `VERSION` (or `--version-file`) and the tag, accepts `v<version>-rc.N` only with `--allow-rc`, and checks that each `--carrier <file>` contains the version. This replaces the per-repo preview scripts, including the extra backend fallback carrier.
+- `raco rivet sign-manifest` builds the signed channel manifest from explicitly named artifacts. It accepts DER or PEM private keys, a trailing `:<component>` discriminator (`app`, `cli`, `tool`), and `--alias <file>` for a byte-identical transition feed name. Products keep only their artifact naming and policy.
+
+A product wrapper can therefore be a few lines: derive the version/build, call `check-release-version`, pass the artifact list to `sign-manifest`, and publish. Rivet never guesses a product's artifact matrix; that remains product knowledge.
+
 Windows MSI CI now launches the executable from its real `Program Files`
 installation after the first MSI install and checks native window readiness,
 orderly close and process termination. A second acceptance launches the

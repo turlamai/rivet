@@ -282,6 +282,16 @@
      (define sign-manifest! (command "sign-manifest" 'sign-manifest!))
      (define output (sign-manifest! artifacts options))
      (say "signed update manifest: ~a" output)]
+    [(cons "update-keys" rest)
+     (define run-update-keys-command
+       (command "update-keys" 'run-update-keys-command))
+     ;; The command prints its report; discard the returned path so the
+     ;; module's top-level value printer cannot add a second line.
+     (void (run-update-keys-command rest))]
+    [(cons "check-release-version" rest)
+     (define run-check-release-version-command
+       (command "check-release-version" 'run-check-release-version-command))
+     (void (run-check-release-version-command rest))]
     [(cons "verify-release-assets" rest)
      (define run-verify-release-assets-command
        (command "verify-release-assets" 'run-verify-release-assets-command))

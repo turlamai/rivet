@@ -300,6 +300,8 @@ raco rivet release --update-payload <installer>:<glob>[:<component>]
 raco rivet manifest-compose <inputs...> [--output <file>]
                                    组合更新 manifest
 raco rivet sign-manifest ...       组合并签名经过验证的家族更新 manifest
+raco rivet update-keys --key-id <id>  生成 Ed25519 更新签名密钥对
+raco rivet check-release-version [tag]  校验 VERSION、rivet.rktd、carrier 与 tag
 raco rivet verify-release-assets ...  校验已签名发布资产的完整性
 raco rivet i18n                    校验 shared/i18n 对齐并重生成内嵌表
 raco rivet measure                 报告打包产物大小与启动存活

@@ -1238,6 +1238,8 @@ raco rivet release [--development] [--without-updates] [--update-payload ...]
                                          build installer, signed update manifest, SBOM
 raco rivet manifest-compose <inputs...>  compose update manifests
 raco rivet sign-manifest ...             compose and sign a family update manifest
+raco rivet update-keys --key-id <id>     generate the Ed25519 update keypair
+raco rivet check-release-version [tag]   check VERSION, rivet.rktd, carriers, and tag
 raco rivet verify-release-assets ...     verify signed release asset parity
 raco rivet i18n                          verify shared/i18n parity, regenerate tables
 raco rivet measure size|startup          report artifact size/launch against budgets
