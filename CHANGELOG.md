@@ -55,11 +55,13 @@ project adheres to [Semantic Versioning](https://semver.org/).
   wrapper passes only its feed policy and artifact matrix. The
   `--rollback-allowed`/`--sidecars` flags no longer break when followed by
   more arguments.
-- `make-updater` accepts `#:component` (`app`, `cli`, or `tool`) and
-  `#:destination` (a candidate-to-path procedure), so component-tagged feeds
-  and product-owned staging paths use the shared check/download state
-  machine. `updater-check!` also returns the selected artifact `url` for
-  product CLIs and automation.
+- `make-updater` accepts `#:component` (`app`, `cli`, or `tool`),
+  `#:destination` (a candidate-to-path procedure), and `#:after-download` (a
+  verified-path-and-candidate procedure), so component-tagged feeds,
+  product-owned staging paths, and in-place install steps such as the Linux
+  AppImage swap use the shared check/download state machine.
+  `updater-check!` also returns the selected artifact `url` for product CLIs
+  and automation.
 
 ## [0.16.0] - 2026-11-12
 

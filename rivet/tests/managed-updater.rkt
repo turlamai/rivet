@@ -47,6 +47,7 @@
                            #:total-timeout [total-timeout 2.0]
                            #:component [component #f]
                            #:destination [destination #f]
+                           #:after-download [after-download #f]
                            #:fetch [fetch fake-fetch])
   (parameterize ([current-managed-fetch-manifest fetch]
                  [current-managed-download download])
@@ -62,6 +63,7 @@
      #:manifest-url "https://updates.example/update-stable.json"
      #:data-directory root
      #:destination destination
+     #:after-download after-download
      #:rollout-bucket 17
      #:check-timeout check-timeout
      #:stall-timeout stall-timeout
@@ -190,6 +192,48 @@
                          #:component 'cli))
     (check-equal? (hash-ref (updater-check! wrong-component) 'status)
                   "up-to-date")
+
+    ;; The after-download hook runs on the verified artifact before the
+    ;; terminal phase and the path it returns is what the product observes
+    ;; (the AppImage in-place swap contract).
+    (define swap-staged (build-path root "swap-staged.bin"))
+    (define swap-final (build-path root "swap-final.bin"))
+    (define hook-arguments (box #f))
+    (define hook-updater
+      (make-test-updater root successful-download
+                         #:destination (lambda (_candidate) swap-staged)
+                         #:after-download
+                         (lambda (path candidate)
+                           (set-box! hook-arguments (cons path candidate))
+                           (rename-file-or-directory path swap-final #t)
+                           swap-final)))
+    (check-equal? (hash-ref (updater-check! hook-updater) 'status) "available")
+    (updater-download! hook-updater)
+    (define hook-done (updater-wait hook-updater 2.0))
+    (check-not-false hook-done)
+    (check-equal? (hash-ref hook-done 'phase) "downloaded")
+    (check-equal? (hash-ref hook-done 'downloadedPath)
+                  (path->string swap-final))
+    (check-true (file-exists? swap-final))
+    (check-false (file-exists? swap-staged))
+    (check-true (update-candidate? (cdr (unbox hook-arguments))))
+    (check-equal? (path->string (car (unbox hook-arguments)))
+                  (path->string swap-staged))
+
+    ;; A failing install step must surface as the terminal error phase, not
+    ;; a stuck download.
+    (define failing-hook
+      (make-test-updater root successful-download
+                         #:after-download
+                         (lambda (_path _candidate)
+                           (error 'install "swap failed"))))
+    (check-equal? (hash-ref (updater-check! failing-hook) 'status) "available")
+    (updater-download! failing-hook)
+    (define hook-failed (updater-wait failing-hook 2.0))
+    (check-not-false hook-failed)
+    (check-equal? (hash-ref hook-failed 'phase) "error")
+    (check-regexp-match #rx"swap failed"
+                        (hash-ref hook-failed 'message))
 
     ;; Only one operation owns an updater. Cancellation interrupts the worker
     ;; and produces a stable terminal state instead of leaking exn:break.

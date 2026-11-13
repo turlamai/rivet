@@ -1053,6 +1053,8 @@ Returns the architecture symbol used by Rivet release manifests.}
           [#:manifest-url manifest-url string?]
           [#:data-directory data-directory path-string?]
           [#:destination destination (or/c #f (-> update-candidate? path-string?)) #f]
+          [#:after-download after-download
+           (or/c #f (-> path? update-candidate? path?)) #f]
           [#:rollout-bucket rollout-bucket (integer-in 0 99)]
           [#:maximum-manifest-bytes maximum-manifest-bytes
            exact-positive-integer? (* 1024 1024)]
@@ -1072,7 +1074,12 @@ each check. @racket[component] selects a component-tagged artifact
 (@racket['app], @racket['cli], or @racket['tool]); the default @racket[#f]
 selects the component-less artifact. @racket[destination] maps the selected
 candidate to the product's staging path; when it is @racket[#f], the default
-name under @racket[data-directory] is used. Unsupported platforms and
+name under @racket[data-directory] is used. @racket[after-download] runs once
+the artifact is verified and before the updater publishes the terminal
+@racket["downloaded"] phase; it receives the verified path and the selected
+candidate, and returns the path to publish — products that replace a running
+image in place (an AppImage swap) use this to install the artifact and report
+the replaced image's path. Unsupported platforms and
 architectures fail at construction instead of silently selecting the wrong
 artifact. Installation and restart remain owned by the native host or
 platform adapter.}

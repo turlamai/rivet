@@ -246,7 +246,13 @@ monotonic no-progress and total deadlines, cleans partial files on cancellation
 or timeout, and rejects concurrent check/download operations. It deliberately
 stops at a verified downloaded artifact: installation consent, elevation,
 restart, and health policy remain with the native host and the platform
-installation APIs below.
+installation APIs below. Products that only need to control staging pass
+`#:destination` (candidate → path); products that must install the verified
+artifact before publishing the terminal phase — the Linux AppImage in-place
+swap is the case in the family — pass `#:after-download` (verified path,
+candidate → published path). The hook runs after size and SHA-256
+verification and before `phase "downloaded"`; raising fails the download
+through the normal error phase.
 
 `raco rivet new --with-updates` generates a starter version of this surface:
 `app/update.rkt` wraps `make-updater` with the app identity, a persistent
