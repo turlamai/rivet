@@ -47,6 +47,41 @@ Linux source builds may keep embedding artifacts outside the Racket installation
 
 Optional release-only tools are not treated as development blockers. Missing Windows `signtool`, macOS notarization tooling, or Gatekeeper assessment support is reported as optional while development packaging remains available.
 
+### Windows network shares
+
+Racket CS runs every Racket thread on one OS thread, so a filesystem call that
+parks on a mapped-but-disconnected SMB share freezes the whole engine: every
+RPC stops answering. A child process does not help (it touches the same dead
+share), and `kill-thread` cannot rescue a thread parked inside the win32 call.
+
+Declare share-backed paths in `rivet.rktd`:
+
+```racket
+(share-paths "\\\\server\\department\\mailbox")
+```
+
+`raco rivet doctor` reports each path's redirector state in `network-shares`
+and adds an `unreachable-network-share` warning when a mapped drive is
+`Reconnecting`, `Unavailable`, `Disconnected`, or `Connecting`. The probe is
+parameterless `net use`, which reads the local state table without opening the
+share; never use `net use <drive>` (it talks to the server and hangs like any
+other SMB call).
+
+Applications should scan through `rivet/share-watch` instead of calling
+`directory-list` on the share:
+
+- `share-reachable?` gates work on the state table.
+- `share-directory-snapshot` lists a directory in a `place` — its own OS
+  thread and engine — with a timeout. A stalled share stalls only the worker;
+  the engine kills it and gets a `timeout` state. If the operating system
+  cannot cancel a worker parked inside the SMB syscall, that thread is
+  abandoned; the engine keeps serving and the next scan starts a fresh
+  worker.
+- `start-share-watcher` polls a path and calls back with status and entry
+  changes; the first callback carries the initial state.
+- UNC paths without a drive mapping have no state-table entry; the snapshot
+  timeout is their reachability signal.
+
 ## `raco rivet doctor --json`
 
 Use JSON mode from CI, Agents, editor integrations, or bug-report collectors:
@@ -70,8 +105,12 @@ The command writes a single JSON object to standard output and uses the same suc
 - `runtime-error`
 - `project-readiness` — `root` and `schema-baseline-configured` when run inside a
   project
+- `network-shares` — `path` and redirector `status` for every declared
+  `share-paths` entry (for example `ok`, `reconnecting`, `unavailable`, or
+  `not-mapped`)
 - `warnings` — stable `code`, `severity`, `message` and `remediation` entries;
-  known codes are `missing-schema-baseline` and `invalid-winui-window-icon-path`
+  known codes are `missing-schema-baseline`,
+  `invalid-winui-window-icon-path`, and `unreachable-network-share`
 - `tools`
 
 `runtime` contains the exact runtime artifact paths described above. `tools` contains platform-specific executable paths. A warning code is part of the automation contract: consumers may key on it, so do not rename one without a changelog entry and a compatibility note. Optional production tools such as Windows `signtool` or macOS notarization tools may be absent while normal development packaging remains usable.

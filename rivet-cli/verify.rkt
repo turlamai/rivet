@@ -10,6 +10,7 @@
          "appimage.rkt"
          "deb.rkt"
          "entitlements.rkt"
+         "flatpak.rkt"
          "launch-smoke.rkt"
          "linux-native-package.rkt"
          "linux-package.rkt"
@@ -310,7 +311,20 @@
            (required-file! who (build-path squashfs-root (string-append name ".png"))
                            "AppImage icon"))
          (lambda ()
-           (delete-directory/files extraction)))])))
+           (delete-directory/files extraction)))]
+      [("flatpak")
+       (define installer (flatpak-bundle-path project))
+       (required-file! who installer "Flatpak bundle")
+       (when (zero? (file-size installer))
+         (raise-arguments-error who "Flatpak bundle is empty"
+                                "bundle" installer))
+       ;; `flatpak build-bundle` is the only writer, and importing the bundle
+       ;; with the real flatpak is covered by the Linux CI job. Non-empty plus
+       ;; the release checksum is the local contract.
+       (unless (file-exists? (string-append (path->string installer) ".sha256"))
+         (raise-arguments-error who
+                                "Flatpak bundle has no checksum sidecar"
+                                "bundle" installer))])))
 
 (define (verify-linux-package! project package production?)
   (define who 'verify-package!)

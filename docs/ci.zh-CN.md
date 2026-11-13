@@ -167,6 +167,22 @@ Rivet 自己的 Ubuntu 任务会通过 `.github/scripts/apt-retry.sh` 执行环�
 卡住后耗尽整个原生构建预算。安装器生命周期测试仍直接执行原始包管理器事务，
 因为事务结果本身就是这些测试要验证的行为。
 
+## 仓库卫生门禁
+
+以下两项仓库级检查放在 Racket 任务中，因为普通的构建/测试任务覆盖不到：
+
+- **旧所有者名称允许清单。** `bash .github/scripts/check-owner-hygiene.sh`
+  在受版本控制的文件中发现 `TuringLambda AI`、作为显示名或版权名使用的
+  `TuringLambdaAI`，或裸 `turinglambdaai` 时失败。允许清单刻意很小：
+  `LICENSE`（former-name 来源说明）、`CHANGELOG.md`（历史记录）和门禁脚本
+  自身。产品工作流应复用该脚本，覆盖 UI 文案、生成头文件、fixture 和站点
+  页面；各仓库原有的签名检查只扫描更新 URL。
+- **生成文件一致性。** 仓库如果提交生成客户端，CI 就重新生成并用
+  `git diff` 判定失败，而不是依赖评审。本仓库在 `examples/taskboard` 运行
+  `raco rivet generate`，并比较已提交的 Swift 与 C++ 客户端。同时提交生成 C
+  字符串表的产品应在同一步运行对应生成器。不提交 Kotlin companion 输出的
+  项目可用 `raco rivet generate --check` 报告过期、缺失和被手工修改的客户端。
+
 ## 发布门禁
 
 推送标签前，应要求上述所有原生宿主任务和产品自己的 Racket 测试通过。

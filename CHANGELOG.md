@@ -9,6 +9,27 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Flatpak bundle support in `raco rivet release` (issue #449): add
+  `"flatpak"` to `linux-formats` and declare the product's sandbox in
+  `flatpak-finish-args` (or replace the manifest with `flatpak-manifest`).
+  Rivet generates the GNOME Platform 50 manifest with the pinned lz4/ncurses
+  closure, wraps the verified release tar.gz, writes the versioned
+  `.flatpak` and its `.sha256` sidecar, and verifies the artifact. A Linux CI
+  job builds and imports the bundle. Flatpak updates stay owned by Flatpak
+  remotes, not the signed self-update feed.
+- `rivet/share-watch` for Windows share-backed products (issue #446):
+  `share-reachable?` reads the redirector's state table with parameterless
+  `net use`, `share-directory-snapshot` scans in a place with a timeout, and
+  `start-share-watcher` reports status and entry changes. A new `share-paths`
+  project setting makes `raco rivet doctor` report each mapped drive's state
+  and warn with `unreachable-network-share` before a dead share parks the
+  engine thread. The blocking-call pattern is documented in the diagnostics
+  guide.
+- Repository hygiene gates (issue #455): CI now rejects the retired owner
+  spellings anywhere outside `LICENSE`, `CHANGELOG.md`, and the gate scripts,
+  and regenerates the taskboard clients before diffing the committed Swift and
+  C++ output. The retired spelling had already reached the site footer in
+  `docs/index.html`; that user-visible surface is corrected to TurLamAI.
 - `raco rivet update-keys` generates the Ed25519 update keypair in the
   family verifier shape (issue #453): PKCS#8 PEM, the DER base64 secret, the
   full SPKI hex, the raw 32-byte hex, and the raw base64 native verifiers
@@ -21,6 +42,10 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- `platform/linux` and `platform/windows` Integration samples are documented
+  as intentionally byte-identical and guarded by a parity test; `rivet/backend`
+  now records its DSL / serve / reflection split boundary for future growth
+  (issue #456).
 - `raco rivet sign-manifest` accepts PEM private keys (converted once through
   OpenSSL 3), a trailing `:<component>` discriminator on `--artifact`, and
   repeatable `--alias` feed names. Identity fields (`--application-id`,

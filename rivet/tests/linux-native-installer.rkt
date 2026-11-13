@@ -177,6 +177,15 @@
                      #hasheq((name . "Demo_App")
                              (linux-formats . ("deb")))))
     (check-equal? (project-linux-formats deb-only) '("deb"))
+    ;; Flatpak is an additive opt-in format with a product-owned sandbox.
+    (define flatpak-only
+      (rivet-project temp-root
+                     #hasheq((name . "Demo_App")
+                             (linux-formats . ("flatpak"))
+                             (flatpak-finish-args . ("--socket=x11")))))
+    (check-equal? (project-linux-formats flatpak-only) '("flatpak"))
+    (check-equal? (project-flatpak-finish-args flatpak-only) '("--socket=x11"))
+    (check-false (project-flatpak-finish-args project))
     ;; Existing Rivet projects without the override must retain the legacy
     ;; product-name desktop path; only opted-in projects switch identities.
     (check-equal? (project-linux-desktop-id deb-only) "Demo_App"))

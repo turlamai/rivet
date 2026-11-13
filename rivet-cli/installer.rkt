@@ -10,6 +10,7 @@
          "../rivet/distribution/crypto.rkt"
          "appimage.rkt"
          "deb.rkt"
+         "flatpak.rkt"
          "linux-package.rkt"
          "package.rkt"
          "project.rkt"
@@ -726,9 +727,10 @@
   (when gpg-settings
     (gpg-detach-sign! output gpg-settings))
   ;; Native system installer formats ride along with the signed tar.gz:
-  ;; deb/rpm integrate with the distribution package manager, while AppImage
+  ;; deb/rpm integrate with the distribution package manager, AppImage
   ;; carries its own GTK4 dependency closure and becomes the signed in-place
-  ;; update payload when enabled.
+  ;; update payload when enabled, and Flatpak wraps the same verified tar.gz
+  ;; in the GNOME runtime bundle.
   ;; `fmt`, not `format`: the builtin stays reachable inside the branches.
   (for ([fmt (in-list (project-linux-formats project))])
     (define artifact
@@ -736,6 +738,7 @@
         [("deb") (create-deb! project package)]
         [("rpm") (create-rpm! project package)]
         [("appimage") (create-appimage! project package)]
+        [("flatpak") (create-flatpak-bundle! project output)]
         [else #f]))
     (when (and gpg-settings artifact (path? artifact))
       (gpg-detach-sign! artifact gpg-settings)))
