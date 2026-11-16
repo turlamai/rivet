@@ -52,7 +52,7 @@ Shipped.
 | Clipboard | **Partial** | Text-only adapters | No HTML/RTF/image/file-list; document the limit or extend |
 | Drag and drop | **Missing** | No `IDropTarget`/`NSDragging`/`GtkDropTarget` | File-drop helpers plus a doc recipe |
 | URL schemes and file associations | **Partial** | Windows MSI + macOS `Info.plist` registration | Linux emits no `MimeType`/`x-scheme-handler`; Windows per-machine install writes HKCU keys |
-| Activation delivery into app code | **Partial** | macOS `RivetActivationRouter` and generated SwiftUI `AppModel.activatedURLs` receive bounded URL/file activations; Windows `ActivationArguments()` and Linux argv remain unconsumed | Wire the product-owned typed Racket activation contract across all three hosts; add actual packaged acceptance coverage |
+| Activation delivery into app code | **Partial** | macOS `RivetActivationRouter` buffers deferred URL/file activations; generated SwiftUI host receives opens directly into bounded `AppModel.activatedURLs`; Windows `ActivationArguments()` and Linux argv remain unconsumed | Wire the product-owned typed Racket activation contract across all three hosts; add actual packaged acceptance coverage |
 | Single instance | **Partial** | Linux lease + argument forwarding; macOS persistent Application Support lease with legacy Caches compatibility and Swift regression tests | Windows/macOS forwarding and generated scaffold lease acquisition remain missing |
 | Launch at login / autostart | Shipped (adapter) | Run key, `SMAppService`, XDG autostart | Scaffold does not wire it; Windows passes `--autostart`, Linux does not |
 | Secure storage | Shipped | Credential Manager, Keychain, libsecret | Conditional Linux availability must be checked by the product |
