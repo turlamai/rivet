@@ -41,7 +41,7 @@ function Invoke-Msi {
 
 $installed = $false
 $schemeKey = if ([string]::IsNullOrEmpty($Scheme)) { '' } else {
-    "Registry::HKEY_CURRENT_USER\\Software\\Classes\\$Scheme"
+    "Registry::HKEY_LOCAL_MACHINE\Software\Classes\$Scheme"
 }
 try {
     Invoke-Msi -Action i -LogFile $logInstall
@@ -56,9 +56,9 @@ try {
     } else {
         # Verify the *actual MSI registration* under the installing user's
         # Classes hive before invoking a URI through ShellExecute.
-        $commandKey = "$schemeKey\\shell\\open\\command"
+        $commandKey = "$schemeKey\shell\open\command"
         if (-not (Test-Path -LiteralPath $commandKey)) {
-            throw "MSI installed no current-user URL handler for $Scheme"
+            throw "MSI installed no machine-scoped URL handler for $Scheme"
         }
         $registeredCommand = (Get-Item -LiteralPath $commandKey).GetValue('')
         if (-not $registeredCommand -or
