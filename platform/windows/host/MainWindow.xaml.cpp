@@ -64,7 +64,12 @@ rivet::windows::RacketRuntimeConfig runtime_config() {
 
 }  // namespace
 
-MainWindow::MainWindow() {
+MainWindow::MainWindow() : MainWindow({}) {}
+
+MainWindow::MainWindow(std::vector<std::wstring> initial_activations) {
+  // Win32 gives us startup parameters before Racket is ready. Keep them in
+  // the native model until the product elects to consume/validate them.
+  activations_.push_all(std::move(initial_activations));
   InitializeComponent();
   Title(L"Rivet — Racket + WinUI 3");
   // Only titled windows opt in; absent brand resources keep the native default.
