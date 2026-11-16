@@ -54,8 +54,8 @@ try {
     if ([string]::IsNullOrEmpty($Scheme)) {
         & (Join-Path $PSScriptRoot 'windows-uia.ps1') -Executable $exe -OutputDirectory $installedEvidence
     } else {
-        # Verify the *actual MSI registration* under the installing user's
-        # Classes hive before invoking a URI through ShellExecute.
+        # Verify the *actual MSI registration* under machine-wide Classes,
+        # then invoke the registered URI through ShellExecute.
         $commandKey = "$schemeKey\shell\open\command"
         if (-not (Test-Path -LiteralPath $commandKey)) {
             throw "MSI installed no machine-scoped URL handler for $Scheme"
@@ -86,8 +86,8 @@ try {
         installedExe = $exe
         installedSecondInstanceActivation = $true
         nativeDeliveryCount = [int]$activationTrace.nativeDeliveryCount
-        # This proves the installed executable's command-line redirection.
-        # Actual ShellExecute of a registered URL/file association is separate.
+        # ShellExecute URI registration is proven only in the Scheme branch.
+        # File-extension association activation remains a separate gate.
         registeredShellAssociationAcceptance = if ([string]::IsNullOrEmpty($Scheme)) { 'unrun' } else { 'passed' }
         registeredScheme = $Scheme
         assertions = @(
