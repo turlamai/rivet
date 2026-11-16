@@ -58,8 +58,9 @@ Linux 异步读取，因为 Wayland 按需从当前所有者传输剪贴板内�
   `ActivationInbox`。产品代码必须显式调用 `TakeActivationArguments()` 并验证后才映射到
   经过授权的类型化 RPC。父 PR **仅支持新进程启动参数接收**；后续堆叠的**实验性 AppLifecycle 方案**利用产品唯一
   标识键和 `AppInstance.FindOrRegisterForKey` / `RedirectActivationToAsync`，尝试把第二实例
-  的 Launch/File/Protocol 参数送达主实例 WinUI dispatcher 的有界队列。该方案在真实 MSI 双进程
-  激活测试通过前不得宣称已交付；
+  的 Launch/File/Protocol 参数送达主实例 WinUI dispatcher 的有界队列。CI 对普通打包可执行文件及 **MSI 安装后的可执行文件** 都执行双进程启动，要求第一个实例
+  的原生队列恰好接收一次预期 URI，且原进程仍运行。此验收**不能替代** ShellExecute 的
+  已注册 URL/文件关联测试，也未验收产品定义的类型化 Racket RPC；
 - `Shell_NotifyIconW` 用于托盘存在和通知气泡，另有 `TrayController` 拥有窗口 subclass、
   原生弹出菜单、命令路由和 `TaskbarCreated` 恢复；
 - `GlobalShortcuts` 基于 `RegisterHotKey`：每个实例一个 message-only 窗口，`WM_HOTKEY`
