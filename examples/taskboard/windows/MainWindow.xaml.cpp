@@ -63,7 +63,7 @@ std::wstring status_text(rivet_app::TaskStatus status) {
 
 }  // namespace
 
-MainWindow::MainWindow() : MainWindow({}) {}
+MainWindow::MainWindow() : MainWindow(std::vector<std::wstring>{}) {}
 
 MainWindow::MainWindow(std::vector<std::wstring> initial_activations) {
   // Win32 gives us startup parameters before Racket is ready. Keep them in
