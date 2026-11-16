@@ -82,6 +82,14 @@ if(RIVET_BUILD_TESTS)
   rivet_enable_test_assertions(rivet_x509_spki_test)
   add_test(NAME rivet_x509_spki_test COMMAND rivet_x509_spki_test)
 
+  # WinUI activation buffering is standard-C++ code, so run its Unicode,
+  # overflow and explicit-drain contract across all native CI hosts.
+  add_executable(rivet_windows_activation_inbox_test
+    tests/windows_activation_inbox_test.cpp)
+  target_compile_features(rivet_windows_activation_inbox_test PRIVATE cxx_std_17)
+  rivet_enable_test_assertions(rivet_windows_activation_inbox_test)
+  add_test(NAME rivet_windows_activation_inbox_test COMMAND rivet_windows_activation_inbox_test)
+
   # Header-only: the version comparison is compiled into this test directly.
   add_executable(rivet_version_compare_test tests/version_compare_test.cpp)
   target_include_directories(rivet_version_compare_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
