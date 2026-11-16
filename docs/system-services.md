@@ -80,7 +80,7 @@ private endpoint, or no uploader; Rivet does not bind to any provider.
   presented as a sheet for a supplied `NSWindow`;
 - `SMAppService.mainApp` for login-item registration;
 - Security.framework Keychain generic-password items;
-- an activation router that stays on the main actor.
+- a main-actor URL/file activation router that keeps the newest 64 activations while the native callback is unregistered, replays them in arrival order upon registration, and exposes `droppedURLCount` for older overflow events. The generated SwiftUI host connects `onOpenURL` to bounded `AppModel.activatedURLs`, but **does not automatically call a backend RPC**: each product must validate and route its own activation contract after backend readiness.
 
 macOS asks the user for notification and login-item consent as required by the OS. Code must not treat denial as a crash.
 
