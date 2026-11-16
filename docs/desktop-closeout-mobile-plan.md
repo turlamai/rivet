@@ -238,6 +238,22 @@ changed.
 
 ## Next implementation handoff
 
+**Desktop activation bounded slice (2026-11-16, PR #474):** the generated
+macOS SwiftUI host now registers an `onOpenURL` callback, routing into a
+main-actor `RivetActivationRouter` that buffers up to 64 early activations
+and exposes overflow; `AppModel.activatedURLs` is the native product hook.
+New Swift tests cover ordering, late registration, bounds and reentrancy.
+This is not automatic Racket RPC delivery and does not close the Windows/
+Linux activation, single-instance forwarding, or packaged first-launch
+acceptance gates. Validate the exact PR head across Swift, native UI and
+embedded CI before merging. Next activation slice: define product-owned
+typed RPC schema and exercise one real OS-to-backend activation per platform.
+Starting main SHA was `9a951de7cc5233c3904796c51f576e969b47f142`.
+
+中文：本次仅实现 macOS 原生 URL/文件激活的早期缓存和应用模型接收，
+不代表已发送到 Racket RPC，更不代表 Windows/Linux 或真实安装包
+激活通过。等待 PR #474 的完整 CI 证据，再推进类型化 RPC 及三平台验收。
+
 **Owner priority override, 2026-11-03:** unify all active product online-update
 mechanisms on Rivet before first-install, commercial or unrelated feature work.
 [Portfolio tracking](https://github.com/turlamai/turlamai.github.io/issues/14)
