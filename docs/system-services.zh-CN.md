@@ -92,7 +92,7 @@ Taskboard 是可执行配方。
   sheet 呈现；
 - `SMAppService.mainApp` 用于登录项注册；
 - Security.framework Keychain generic-password 条目；
-- 在 main actor 上运行的 URL/文件激活路由：注册原生回调前缓存最新 64 条事件，注册后按接收顺序交付，超限丢弃较早事件并通过 `droppedURLCount` 计数。生成的 SwiftUI 宿主把 `onOpenURL` 接入有界的 `AppModel.activatedURLs`，但**不会自动调用后端 RPC**；产品需在后端就绪后自行校验事件并路由到产品定义的类型化 RPC。
+- 在 main actor 上运行的 URL/文件激活路由：注册原生回调前缓存最新 64 条事件，注册后按接收顺序交付，超限丢弃较早事件并通过 `droppedURLCount` 计数。生成的 SwiftUI 宿主直接把 `onOpenURL` 接入有界的 `AppModel.activatedURLs`，不依赖视图启动任务或已安装 Rivet 包中的新版路由器 API；但**不会自动调用后端 RPC**；产品需在后端就绪后自行校验事件并路由到产品定义的类型化 RPC。
 
 macOS 会按操作系统要求询问通知和登录项同意。代码不得把拒绝当作崩溃。
 
