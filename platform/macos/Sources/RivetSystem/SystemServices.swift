@@ -322,8 +322,50 @@ public final class RivetMenuBarController: NSObject {
     }
 }
 
+/// Buffers early URL/file-open events until the native host installs its
+/// application callback. Keep all access on the AppKit/SwiftUI main actor.
+/// This router does not invoke Racket itself: products decide which typed RPC
+/// (if any) should receive a validated activation after backend startup.
+@MainActor
 public final class RivetActivationRouter {
-    public var onURLs: (([URL]) -> Void)?
+    /// Bound pre-handler memory even when the product never installs a callback.
+    public static let pendingLimit = 64
+
+    public var onURLs: (([URL]) -> Void)? {
+        didSet { deliverPendingIfReady() }
+    }
+
+    /// Events discarded because a missing callback filled the startup buffer.
+    /// The newest activations are retained; hosts can report this diagnostic.
+    public private(set) var droppedURLCount = 0
+    public var pendingURLCount: Int { pendingURLs.count }
+
+    private var pendingURLs: [URL] = []
+
     public init() {}
-    public func handle(_ urls: [URL]) { onURLs?(urls) }
+
+    public func handle(_ urls: [URL]) {
+        guard !urls.isEmpty else { return }
+        if let onURLs {
+            onURLs(urls)
+            return
+        }
+
+        for url in urls {
+            if pendingURLs.count == Self.pendingLimit {
+                pendingURLs.removeFirst()
+                droppedURLCount += 1
+            }
+            pendingURLs.append(url)
+        }
+    }
+
+    private func deliverPendingIfReady() {
+        guard let onURLs, !pendingURLs.isEmpty else { return }
+        // Clear before invoking product code: a reentrant activation cannot
+        // replay the same URL, and later activations stay in arrival order.
+        let toDeliver = pendingURLs
+        pendingURLs.removeAll()
+        onURLs(toDeliver)
+    }
 }
