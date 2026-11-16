@@ -72,8 +72,8 @@ void App::OnLaunched(Microsoft::UI::Xaml::LaunchActivatedEventArgs const&) {
     auto selected = lifecycle::AppInstance::FindOrRegisterForKey(
         winrt::to_hstring(rivet_app::kIdentifier));
     if (!selected.IsCurrent() && activation) {
-      auto redirect = selected.RedirectActivationToAsync(activation);
-      redirect.Completed([this, dispatcher,
+      pending_redirect_ = selected.RedirectActivationToAsync(activation);
+      pending_redirect_.Completed([this, dispatcher,
                           fallback = std::move(initial_arguments)](
                              auto const& finished, auto const&) mutable {
         bool delivered = false;
@@ -85,6 +85,7 @@ void App::OnLaunched(Microsoft::UI::Xaml::LaunchActivatedEventArgs const&) {
         }
         dispatcher.TryEnqueue(
             [this, delivered, fallback = std::move(fallback)]() mutable {
+              pending_redirect_ = nullptr;
               if (delivered) {
                 Microsoft::UI::Xaml::Application::Current().Exit();
               } else if (!window_) {
