@@ -1,27 +1,31 @@
 # Standalone mobile hosts
 
 Rivet products ship as desktop applications today. The standalone mobile
-host line — an iOS app embedding a Racket CS runtime in-process, built and
-tested entirely from the repository's own toolchain — is in **foundation**
-status: the generated project, the portable-bytecode runtime pipeline, and
-simulator lifecycle evidence exist; device signing, App Store submission,
-and real-device round trips remain open gates (see `docs/desktop-closeout-mobile-plan.md`
-M4 and issue #357). Android standalone hosts are not yet generated.
+host line — an iOS app intended to embed Racket CS in-process — remains
+**experimental**. The generated Xcode project and portable-bytecode (pb)
+toolchain have local build evidence. The simulator app builds, installs, and
+launches, but its embedded Racket VM has not finished booting and no passing
+RVT1 RPC/lifecycle test exists. See [#357](https://github.com/turlamai/rivet/issues/357)
+for the failing runtime stack. The branch has no completed CI evidence for
+the standalone flow. Device signing, App Store submission, and real-device
+round trips remain open; Android standalone hosts are not generated.
 
 ## Why portable bytecode (pb) on iOS
 
 Apple enforces W^X on iOS: no memory page may be writable and executable
 at once, which bans just-in-time code generation. Racket CS normally
 compiles code at run time. The pb build (`--enable-pb --enable-mach=tpb64l`)
-replaces native code generation with a bytecode virtual machine, so a
-Rivet iOS host runs **without JIT and without executable-memory
-exceptions** — the property App Store review requires. The cost is
-interpretation overhead for backend logic; the native UI keeps its usual
-performance.
+replaces native code generation with a bytecode interpreter. This is
+the design approach for avoiding JIT on an App Store build, **not yet proof**
+that the embedded runtime boots or satisfies all executable-memory rules
+on iOS. The simulator VM currently hangs during libffi closure allocation
+(`S_ffi_closure`). Once functional, interpreted backend work may carry more
+runtime overhead; native SwiftUI rendering is separate.
 
-Because pb bytecode is machine-portable, the backend module is compiled
-once on the build machine by a pb `racket` that itself runs on macOS, and
-the produced `core.zo` executes on every pb target.
+The goal is to compile backend modules once to portable `core.zo` using
+a pb `racket` host compiler (currently verified on Linux). Running that
+bundle on a particular iOS target still requires a functioning target VM;
+the current simulator has not passed this gate.
 
 ## Toolchain
 
@@ -33,15 +37,14 @@ Racket CS source (same version and SHA-256 pin as
 |-------|--------|---------|
 | `host-base` | prefix | native Racket CS build; bootstraps every pb and cross build |
 | `host-compiler` | prefix | native pb (`tpb64l`) racket+raco that compiles product backends to portable bytecode |
-
-The `host-compiler` stage must run on a machine **without forced W^X** —
-Linux, or an x86_64 macOS host. On arm64 macOS the kernel kills any
-process that turns libffi closure pages executable, and the pb compiler's
-own bootstrap loads `ffi/unsafe`; the pb VM itself is fine (`raw_racketcs`
-runs) but the compiler never finishes. The stage is machine-portable, so
-CI builds it on an Ubuntu runner and macOS runners consume its prefix.
 | `device` | prefix | cross build of `libracketcs.a` + boot files for the iPhoneOS SDK |
 | `simulator` | prefix | cross build of `libracketcs.a` + boot files for the iPhoneSimulator SDK |
+
+The `host-compiler` stage has been built and run locally on Linux,
+sidestepping the observed libffi executable-memory failure on arm64 macOS.
+This host-side success does **not** validate libffi closure allocation inside
+an iOS simulator process. A CI cross-runner artifact handoff has been designed,
+but no successful WIP-branch CI run establishes it.
 
 ```bash
 platform/ios/build-embedded-racket.sh --stage host-base     --output "$OUT/host-base"
@@ -87,10 +90,10 @@ raco rivet build --ios
 
 This compiles `backend.rkt` with the pb compiler, stages the boot files
 and the bundle into `ios-host/runtime` and `ios-host/res` (git-ignored),
-and runs `xcodebuild` for the iOS simulator (arm64). The generated XCTest
-suite boots the backend inside the app process and exercises typed RPCs
-plus an orderly stop/restart cycle — the simulator half of the M4
-lifecycle evidence.
+and runs `xcodebuild` for the iOS simulator (arm64). The generated XCTest suite **attempts** backend startup, typed RPCs,
+and a stop/restart cycle. It has not passed: in the latest sampled local
+run, the embedded pb VM stalls in `S_ffi_closure` before serving the
+RVT1 Hello frame. Treat it as a pending M4 acceptance gate.
 
 Device builds (iPhoneOS SDK, Release configuration, signing) require a
 publisher development team and are part of the remaining qualification
@@ -98,73 +101,67 @@ gates, not part of `raco rivet build --ios`.
 
 ## What is and is not proven
 
-Proven by the framework CI on macOS runners:
+**Local branch evidence (not a passing CI gate):**
 
-- the pb runtime cross-builds for the iOS simulator and device SDKs;
-- the generated host compiles and links the pb runtime into a real app;
-- the backend boots and serves typed RPCs in the simulator process, and
-  restarts with identical observable state after an orderly stop.
+- The pb host compiler runs on the Linux build machine and produces a
+  backend `core.zo`; simulator/device runtime archives have been cross-built.
+- The generated simulator app has built, installed, and launched with the
+  pb runtime and boot resources staged.
+- The live process still hangs inside `S_ffi_closure` during VM boot.
+  Simulator RVT1 Hello, typed RPC, restart and process-death behavior are
+  **not verified**. This supersedes earlier optimistic notes.
 
-Not yet proven (open gates): physical-device run under Release
-constraints, code signing with publisher credentials, App Store submission
-itself, and the Android standalone host. Treat the iOS line as developer
-preview only after those close in the product repository that consumes
-it.
+**Before developer-preview status:** repair the libffi/Chez closure path,
+show a clean simulator XCTest run with real backend/RVT1 evidence, add
+cross-runner CI for the entire pb toolchain+app, and qualify Release signing,
+runtime restrictions, lifecycle and network behavior on a physical device.
+App Store submission/reviewer acceptance and an Android standalone host
+are separate uncompleted gates. Keep this branch draft until then.
 
 ---
 
-## 独立移动宿主(中文)
+## 独立移动宿主（中文）
 
-Rivet 的独立移动宿主线处于 **foundation** 状态:已具备生成的 Xcode 工程、
-可移植字节码运行时管线与模拟器生命周期证据;设备签名、App Store 提交、
-真机往返仍是未关闭的门禁(见 `docs/desktop-closeout-mobile-plan.md` M4
-与 issue #357)。Android 独立宿主尚未生成。
+目前独立 iOS 宿主仍处于**实验阶段**。`feat/mobile-hosts` 分支包含
+Xcode 工程、SwiftUI 宿主、pb（portable bytecode，可移植字节码）工具链
+及 XCTest 用例。本地已验证模拟器应用能够编译、安装并启动，但嵌入的
+Racket 虚拟机尚未完成启动，**没有通过真实的 RVT1 RPC 或生命周期测试**。
+独立宿主的 CI、真机 Release、签名和商店提交均未验收。具体阻塞见
+[Issue #357](https://github.com/turlamai/rivet/issues/357)。
 
-### 为什么 iOS 用可移植字节码(pb)
+### 为什么采用 pb
 
-Apple 在 iOS 上强制 W^X:内存页不可同时可写、可执行,即禁止 JIT。pb 构建
-(`--enable-pb --enable-mach=tpb64l`)以字节码虚拟机取代本地代码生成,使
-Rivet iOS 宿主**无 JIT、无可执行内存异常**地运行——这正是 App Store 审核
-要求的性质。代价是后端逻辑有解释开销;原生 UI 性能不受影响。
+iOS 限制可写且可执行的内存页；采用
+`--enable-pb --enable-mach=tpb64l` 是为了通过字节码解释执行避免 JIT。
+这只是技术方案，**不能直接等同于已满足 iOS 运行时及 App Store 要求**。
+当前模拟器 VM 在 libffi 的 `S_ffi_closure` 处分配闭包时挂起。
+`core.zo` 已可由 Linux 上的 pb 主机编译器生成，但是否能在 iOS 上运行，
+必须通过目标 VM 的真实执行证明。
 
-pb 字节码与机器无关:后端模块由构建机上的 pb `racket` 编译一次,产出的
-`core.zo` 可在所有 pb 目标上执行。
+### 工具链与构建
 
-### 工具链
-
-`platform/ios/build-embedded-racket.sh` 从与 CI 相同 pin 的 Racket CS
-源码构建全部产物。四个阶段:`host-base`(原生构建,引导后续一切)、
-`host-compiler`(pb racket/raco,把产品后端编译成可移植;必须运行在
-未强制 W^X 的机器上——Linux 或 x86_64 macOS:arm64 macOS 内核会杀掉把
-libffi closure 页变为可执行的进程,pb 编译器自身 bootstrap 会加载
-`ffi/unsafe`,故该阶段在 arm64 macOS 上无法完成;本阶段产物与机器无关,
-CI 在 Ubuntu runner 构建、macOS runner 消费其 prefix)
-字节码)、`simulator`/`device`(交叉构建各 SDK 的 `libracketcs.a` 与
-boot 文件)。脚本处理过的真实故障:pb 需要的 libffi 按 SDK 编译并并入归档、
-模拟器 SDK 路径需以 `iPhoneSimulator.sdk` 结尾、交叉构建的 `make install`
-会重跑宿主侧步骤(改为按官方配方直接收割)、Racket 自带的 Mach-O 签名器
-对 pb 二进制定位错误(改走系统 `codesign`)。
-
-### 构建命令
+`platform/ios/build-embedded-racket.sh` 具有四个阶段：
+`host-base`（原生基础工具链）、`host-compiler`（编译 pb 后端）、
+`simulator`（模拟器运行时与 boot 文件）以及 `device`（真机 SDK
+运行时与 boot 文件）。目前 Linux 主机编译器与本地交叉构建有证据，
+但这不等于目标 iOS VM 已经运行成功。arm64 macOS 上 libffi 闭包的
+可执行内存限制也不能通过简单打开 static-trampoline 编译开关解决。
 
 ```bash
+platform/ios/build-embedded-racket.sh --stage host-base --output "$OUT/host-base"
+platform/ios/build-embedded-racket.sh --stage host-compiler --output "$OUT/host-compiler" --base-dir "$OUT/host-base"
+platform/ios/build-embedded-racket.sh --stage simulator --output "$OUT/simulator" --base-dir "$OUT/host-base"
+platform/ios/build-embedded-racket.sh --stage device --output "$OUT/device" --base-dir "$OUT/host-base"
+
 export RIVET_IOS_HOST_RACKET="$OUT/host-compiler/bin/racket"
 export RIVET_IOS_RACKET_LIB_DIR="$OUT/simulator/lib"
 export RIVET_IOS_BOOT_DIR="$OUT/simulator/runtime"
 export RIVET_IOS_RACKET_INCLUDE="$OUT/simulator/include"
-
 raco rivet build --ios
 ```
 
-流程:用 pb 编译器编译 `backend.rkt`,把 boot 文件与字节码束布点到
-`ios-host/runtime`、`ios-host/res`(已 git-ignore),再以模拟器目标
-(arm64)运行 `xcodebuild`。生成的 XCTest 在应用进程内启动后端,执行类型化
-RPC 与有序停止/重启——即 M4 生命周期证据的模拟器部分。
-
-### 已证明与未证明
-
-框架 CI 已证明:pb 运行时可交叉构建到模拟器与真机 SDK;生成的宿主能把
-pb 运行时链接进真实应用;后端在模拟器进程内启动并服务类型化 RPC,有序
-停止后重启状态一致。尚未证明(门禁保持打开):真机 Release 运行、发布者
-凭据签名、App Store 提交本身,以及 Android 独立宿主。在这些门禁关闭前,
-iOS 线只应被视为开发者预览。
+当前生成的 XCTest 已包含启动、类型化 RPC 与重启用例，但执行时
+Racket VM 卡在 `S_ffi_closure`，尚未通过。下一步是复现并解决该底层
+阻塞、得到真实模拟器 Hello/RPC/生命周期通过证据，再建立完整 CI。
+之后仍需真机 Release、无 JIT/可执行内存违规、签名、权限、进程
+恢复与商店审核的独立验证。Android 独立宿主目前尚未生成。
