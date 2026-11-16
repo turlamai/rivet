@@ -65,7 +65,7 @@ private endpoint, or no uploader; Rivet does not bind to any provider.
 
 `RivetSystem` uses AppKit and Apple system frameworks:
 
-- an OS file lock automatically released on process death;
+- a persistent Application Support `flock` single-instance lease, plus a compatibility lease at the prior Caches path so an older running host using the original cache inode and an upgraded host cannot both claim primary ownership; if that inode was already unlinked, an unmodified older process cannot recognize the new persistent lock. Both descriptors are closed on teardown and OS-released on process death. Do not unlink live lock files: the persistent lease also protects newer hosts if the cache entry is evicted;
 - SwiftUI `onOpenURL` plus packaged `CFBundleURLTypes`/`CFBundleDocumentTypes` metadata;
 - `UNUserNotificationCenter`;
 - `NSStatusItem` for menu-bar UI;

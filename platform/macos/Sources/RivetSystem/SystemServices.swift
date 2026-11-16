@@ -23,28 +23,60 @@ public enum RivetSystemError: Error, CustomStringConvertible {
     }
 }
 
-/// A process-wide lock backed by flock(2). The lock descriptor remains open
-/// for the lifetime of the object, and is released automatically on crash.
+/// A process-wide lock backed by flock(2). A persistent Application Support
+/// lock is the source of truth. Keep the previous Caches lock as a second
+/// lease so older hosts that still hold the original cache inode cannot
+/// also win. If the old lock file was already unlinked while an unmodified
+/// older host is running, that host cannot recognize the new persistent lock.
+/// Both descriptors remain open until process exit and flock releases them on
+/// crash. Do not delete a lock file: unlinking a held file permits a new
+/// inode to be locked by another process.
 public final class RivetSingleInstance: @unchecked Sendable {
     private let descriptor: Int32
+    private let legacyDescriptor: Int32
     public let isPrimary: Bool
 
     public init(applicationID: String) throws {
-        let root = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        let manager = FileManager.default
+        let persistentRoot = manager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("Rivet/InstanceLocks", isDirectory: true)
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let legacyRoot = manager.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Rivet/InstanceLocks", isDirectory: true)
+        try manager.createDirectory(at: persistentRoot, withIntermediateDirectories: true)
+        try manager.createDirectory(at: legacyRoot, withIntermediateDirectories: true)
+
         let safeID = applicationID.replacingOccurrences(of: "/", with: "_")
-        let path = root.appendingPathComponent(safeID + ".lock").path
-        descriptor = Darwin.open(path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR)
-        guard descriptor >= 0 else { throw RivetSystemError.posix("open", errno) }
-        isPrimary = flock(descriptor, LOCK_EX | LOCK_NB) == 0
+        let persistentPath = persistentRoot.appendingPathComponent(safeID + ".lock").path
+        let legacyPath = legacyRoot.appendingPathComponent(safeID + ".lock").path
+
+        let persistentFD = Darwin.open(persistentPath, O_CREAT | O_RDWR | O_CLOEXEC,
+                                      S_IRUSR | S_IWUSR)
+        guard persistentFD >= 0 else { throw RivetSystemError.posix("open", errno) }
+        let cacheFD = Darwin.open(legacyPath, O_CREAT | O_RDWR | O_CLOEXEC,
+                                  S_IRUSR | S_IWUSR)
+        guard cacheFD >= 0 else {
+            let openError = errno
+            _ = Darwin.close(persistentFD)
+            throw RivetSystemError.posix("open", openError)
+        }
+
+        descriptor = persistentFD
+        legacyDescriptor = cacheFD
+        // Lock the old path first: old hosts still check only this inode.
+        let legacyAcquired = flock(legacyDescriptor, LOCK_EX | LOCK_NB) == 0
+        isPrimary = legacyAcquired && flock(descriptor, LOCK_EX | LOCK_NB) == 0
+        if legacyAcquired && !isPrimary {
+            _ = flock(legacyDescriptor, LOCK_UN)
+        }
     }
 
     deinit {
-        if descriptor >= 0 {
-            if isPrimary { _ = flock(descriptor, LOCK_UN) }
-            _ = Darwin.close(descriptor)
+        if isPrimary {
+            _ = flock(descriptor, LOCK_UN)
+            _ = flock(legacyDescriptor, LOCK_UN)
         }
+        _ = Darwin.close(descriptor)
+        _ = Darwin.close(legacyDescriptor)
     }
 }
 
