@@ -238,6 +238,23 @@ changed.
 
 ## Next implementation handoff
 
+**Windows native activation bounded slice (2026-11-16):** the generated
+WinUI 3 host and reference Taskboard now call the existing Windows
+`ActivationArguments()` before constructing their native windows. Each
+window keeps a bounded `rivet::system::ActivationInbox` of raw Unicode
+arguments (64 entries, 4096 UTF-16 code units each), exposed only via
+explicit `TakeActivationArguments()`; no untrusted input invokes Racket
+on receipt. A cross-platform native CTest proves queue behavior and a
+Racket scaffold contract checks both WinUI call sites. This implements
+**new-process startup intake**, not second-instance delivery, typed backend
+RPC routing, or actual MSI-installed URL/file association acceptance.
+Starting main SHA: `ef2183d949266a4ffe22d458569f11de1480e191`.
+Require current-head Windows CLI/native UI/ARM64 tests before merge.
+
+中文：本切片使 Windows 生成宿主和 Taskboard 的新进程能保留启动参数，
+通过有界 Unicode 队列由产品代码自行取出、验证并决定类型化 RPC。
+第二实例转发、实际安装后 URL/文件关联以及后端 RPC 验收均未完成。
+
 **Desktop activation bounded slice (2026-11-16, PR #474):** the generated
 macOS SwiftUI host now captures `onOpenURL` directly into bounded
 `AppModel.activatedURLs` before backend startup; the separate main-actor
