@@ -43,6 +43,7 @@ normative definition.
 - [Architecture](architecture.md) — process, runtime, UI, Android, and service boundaries
 - [RVT1 protocol](protocol.md) and [runtime limits](runtime-limits.md) · [中文](runtime-limits.zh-CN.md)
 - [Racket CS embedding](embedding.md)
+- [Standalone iOS host (experimental)](mobile-hosts.md) — pending simulator VM boot/RVT1 tests; not yet a released mobile product
 - [API stability](api-stability.md) · [中文](api-stability.zh-CN.md)
 - [Large payloads, pagination, and progress](large-payloads.md) · [中文](large-payloads.zh-CN.md)
 
