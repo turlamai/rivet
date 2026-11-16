@@ -64,7 +64,7 @@ rivet::windows::RacketRuntimeConfig runtime_config() {
 
 }  // namespace
 
-MainWindow::MainWindow() : MainWindow({}) {}
+MainWindow::MainWindow() : MainWindow(std::vector<std::wstring>{}) {}
 
 MainWindow::MainWindow(std::vector<std::wstring> initial_activations) {
   // Win32 gives us startup parameters before Racket is ready. Keep them in
