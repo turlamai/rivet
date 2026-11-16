@@ -239,9 +239,10 @@ changed.
 ## Next implementation handoff
 
 **Desktop activation bounded slice (2026-11-16, PR #474):** the generated
-macOS SwiftUI host now registers an `onOpenURL` callback, routing into a
-main-actor `RivetActivationRouter` that buffers up to 64 early activations
-and exposes overflow; `AppModel.activatedURLs` is the native product hook.
+macOS SwiftUI host now captures `onOpenURL` directly into bounded
+`AppModel.activatedURLs` before backend startup; the separate main-actor
+`RivetActivationRouter` utility buffers up to 64 early activations and
+exposes overflow for hosts that register deferred handlers.
 New Swift tests cover ordering, late registration, bounds and reentrancy.
 This is not automatic Racket RPC delivery and does not close the Windows/
 Linux activation, single-instance forwarding, or packaged first-launch
