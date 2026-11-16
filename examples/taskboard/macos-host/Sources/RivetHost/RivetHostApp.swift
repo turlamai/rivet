@@ -54,7 +54,6 @@ struct RivetHostApp: App {
     @NSApplicationDelegateAdaptor(ApplicationDelegate.self)
     private var applicationDelegate
     @StateObject private var model = AppModel()
-    private let activationRouter = RivetActivationRouter()
 
     var body: some Scene {
         WindowGroup(RivetGeneratedConfig.displayName) {
@@ -65,7 +64,8 @@ struct RivetHostApp: App {
                     OrderlySignalHandling.install()
                     model.start()
                 }
-                .onOpenURL { url in activationRouter.handle([url]) }
+                // Preserve activations before embedded Racket CS is ready.
+                .onOpenURL { url in model.receiveActivatedURLs([url]) }
         }
     }
 }
@@ -157,6 +157,19 @@ final class AppModel: ObservableObject {
     @Published var titleError: String?
     private var editingTaskID: Int64?
     let chartModel = RivetChartModel()
+
+    // Product-specific URL/file actions are validated and mapped to typed
+    // backend operations only after startup; this native inbox never drops
+    // an activation solely because Racket is still booting.
+    @Published private(set) var activatedURLs: [URL] = []
+    private static let activationLimit = 64
+
+    func receiveActivatedURLs(_ urls: [URL]) {
+        guard !urls.isEmpty else { return }
+        activatedURLs.append(contentsOf: urls)
+        let overflow = activatedURLs.count - Self.activationLimit
+        if overflow > 0 { activatedURLs.removeFirst(overflow) }
+    }
 
     private var backend: EmbeddedRacketBackend?
     private var generationTask: Task<Void, Never>?
