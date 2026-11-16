@@ -16,6 +16,7 @@
 #include "layout.hpp"
 #include "rpc_bridge.hpp"
 #include "system_services.hpp"
+#include "activation_inbox.hpp"
 #include "theme.hpp"
 
 namespace {
@@ -33,6 +34,9 @@ struct AppState {
   std::unique_ptr<rivet::linux_runtime::Backend> startup_backend;
   std::string startup_error;
   std::atomic<bool> shutting_down{false};
+  // Main-context-only; product logic chooses which pending URL/file opens
+  // to validate and forward to typed Racket RPCs after backend readiness.
+  rivet::system::ActivationInbox activations;
   std::int64_t count_value{0};
 
   void set_status(std::string const& text) {
@@ -241,11 +245,31 @@ void perform_orderly_shutdown() { on_shutdown(nullptr, nullptr); }
 
 }  // namespace
 
+// GApplication forwards command lines from secondary invocations to the
+// registered primary instance over its session bus. The handler runs on the
+// application's main context, so the activation inbox is not shared with the
+// worker thread booting the embedded Racket runtime. Never pass these external
+// strings directly into RPCs without product-owned validation.
+gint on_command_line(GApplication* app,
+                     GApplicationCommandLine* command_line, gpointer) {
+  gint argc = 0;
+  gchar** argv = g_application_command_line_get_arguments(command_line, &argc);
+  for (gint index = 1; index < argc; ++index) {
+    if (argv[index] != nullptr) {
+      g_state.activations.push(argv[index]);
+    }
+  }
+  g_strfreev(argv);
+  g_application_activate(app);
+  return 0;
+}
+
 int main(int argc, char** argv) {
   g_set_application_name("Rivet");
   auto* app = gtk_application_new("dev.rivet.host",
-                                  G_APPLICATION_DEFAULT_FLAGS);
+                                  G_APPLICATION_HANDLES_COMMAND_LINE);
   g_signal_connect(app, "activate", G_CALLBACK(on_activate), nullptr);
+  g_signal_connect(app, "command-line", G_CALLBACK(on_command_line), nullptr);
   g_signal_connect(app, "shutdown", G_CALLBACK(on_shutdown), nullptr);
   int const status = g_application_run(G_APPLICATION(app), argc, argv);
   g_object_unref(app);
