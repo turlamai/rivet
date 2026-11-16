@@ -107,6 +107,21 @@
 (check-equal? (length (regexp-match* #rx"<Shortcut Id=" registration-source)) 1
               "the start-menu shortcut must survive registration authoring")
 (check-regexp-match #rx"NativeActivationRegistration" registration-source)
+;; A per-machine MSI must not register protocol/file handlers under the
+;; elevated installer's HKCU. The ShellExecute association must be visible
+;; to ordinary desktop users in HKLM\Software\Classes, and removed with
+;; the product's managed MSI component.
+(check-true
+ (string-contains? registration-source
+                   "<RegistryValue Root=\"HKLM\" Key=\"Software\\Classes\\smoke\"")
+ "URL scheme must be installed under machine-scoped Classes")
+(check-true
+ (string-contains? registration-source
+                   "<RegistryValue Root=\"HKLM\" Key=\"Software\\Classes\\.smk\"")
+ "file association must be installed under machine-scoped Classes")
+(check-false
+ (string-contains? registration-source "<RegistryValue Root=\"HKCU\"")
+ "per-machine MSI must never write protocol/file handler keys to HKCU")
 
 ;; Add/Remove Programs pinning rides on the configured windows icon.
 (check-false (regexp-match? #rx"ARPPRODUCTICON" plain-source)
