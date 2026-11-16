@@ -916,7 +916,8 @@ gint on_command_line(GApplication* app,
 
 int main(int argc, char** argv) {
   g_set_application_name("Rivet Taskboard");
-  auto* app = gtk_application_new("dev.rivet.taskboard", G_APPLICATION_HANDLES_COMMAND_LINE);
+  // A hard-coded app ID would redirect unrelated Rivet products to this host.
+  auto* app = gtk_application_new(rivet_app::kIdentifier, G_APPLICATION_HANDLES_COMMAND_LINE);
   g_signal_connect(app, "activate", G_CALLBACK(on_activate), nullptr);
   g_signal_connect(app, "command-line", G_CALLBACK(on_command_line), nullptr);
   g_signal_connect(app, "shutdown", G_CALLBACK(on_shutdown), nullptr);
