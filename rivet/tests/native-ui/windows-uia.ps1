@@ -167,11 +167,26 @@ try {
             }
             return $false
         } | Out-Null
+        if ($process.HasExited) {
+            throw 'Primary WinUI process exited while the second activation was delivered'
+        }
+        if ($secondLaunch.Id -eq $process.Id) {
+            throw 'The second launch did not create a distinct process'
+        }
+        # Detect accidental duplicate AppInstance callbacks, not merely one
+        # successful delivery. The marker contains no external URI data.
+        Start-Sleep -Milliseconds 350
+        $receipts = @(Get-Content -LiteralPath $activationMarker)
+        if ($receipts.Count -ne 1 -or $receipts[0] -ne 'received') {
+            throw "Expected exactly one native activation receipt, saw $($receipts.Count)"
+        }
         [ordered]@{
             firstProcessId = $process.Id
             secondaryProcessId = $secondLaunch.Id
             secondaryExited = $true
+            primaryStillRunning = $true
             exactExpectedActivationArrived = $true
+            nativeDeliveryCount = $receipts.Count
             nativeDeliveryOnly = $true
         } | ConvertTo-Json | Set-Content -LiteralPath (
             Join-Path $OutputDirectory 'second-instance-trace.json') -Encoding utf8
