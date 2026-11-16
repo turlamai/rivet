@@ -32,7 +32,7 @@ The adapters return local filesystem paths only. Windows uses the Common Item Di
 
 - named mutexes for process uniqueness;
 - command-line activation for URL schemes and file associations registered by MSI;
-- generated WinUI 3 and Taskboard hosts now read `ActivationArguments()` before creating the window, storing the latest 64 nonempty Unicode items (each at most 4096 UTF-16 code units) in a per-window `ActivationInbox`. Product logic explicitly calls `TakeActivationArguments()` to validate and map them to authorized typed RPCs. This covers **new-process startup intake only**: a second invocation is not yet forwarded to the existing Windows primary instance and real installed MSI activation remains unverified;
+- generated WinUI 3 and Taskboard hosts now read `ActivationArguments()` before creating the window, storing the latest 64 nonempty Unicode items (each at most 4096 UTF-16 code units) in a per-window `ActivationInbox`. Product logic explicitly calls `TakeActivationArguments()` to validate and map them to authorized typed RPCs. This covers **new-process startup intake** in the parent PR; an **experimental stacked AppLifecycle candidate** additionally uses product-keyed `AppInstance.FindOrRegisterForKey` and `RedirectActivationToAsync` to send later Launch/File/Protocol activations to the existing WinUI dispatcher and its bounded inbox. This second-instance path must pass native compilation and real MSI two-process acceptance before it can be claimed shipped;
 - `Shell_NotifyIconW` for tray presence and notification balloons, plus a
   `TrayController` that owns the window subclass, native popup menu, command
   routing, and `TaskbarCreated` recovery;
