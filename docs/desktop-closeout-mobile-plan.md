@@ -241,7 +241,7 @@ changed.
 **Windows registered URI acceptance test (Draft, 2026-11-16):** build a
 CI-only Taskboard MSI that registers the `rivet-taskboard-ci` protocol
 scheme, without adding that scheme to the checked-in product configuration.
-After a real MSI installation, verify the exact per-user registry command,
+After a real MSI installation, verify the machine-scoped `HKLM` registry command,
 invoke `rivet-taskboard-ci://activation-test/msi-shell` through Windows
 `ShellExecute` (not by directly launching `RivetHost.exe`), and require
 the primary WinUI process to remain alive and receive exactly one native
