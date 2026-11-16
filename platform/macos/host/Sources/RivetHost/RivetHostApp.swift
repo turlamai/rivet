@@ -53,7 +53,6 @@ struct RivetHostApp: App {
     @NSApplicationDelegateAdaptor(ApplicationDelegate.self)
     private var applicationDelegate
     @StateObject private var model = AppModel()
-    private let activationRouter = RivetActivationRouter()
 
     var body: some Scene {
         WindowGroup(RivetGeneratedConfig.displayName) {
@@ -61,11 +60,6 @@ struct RivetHostApp: App {
                 .environmentObject(model)
                 .frame(minWidth: 520, minHeight: 360)
                 .task {
-                    // URLs may reach onOpenURL before the view task runs.
-                    // The router replays those bounded early activations here.
-                    activationRouter.onURLs = { urls in
-                        model.receiveActivatedURLs(urls)
-                    }
                     OrderlySignalHandling.install()
                     model.start()
                 }
@@ -73,7 +67,10 @@ struct RivetHostApp: App {
                 // rivet.rktd during packaging. The native model receives
                 // activations first; a product chooses and validates its own
                 // typed Racket RPC rather than exposing a global RPC by default.
-                .onOpenURL { url in activationRouter.handle([url]) }
+                // Capture synchronously on the native model, even when the
+                // backend has not started. Avoid requiring a newer RivetSystem
+                // router ABI from an already-installed package version.
+                .onOpenURL { url in model.receiveActivatedURLs([url]) }
         }
     }
 }
