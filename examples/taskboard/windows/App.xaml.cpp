@@ -72,8 +72,9 @@ void App::OnLaunched(Microsoft::UI::Xaml::LaunchActivatedEventArgs const&) {
     auto selected = lifecycle::AppInstance::FindOrRegisterForKey(
         winrt::to_hstring(rivet_app::kIdentifier));
     if (!selected.IsCurrent() && activation) {
+      auto weak = get_weak();
       pending_redirect_ = selected.RedirectActivationToAsync(activation);
-      pending_redirect_.Completed([this, dispatcher,
+      pending_redirect_.Completed([weak, dispatcher,
                           fallback = std::move(initial_arguments)](
                              auto const& finished, auto const&) mutable {
         bool delivered = false;
@@ -84,29 +85,34 @@ void App::OnLaunched(Microsoft::UI::Xaml::LaunchActivatedEventArgs const&) {
           // Do not silently discard an activation on a broken redirect.
         }
         dispatcher.TryEnqueue(
-            [this, delivered, fallback = std::move(fallback)]() mutable {
-              pending_redirect_ = nullptr;
-              if (delivered) {
-                Microsoft::UI::Xaml::Application::Current().Exit();
-              } else if (!window_) {
-                OpenPrimaryWindow(std::move(fallback));
+            [weak, delivered, fallback = std::move(fallback)]() mutable {
+              if (auto app = weak.get()) {
+                app->pending_redirect_ = nullptr;
+                if (delivered) {
+                  Microsoft::UI::Xaml::Application::Current().Exit();
+                } else if (!app->window_) {
+                  app->OpenPrimaryWindow(std::move(fallback));
+                }
               }
             });
       });
       return;
     }
     if (selected.IsCurrent()) {
+      auto weak = get_weak();
       primary_instance_ = current;
       redirected_token_ = primary_instance_.Activated(
-          [this, dispatcher](auto const&,
+          [weak, dispatcher](auto const&,
                              lifecycle::AppActivationArguments const& redirected) {
             auto arguments = rivet::system::RedirectedActivationArguments(redirected);
-            dispatcher.TryEnqueue([this, arguments = std::move(arguments)]() mutable {
-              if (!window_) return;  // UI dispatcher is shutting down.
-              auto projected = window_.as<winrt::RivetHost::MainWindow>();
-              winrt::get_self<MainWindow>(projected)->ReceiveActivationArguments(
-                  std::move(arguments));
-              window_.Activate();
+            dispatcher.TryEnqueue([weak, arguments = std::move(arguments)]() mutable {
+              if (auto app = weak.get()) {
+                if (!app->window_) return;  // UI dispatcher is shutting down.
+                auto projected = app->window_.as<winrt::RivetHost::MainWindow>();
+                winrt::get_self<MainWindow>(projected)->ReceiveActivationArguments(
+                    std::move(arguments));
+                app->window_.Activate();
+              }
             });
           });
       has_redirected_subscription_ = true;
