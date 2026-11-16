@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "App.xaml.h"
 #include "MainWindow.xaml.h"
+#include "system_services.hpp"
 
 namespace winrt::RivetHost::implementation {
 
@@ -20,7 +21,10 @@ App::App() {
 }
 
 void App::OnLaunched(Microsoft::UI::Xaml::LaunchActivatedEventArgs const&) {
-  window_ = winrt::make<MainWindow>();
+  // MSI URL/file associations pass their arguments to the new process.
+  // Capture before constructing the WinUI window and starting Racket CS.
+  // The native inbox does not execute these untrusted strings as RPCs.
+  window_ = winrt::make<MainWindow>(rivet::system::ActivationArguments());
   window_.Activate();
 }
 
