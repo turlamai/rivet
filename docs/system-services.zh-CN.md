@@ -79,7 +79,7 @@ Taskboard 是可执行配方。
 
 `RivetSystem` 使用 AppKit 和 Apple 系统框架：
 
-- 进程死亡时自动释放的操作系统文件锁；
+- 放在 Application Support 下的持久 `flock` 单实例锁，并同时持有旧版 Caches 路径的兼容锁，防止升级前后的宿主同时成为主实例。进程退出或崩溃时操作系统释放这两个锁；不要主动删除正在使用的锁文件，缓存条目被清理后新版宿主仍受持久锁保护；
 - SwiftUI `onOpenURL` 加随包 `CFBundleURLTypes`/`CFBundleDocumentTypes` 元数据；
 - `UNUserNotificationCenter`；
 - `NSStatusItem` 用于菜单栏 UI；
