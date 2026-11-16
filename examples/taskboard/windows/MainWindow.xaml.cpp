@@ -63,6 +63,42 @@ std::wstring status_text(rivet_app::TaskStatus status) {
 
 }  // namespace
 
+// Only a CI-controlled environment enables this acceptance marker. The
+// value of an untrusted URL/file activation is NEVER written to disk; the
+// probe emits a fixed literal only when the expected test payload arrives.
+// The normal product still requires explicit validation before any domain RPC.
+void MainWindow::ReceiveActivationArguments(
+    std::vector<std::wstring> arguments) {
+  wchar_t expected[512]{};
+  DWORD expected_length =
+      ::GetEnvironmentVariableW(L"RIVET_TEST_ACTIVATION_EXPECT", expected, 512);
+  bool matched = false;
+  if (expected_length > 0 && expected_length < 512) {
+    for (auto const& value : arguments) {
+      if (value == expected) {
+        matched = true;
+        break;
+      }
+    }
+  }
+  activations_.push_all(std::move(arguments));
+  if (!matched) return;
+
+  wchar_t destination[MAX_PATH]{};
+  DWORD count = ::GetEnvironmentVariableW(
+      L"RIVET_TEST_ACTIVATION_MARKER", destination, MAX_PATH);
+  if (count == 0 || count >= MAX_PATH) return;
+  HANDLE handle = ::CreateFileW(destination, FILE_APPEND_DATA,
+                                FILE_SHARE_READ, nullptr, OPEN_ALWAYS,
+                                FILE_ATTRIBUTE_NORMAL, nullptr);
+  if (handle == INVALID_HANDLE_VALUE) return;
+  char const marker[] = "received\\n";
+  DWORD written = 0;
+  (void)::WriteFile(handle, marker, static_cast<DWORD>(sizeof(marker) - 1),
+                    &written, nullptr);
+  ::CloseHandle(handle);
+}
+
 MainWindow::MainWindow() : MainWindow(std::vector<std::wstring>{}) {}
 
 MainWindow::MainWindow(std::vector<std::wstring> initial_activations) {
