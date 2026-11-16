@@ -400,6 +400,22 @@ app, signing, or physical-device acceptance is implied.
 
 ### M4 — standalone mobile hosts
 
+**Evidence correction (2026-11-16):** the unmerged
+[`feat/mobile-hosts`](https://github.com/turlamai/rivet/tree/feat/mobile-hosts)
+branch (tip `3f0cb5505`) has an iOS pb toolchain, generated SwiftUI/XCTest
+scaffold and simulator app build/install/launch evidence. **It does not yet
+have a passing embedded-Racket simulator RPC/lifecycle test.** The newest
+[#357 investigation](https://github.com/turlamai/rivet/issues/357#issuecomment-6786294872)
+samples the pb VM boot hanging at `S_ffi_closure` in the libffi closure
+allocation path. Earlier guesses of a process kill or a complete simulator
+round trip were superseded by that stack. The branch's
+`docs/mobile-hosts.md` assertions about passing simulator RPC tests must be
+corrected before integration. The branch currently diverges from `main`;
+preserve its work, reconcile commits without force-updating either branch,
+then require clean simulator runtime evidence plus the normal pull-request
+matrix. Companion clients and deterministic framework tests remain valid,
+but are not substitute evidence for a standalone iOS host.
+
 Only after the shared contract is stable, pursue Android JNI/portable Racket +
 Compose and the corresponding Apple embedded-runtime application flow. Each
 requires generated projects, lifecycle/process-death tests, signing, packaging,
