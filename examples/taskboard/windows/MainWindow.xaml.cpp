@@ -92,7 +92,7 @@ void MainWindow::ReceiveActivationArguments(
                                 FILE_SHARE_READ, nullptr, OPEN_ALWAYS,
                                 FILE_ATTRIBUTE_NORMAL, nullptr);
   if (handle == INVALID_HANDLE_VALUE) return;
-  char const marker[] = "received\\n";
+  char const marker[] = "received\n";
   DWORD written = 0;
   (void)::WriteFile(handle, marker, static_cast<DWORD>(sizeof(marker) - 1),
                     &written, nullptr);
