@@ -238,6 +238,27 @@ changed.
 
 ## Next implementation handoff
 
+**Linux native activation bounded slice (2026-11-16):** generated GTK4
+and Taskboard hosts now connect `GApplication::command-line` with
+`G_APPLICATION_HANDLES_COMMAND_LINE`, retaining first and session-bus-
+forwarded second invocation arguments in a bounded `ActivationInbox`.
+The inbox is main-context-owned, retains at most 64 nonempty entries of
+4096 bytes or fewer, and reports overflow/rejected counts; product code
+must explicitly consume and validate entries. Linux Integration CTest
+and the Embedded Roundtrip workflow exercise FIFO, overflow, rejection,
+boundary length and drain. This is not proof of a packaged URL/MIME
+registration or an OS-to-typed-Racket RPC; no untrusted argument
+automatically invokes a backend operation. Starting main SHA:
+`ef2183d949266a4ffe22d458569f11de1480e191`.
+Require exact-head clean Linux integration and native UI jobs before merge.
+Next activation slice: Windows native argument intake, then product-owned
+typed RPC mapping and actual packaged three-platform acceptance.
+
+中文：Linux 生成宿主与 Taskboard 现接入 GTK 命令行激活事件，
+保留首次和（依赖会话总线的）第二实例参数，并对队列与输入长度设限。
+本切片不自动执行 Racket RPC，也不宣称文件/MIME 注册和真实安装包激活
+已完成；合并前仍须以最新提交的原生构建和测试证据为准。
+
 **Desktop activation bounded slice (2026-11-16, PR #474):** the generated
 macOS SwiftUI host now captures `onOpenURL` directly into bounded
 `AppModel.activatedURLs` before backend startup; the separate main-actor
