@@ -243,11 +243,14 @@ use the Windows App SDK `AppInstance` key scoped to generated product identity,
 redirect secondary activation objects asynchronously, decode Launch/File/Protocol
 payloads, and deliver them on the existing WinUI dispatcher to the bounded
 native inbox. A failed redirection must not silently discard launch arguments.
-This is a DRAFT integration candidate. The packaged native Taskboard UIA
-driver now launches a second process and requires the first native inbox to
-acknowledge the exact expected URI via a fixed, CI-only marker; the test must
-pass at the **current HEAD**, and MSI-installed association handling plus
-lifecycle/race validation remain separate release gates before merging. Product-owned typed Racket RPC remains outside the scope. The
+The native Taskboard UIA driver launches a second process both from the
+packaged directory and from an actual MSI-installed executable. The first
+native inbox must acknowledge the expected URI **exactly once**, keep its
+own process alive, and the secondary must exit cleanly. The MSI acceptance
+wrapper verifies the trace as machine-readable evidence, without recording
+external URI content. Use only the **current HEAD** CI results as proof;
+shell-registered URL/file associations, simultaneous-launch stress, and
+typed product RPC dispatch remain separate release gates. Product-owned typed Racket RPC remains outside the scope. The
 starting parent commit was `d9376e3e336e3ff5aeac400a75b2af5464e233cb`;
 current `main` at start was `e35fa6f96645f08b7ba4328fa6099b08c6d1d6f4`.
 
