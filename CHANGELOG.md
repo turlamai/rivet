@@ -42,6 +42,7 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- The macOS activation router now retains the latest 64 URL/file activations until its main-actor callback is registered, reports overflow, and delivers pending events in order. The generated SwiftUI host delivers `onOpenURL` directly to bounded native `AppModel.activatedURLs` (including before backend startup) without relying on newly released router APIs; product-owned typed RPC forwarding and cross-platform activation acceptance remain unfinished.
 - macOS `RivetSingleInstance` now holds its primary lease in Application Support, not a purgeable Caches directory; it also retains the previous cache-path lease while running, preventing parallel old/new instances during upgrades while the old cache inode is intact. An unmodified old host cannot recognize the persistent lock if its cache entry has already been unlinked. Swift tests cover contention, release, legacy compatibility, and cache eviction.
 - `platform/linux` and `platform/windows` Integration samples are documented
   as intentionally byte-identical and guarded by a parity test; `rivet/backend`

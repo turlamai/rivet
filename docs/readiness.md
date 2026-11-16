@@ -52,8 +52,8 @@ Shipped.
 | Clipboard | **Partial** | Text-only adapters | No HTML/RTF/image/file-list; document the limit or extend |
 | Drag and drop | **Missing** | No `IDropTarget`/`NSDragging`/`GtkDropTarget` | File-drop helpers plus a doc recipe |
 | URL schemes and file associations | **Partial** | Windows MSI + macOS `Info.plist` registration | Linux emits no `MimeType`/`x-scheme-handler`; Windows per-machine install writes HKCU keys |
-| Activation delivery into app code | **Missing** | macOS router closure never assigned; Windows `ActivationArguments()` and Linux argv never consumed | Wire all three hosts, forward to a Racket activation RPC, add acceptance coverage |
-| Single instance | **Partial** | Linux lease + argument forwarding | Windows/macOS lease only (no forwarding); no scaffold acquires the lease; macOS lock lives in purgeable `~/Library/Caches` |
+| Activation delivery into app code | **Partial** | macOS `RivetActivationRouter` buffers deferred URL/file activations; generated SwiftUI host receives opens directly into bounded `AppModel.activatedURLs`; Windows `ActivationArguments()` and Linux argv remain unconsumed | Wire the product-owned typed Racket activation contract across all three hosts; add actual packaged acceptance coverage |
+| Single instance | **Partial** | Linux lease + argument forwarding; macOS persistent Application Support lease with legacy Caches compatibility and Swift regression tests | Windows/macOS forwarding and generated scaffold lease acquisition remain missing |
 | Launch at login / autostart | Shipped (adapter) | Run key, `SMAppService`, XDG autostart | Scaffold does not wire it; Windows passes `--autostart`, Linux does not |
 | Secure storage | Shipped | Credential Manager, Keychain, libsecret | Conditional Linux availability must be checked by the product |
 | Settings / structured logging | **Partial** | `rivet/system/settings.rkt`, `rivet-log` sink | No file sink, rotation, retention, or Racket↔native correlation |
@@ -181,7 +181,7 @@ current code and the open-slices section before acting.
 | Crash report capture | **Partial** | `make-crash-file-reporter` covers uncaught Racket exceptions; native hooks exist | macOS has no native fatal-signal hook; Windows writes no dump; Linux does not restart |
 | Performance thresholds | **Deferred** | `docs/benchmarks.md` explains why timing has no pass/fail gate | Promote metrics only on stable hardware |
 | Windows system-adapter tests | **Missing** | 936 source lines, no test target, no CI job | Win32 test executable for tray/menu/hotkey/clipboard/credential paths |
-| macOS system-adapter tests | **Partial** | Clipboard, filters, menu bar, notification availability | Single instance, Keychain, login item, activation router |
+| macOS system-adapter tests | **Partial** | Clipboard, filters, menu bar, notification availability, single-instance lease, activation router buffer | Keychain and login-item behavior remain unqualified on a real user session |
 
 ## Verified backlog (2026-11-04 source audits)
 
@@ -281,9 +281,11 @@ Completed in this pass, with tests and both language paths where public:
 
 ## Open slices, in order
 
-1. **Activation delivery** — one payload path from OS to a Racket RPC on all
-   three platforms, with acceptance coverage. Packaging already registers the
-   schemes, so this is the highest-risk broken promise.
+1. **Activation delivery** — macOS now buffers and dispatches URL/file opens
+   into the native `AppModel`, but no host forwards them to a product-owned
+   typed Racket RPC yet. Wire the backend contract and Windows/Linux native
+   activation intake, then prove real packaged activation on all three OSes.
+   Packaging already registers the schemes; this remains high risk.
 2. **Generated app baseline, remainder** — single-instance acquisition,
    About/Quit, window-state restore and a release-workflow template in
    `raco rivet new`. CI, starter test and updater scaffold are done.
