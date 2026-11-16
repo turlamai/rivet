@@ -22,9 +22,7 @@ struct MainWindow : MainWindowT<MainWindow> {
   }
   // Called only on the WinUI dispatcher after AppLifecycle redirects a
   // second instance. Keep input native until product validation.
-  void ReceiveActivationArguments(std::vector<std::wstring> arguments) {
-    activations_.push_all(std::move(arguments));
-  }
+  void ReceiveActivationArguments(std::vector<std::wstring> arguments);
 
   void TaskList_SelectionChanged(
       winrt::Windows::Foundation::IInspectable const& sender,
