@@ -84,12 +84,28 @@ jobs:
           dotnet tool install wix --tool-path $wixDir --version '5.*'
           if ($LASTEXITCODE -ne 0) { throw 'failed to install WiX 5 for MSI acceptance' }
           $env:PATH = "$wixDir;$env:PATH"
-          raco rivet release --development --without-updates
-          if ($LASTEXITCODE -ne 0) { throw 'failed to create development MSI' }
-          $msi = Get-ChildItem -LiteralPath (Join-Path $PWD 'dist') -Filter 'rivet-taskboard-*-windows-x64.msi' |
-            Select-Object -First 1 -ExpandProperty FullName
-          if (-not $msi) { throw 'release did not produce an MSI' }
-          & (Join-Path $env:GITHUB_WORKSPACE 'rivet\tests\native-ui\windows-msi-icon.ps1') -Msi $msi -OutputDirectory (Join-Path $env:RUNNER_TEMP 'rivet-native-ui-windows\msi')
+          # A CI-only scheme exercises actual MSI registration + ShellExecute.
+          # Do not ship test protocol ownership in the Taskboard sample.
+          $projectFile = Join-Path $PWD 'rivet.rktd'
+          $beforeProtocolFixture = [System.IO.File]::ReadAllText($projectFile)
+          $oldSchemes = '(url-schemes . ())'
+          if (-not $beforeProtocolFixture.Contains($oldSchemes)) {
+            throw 'Taskboard activation fixture expected an empty url-schemes list'
+          }
+          try {
+            $ciScheme = 'rivet-taskboard-ci'
+            [System.IO.File]::WriteAllText(
+              $projectFile,
+              $beforeProtocolFixture.Replace($oldSchemes, '(url-schemes . ("rivet-taskboard-ci"))'))
+            raco rivet release --development --without-updates
+            if ($LASTEXITCODE -ne 0) { throw 'failed to create development MSI' }
+            $msi = Get-ChildItem -LiteralPath (Join-Path $PWD 'dist') -Filter 'rivet-taskboard-*-windows-x64.msi' |
+              Select-Object -First 1 -ExpandProperty FullName
+            if (-not $msi) { throw 'release did not produce an MSI' }
+            & (Join-Path $env:GITHUB_WORKSPACE 'rivet\tests\native-ui\windows-msi-icon.ps1') -Msi $msi -Scheme $ciScheme -OutputDirectory (Join-Path $env:RUNNER_TEMP 'rivet-native-ui-windows\msi')
+          } finally {
+            [System.IO.File]::WriteAllText($projectFile, $beforeProtocolFixture)
+          }
       - name: Upload Windows native UI evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
