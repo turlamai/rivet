@@ -63,7 +63,12 @@ std::wstring status_text(rivet_app::TaskStatus status) {
 
 }  // namespace
 
-MainWindow::MainWindow() {
+MainWindow::MainWindow() : MainWindow({}) {}
+
+MainWindow::MainWindow(std::vector<std::wstring> initial_activations) {
+  // Win32 gives us startup parameters before Racket is ready. Keep them in
+  // the native model until the product elects to consume/validate them.
+  activations_.push_all(std::move(initial_activations));
   InitializeComponent();
   Title(L"Rivet Taskboard — Racket + WinUI 3");
   (void)rivet::system::ApplyAppIcon(*this);
