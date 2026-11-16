@@ -1,6 +1,6 @@
 # Commercial desktop readiness
 
-Status: living completion contract, started 2026-11-04. Scope: the
+Status: living completion contract, started 2026-11-04; evidence refreshed 2026-11-16. Scope: the
 Windows/macOS/Linux desktop framework, its CLI, packaging, documentation and
 release engineering. Mobile delivery is explicitly out of scope here and stays
 in the active [desktop closeout and mobile start plan](desktop-closeout-mobile-plan.md)
@@ -10,6 +10,12 @@ This page answers one question: **can a commercial desktop application be built,
 shipped, supported and recovered on Rivet without the application reimplementing
 a framework responsibility?** It is not a marketing checklist. Every row names
 the owning evidence; a row is not "done" because a document says so.
+
+Current evidence boundary (2026-11-16): `main` at
+`33de65ccb5d72f9ac38ff982aa4495467f89f213`, latest published framework
+release `v0.16.0`, and passing main CI are meaningful framework evidence, not
+proof of every native installation, first-launch or product recovery journey.
+Framework first-install qualification remains open in [#405](https://github.com/turlamai/rivet/issues/405).
 
 ## How to read the states
 
@@ -68,7 +74,7 @@ Shipped.
 | Typed RPC / Event / State / Cancel | Shipped | `rivet/backend.rkt`, protocol tests, generated Swift/C++/Kotlin clients | Cooperative cancellation below |
 | Schema snapshot and breaking-change gate | Shipped | `raco rivet schema`, `rivet-schema.json` | Baseline format is not specified (documentation gap) |
 | Pagination, large payloads, runtime limits | Shipped | `docs/large-payloads.md`, `docs/runtime-limits.md`, decoder limit tests | — |
-| Real-time chart series | Shipped | `docs/chart-series.md`, chart tests, per-host widgets | `rivet/chart` is missing from the public-API/stability snapshot |
+| Real-time chart series | Shipped | `docs/chart-series.md`, chart tests, per-host widgets, `rivet/tests/public-api.rkt` | — |
 | I18n parity and embedded host tables | Shipped | `raco rivet i18n`, `docs/configuration.md` | Product strings only |
 | Cooperative RPC cancellation | **Missing** | `docs/large-payloads.md` records that handlers cannot observe Cancel | Handler-visible check, cleanup window, first real consumer |
 | `Float64`, string-key Map, structured Error | **Deferred** | `docs/protocol.md` keeps the RVT1 v1 tag set closed | Phase 8 negotiation plus cross-runtime golden/fuzz evidence |
@@ -103,7 +109,7 @@ Shipped.
 | Generated project tests | Shipped (2026-11-04) | `tests/smoke.rkt` plus the `starter-smoke` unit suite; scaffold test asserts both | Products still replace the scenario with real behavior |
 | CLI exit-code contract | **Partial** | Documented 0/1/2 vocabulary in both diagnostics guides | Parse vs policy failures still collapse to 1; add stable error codes |
 | Upgrade/migration guide per release | **Partial** | `docs/USING.md`, `CHANGELOG` | Migration section for public-contract changes |
-| API stability and deprecation | **Partial** | `docs/api-stability.md` (pre-1.0) | State Racket 9.0+ explicitly; define deprecation markers/window and a support matrix |
+| API stability and deprecation | **Partial** | `docs/api-stability.md` specifies Racket CS 9.0+ and the pre/post-1.0 deprecation window | The 1.0 contract and full supported-platform compatibility promises still need stabilization |
 
 ## Documentation
 
@@ -126,25 +132,27 @@ keep one normative English definition. See the central
 | API reference (`rivet/scribblings`) | Yes | Not required | Fix the reference gaps below |
 | Docs site (`docs/index.html`) | Yes | Yes | Keep command examples in sync with the CLI |
 
-## Reference and contract drift (verified 2026-11-04)
+## Reference and contract drift (2026-11-04 audit; 2026-11-16 corrections)
 
-These are documentation defects, not missing features. They matter because
-agents and products copy the reference.
+This list preserves the dated audit but distinguishes closed items from current
+work. Historical findings are not proof of a present defect: use the linked
+current code and the open-slices section before acting.
 
 - The manual keyword omissions are fixed (2026-11-04): `#:trusted-keys` on
   `make-updater`/`fetch-update-manifest`, `#:diagnostic-sink` on
   `serve`/`serve-fds`, and `#:install-kind` on `select-update` are documented
   and guarded by `rivet/tests/manual-keywords.rkt`.
-- `rivet/chart` is absent from `docs/api-stability.md` and
-  `rivet/tests/public-api.rkt`, so its exports can change without the gate.
+- **Fixed:** `rivet/chart` now appears in both `docs/api-stability.md` and
+  `rivet/tests/public-api.rkt`; public exports are snapshot-tested.
 - The Scribble CLI section lists 13 commands while `raco rivet help` exposes
   about 45, including `--version`, `acceptance`, `matrix`, `verify-remote`,
   `generate`, `entitlements`, `i18n`, `measure`, `compliance`, `apple-review`,
   and the manifest commands.
 - `linux-desktop-id` and `linux-binary-name` are validated, defaulted and
   consumed but undocumented in `configuration.md`.
-- `api-stability.md` never states the minimum Racket version (9.0 in `info.rkt`)
-  and has no deprecation window or marker policy.
+- **Fixed:** `docs/api-stability.md` now states the Racket CS 9.0+ minimum
+  and a one-minor-release deprecation window after 1.0. The final 1.0 stability
+  contract remains a separate release gate.
 - There is no exit-code table; a usage error, a failed build and a policy
   rejection all exit 1.
 - The documentation test still does not parse every Scribble signature; the
