@@ -54,6 +54,7 @@ jobs:
           "$native_build/RivetThemeTest"
           dbus-run-session -- "$native_build/RivetGlobalShortcutsTest"
           "$native_build/RivetUpdateHandoffTest"
+          "$native_build/RivetActivationInboxTest"
           cp "$native_build/RivetIntegration" "$stage/RivetIntegration"
           chmod +x "$stage/RivetIntegration"
 
