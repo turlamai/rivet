@@ -238,6 +238,21 @@ changed.
 
 ## Next implementation handoff
 
+**Experimental Windows redirection slice (stacked on #477, 2026-11-16):**
+use the Windows App SDK `AppInstance` key scoped to generated product identity,
+redirect secondary activation objects asynchronously, decode Launch/File/Protocol
+payloads, and deliver them on the existing WinUI dispatcher to the bounded
+native inbox. A failed redirection must not silently discard launch arguments.
+This is a DRAFT integration candidate and must pass real Windows UI build,
+MSI two-process activation acceptance, and lifecycle/race validation before
+merging. Product-owned typed Racket RPC remains outside the scope. The
+starting parent commit was `d9376e3e336e3ff5aeac400a75b2af5464e233cb`;
+current `main` at start was `e35fa6f96645f08b7ba4328fa6099b08c6d1d6f4`.
+
+中文：本分支是基于 #477 的 Windows 第二实例重定向实验实现，
+使用 Windows App SDK 的 AppInstance，而非自制不安全 IPC。
+必须通过原生编译、真实安装包双进程激活和关闭竞态测试后才可合入。
+
 **Windows native activation bounded slice (2026-11-16):** the generated
 WinUI 3 host and reference Taskboard now call the existing Windows
 `ActivationArguments()` before constructing their native windows. Each
