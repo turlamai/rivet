@@ -25,7 +25,9 @@ public enum RivetSystemError: Error, CustomStringConvertible {
 
 /// A process-wide lock backed by flock(2). A persistent Application Support
 /// lock is the source of truth. Keep the previous Caches lock as a second
-/// lease so an installed older Rivet host and a newer one cannot both win.
+/// lease so older hosts that still hold the original cache inode cannot
+/// also win. If the old lock file was already unlinked while an unmodified
+/// older host is running, that host cannot recognize the new persistent lock.
 /// Both descriptors remain open until process exit and flock releases them on
 /// crash. Do not delete a lock file: unlinking a held file permits a new
 /// inode to be locked by another process.
