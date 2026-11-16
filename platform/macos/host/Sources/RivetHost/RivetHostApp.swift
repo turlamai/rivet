@@ -111,13 +111,14 @@ final class AppModel: ObservableObject {
     // activations to accept and the typed RPC they forward after readiness.
     @Published private(set) var activatedURLs: [URL] = []
 
+    private static let nativeActivationLimit = 64
     private var backend: EmbeddedRacketBackend?
 
     func receiveActivatedURLs(_ urls: [URL]) {
         guard !urls.isEmpty else { return }
         activatedURLs.append(contentsOf: urls)
         // Keep the scaffold bounded if a product has not wired a consumer.
-        let overflow = activatedURLs.count - RivetActivationRouter.pendingLimit
+        let overflow = activatedURLs.count - Self.nativeActivationLimit
         if overflow > 0 {
             activatedURLs.removeFirst(overflow)
         }
