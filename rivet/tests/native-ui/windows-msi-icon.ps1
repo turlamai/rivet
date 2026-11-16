@@ -46,13 +46,31 @@ try {
     if (-not (Test-Path -LiteralPath $exe -PathType Leaf)) {
         throw "MSI did not install RivetHost.exe under requested INSTALLFOLDER: $installRoot"
     }
-    & (Join-Path $PSScriptRoot 'windows-uia.ps1') -Executable $exe -OutputDirectory (Join-Path $OutputDirectory 'installed-host')
+    $installedEvidence = Join-Path $OutputDirectory 'installed-host'
+    & (Join-Path $PSScriptRoot 'windows-uia.ps1') -Executable $exe -OutputDirectory $installedEvidence
+    $activationTracePath = Join-Path $installedEvidence 'second-instance-trace.json'
+    if (-not (Test-Path -LiteralPath $activationTracePath -PathType Leaf)) {
+        throw 'Installed MSI did not produce second-instance activation evidence'
+    }
+    $activationTrace = Get-Content -LiteralPath $activationTracePath -Raw | ConvertFrom-Json
+    if (-not $activationTrace.secondaryExited -or
+        -not $activationTrace.primaryStillRunning -or
+        -not $activationTrace.exactExpectedActivationArrived -or
+        [int]$activationTrace.nativeDeliveryCount -ne 1) {
+        throw 'Installed MSI failed exact-once two-process native activation acceptance'
+    }
     [ordered]@{
         artifact = [System.IO.Path]::GetFileName($msiPath)
         installKind = 'msi'
         installedExe = $exe
+        installedSecondInstanceActivation = $true
+        nativeDeliveryCount = [int]$activationTrace.nativeDeliveryCount
+        # This proves the installed executable's command-line redirection.
+        # Actual ShellExecute of a registered URL/file association is separate.
+        registeredShellAssociationAcceptance = 'unrun'
         assertions = @(
             'MSI silently installed its exact packaged host',
+            'installed host redirected second process to live primary exactly once',
             'installed host exposed two titled WinUI windows',
             'both windows resolved the executable icon resource',
             'installed process completed the native UI and orderly exit scenario'
