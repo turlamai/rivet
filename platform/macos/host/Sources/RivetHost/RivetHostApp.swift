@@ -61,13 +61,18 @@ struct RivetHostApp: App {
                 .environmentObject(model)
                 .frame(minWidth: 520, minHeight: 360)
                 .task {
+                    // URLs may reach onOpenURL before the view task runs.
+                    // The router replays those bounded early activations here.
+                    activationRouter.onURLs = { urls in
+                        model.receiveActivatedURLs(urls)
+                    }
                     OrderlySignalHandling.install()
                     model.start()
                 }
                 // URL schemes and file associations are declared from
-                // rivet.rktd during packaging. Keep activation handling in the
-                // native UI layer; forward only application-level data to the
-                // Racket backend when the app actually needs it.
+                // rivet.rktd during packaging. The native model receives
+                // activations first; a product chooses and validates its own
+                // typed Racket RPC rather than exposing a global RPC by default.
                 .onOpenURL { url in activationRouter.handle([url]) }
         }
     }
@@ -101,7 +106,22 @@ final class AppModel: ObservableObject {
     @Published var count: Int64 = 0
     @Published var ready = false
 
+    // The generated native host exposes activation data to product logic.
+    // This is not automatic backend RPC delivery: products own which URL/file
+    // activations to accept and the typed RPC they forward after readiness.
+    @Published private(set) var activatedURLs: [URL] = []
+
     private var backend: EmbeddedRacketBackend?
+
+    func receiveActivatedURLs(_ urls: [URL]) {
+        guard !urls.isEmpty else { return }
+        activatedURLs.append(contentsOf: urls)
+        // Keep the scaffold bounded if a product has not wired a consumer.
+        let overflow = activatedURLs.count - RivetActivationRouter.pendingLimit
+        if overflow > 0 {
+            activatedURLs.removeFirst(overflow)
+        }
+    }
 
     func start() {
         guard backend == nil else { return }
