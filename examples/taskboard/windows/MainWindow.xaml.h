@@ -20,6 +20,11 @@ struct MainWindow : MainWindowT<MainWindow> {
   [[nodiscard]] std::vector<std::wstring> TakeActivationArguments() {
     return activations_.take();
   }
+  // Called only on the WinUI dispatcher after AppLifecycle redirects a
+  // second instance. Keep input native until product validation.
+  void ReceiveActivationArguments(std::vector<std::wstring> arguments) {
+    activations_.push_all(std::move(arguments));
+  }
 
   void TaskList_SelectionChanged(
       winrt::Windows::Foundation::IInspectable const& sender,
