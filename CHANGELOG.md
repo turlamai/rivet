@@ -42,6 +42,7 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- Linux generated GTK4 and Taskboard hosts now use a product-specific `rivet_app::kIdentifier` GApplication ID and `G_APPLICATION_HANDLES_COMMAND_LINE` to capture first and secondary command-line file/URL activations in a bounded native `ActivationInbox`. C++ regression exercises retention, FIFO, overflow, rejection and explicit drain in Linux embedded CI. Product-owned typed backend RPC wiring, MIME registration, and installed-app activation evidence remain open.
 - The macOS activation router now retains the latest 64 URL/file activations until its main-actor callback is registered, reports overflow, and delivers pending events in order. The generated SwiftUI host delivers `onOpenURL` directly to bounded native `AppModel.activatedURLs` (including before backend startup) without relying on newly released router APIs; product-owned typed RPC forwarding and cross-platform activation acceptance remain unfinished.
 - macOS `RivetSingleInstance` now holds its primary lease in Application Support, not a purgeable Caches directory; it also retains the previous cache-path lease while running, preventing parallel old/new instances during upgrades while the old cache inode is intact. An unmodified old host cannot recognize the persistent lock if its cache entry has already been unlinked. Swift tests cover contention, release, legacy compatibility, and cache eviction.
 - `platform/linux` and `platform/windows` Integration samples are documented

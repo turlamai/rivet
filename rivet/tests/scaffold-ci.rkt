@@ -40,6 +40,26 @@
     (check-true (string-contains? readme ".github/workflows/native.yml"))
     (check-true (string-contains? readme "linux-icon"))
 
+    ;; Every generated GTK4 app must use the product's own identity. A
+    ;; hard-coded default GApplication ID allows one Rivet app to steal
+    ;; another app's forwarded URL/file activations on the same session bus.
+    (define linux-host
+      (file->string (build-path project "linux" "src" "main.cpp")))
+    (check-true
+     (string-contains? linux-host
+                       "gtk_application_new(rivet_app::kIdentifier")
+     "generated Linux host must register its own product identity")
+    (check-false
+     (string-contains? linux-host "dev.rivet.host")
+     "generated Linux host must not share a fixed default application ID")
+    (for ([part (in-list '("G_APPLICATION_HANDLES_COMMAND_LINE"
+                           "G_CALLBACK(on_command_line)"
+                           "g_application_command_line_get_arguments"
+                           "g_state.activations.push"))])
+      (check-true (string-contains? linux-host part)
+                  (format "generated Linux host must retain activation path: ~a"
+                          part)))
+
     ;; A generated project must prove behavior, not only compile.
     (define smoke (build-path project "tests" "smoke.rkt"))
     (check-true (file-exists? smoke))

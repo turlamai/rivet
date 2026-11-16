@@ -110,6 +110,11 @@ Objective-C 异常。
   primary；
 - `ActivationArguments()` 从 `/proc/self/cmdline` 读取安装器注册的 URL scheme 和文件关联
   负载；
+- 生成的 GTK4 宿主和 Taskboard 示例使用 `G_APPLICATION_HANDLES_COMMAND_LINE`，
+  在主进程的 GTK 主上下文接收首次启动参数，以及会话总线可用时从第二次启动转发来的参数。
+  `ActivationInbox` 最多保存 64 条非空且不超过 4096 字节的参数，记录超限拒绝和队列溢出，
+  由产品代码显式 `take()` 后校验、路由。两类宿主都以生成的 `rivet_app::kIdentifier` 作为 GApplication ID，避免不同 Rivet 产品争用写死的 `dev.rivet.host` 激活入口。**本次只实现原生接收**，不会自动执行未经校验的 Racket RPC；
+  Linux 文件/MIME 注册和实际安装包的端到端激活尚未通过验收；
 - 会话总线上的 `org.freedesktop.Notifications`（GDBus），带稳定通知 id 以支持标记替换；
 - `GlobalShortcuts`——异步 `org.freedesktop.portal.GlobalShortcuts` 会话 API。`support()`
   暴露 portal 版本，`bind(...)` 在不阻塞 GTK 主上下文的情况下报告 bound、cancelled、
