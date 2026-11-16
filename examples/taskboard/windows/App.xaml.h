@@ -19,6 +19,9 @@ struct App : AppT<App> {
   winrt::Microsoft::Windows::AppLifecycle::AppInstance primary_instance_{nullptr};
   winrt::event_token redirected_token_{};
   bool has_redirected_subscription_{false};
+  // Keep the secondary redirect operation alive until its completion callback
+  // has acknowledged delivery or opened the visible failure fallback.
+  winrt::Windows::Foundation::IAsyncAction pending_redirect_{nullptr};
   // Only instantiated by the packaged Windows native UI icon regression.
   Microsoft::UI::Xaml::Window icon_probe_window_{nullptr};
 };
