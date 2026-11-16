@@ -17,6 +17,11 @@ struct MainWindow : MainWindowT<MainWindow> {
   [[nodiscard]] std::vector<std::wstring> TakeActivationArguments() {
     return activations_.take();
   }
+  // Called only on the WinUI dispatcher after AppLifecycle redirects a
+  // second instance. Keep input native until product validation.
+  void ReceiveActivationArguments(std::vector<std::wstring> arguments) {
+    activations_.push_all(std::move(arguments));
+  }
 
   // Stable HWND access for platform-owned features such as global hotkeys,
   // clipboard listeners, window subclassing, topmost policy, and tray icons.
