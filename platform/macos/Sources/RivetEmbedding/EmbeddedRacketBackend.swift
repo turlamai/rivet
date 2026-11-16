@@ -404,33 +404,46 @@ private func runEmbeddedRacket(
     inputFD: Int32,
     outputFD: Int32
 ) -> Int32 {
-    // Materialize explicit NUL-terminated CChar buffers instead of using
-    // String.withCString: on the iOS simulator the runtime's slow
-    // withCString path was observed spinning forever on the serving
-    // thread (84% CPU, 40+ minutes) before rivet_racket_run was ever
-    // reached. One allocation per path, then plain pointer passes.
-    func cChars(_ value: String) -> [CChar] {
-        Array(value.utf8CString)
+    // Materialize NUL-terminated arrays once. Do not use String.withCString
+    // on this bridge: the iOS pb prototype previously stalled in that path.
+    // Constructing rivet_racket_config directly from [CChar] instead is not
+    // safe either: Swift may pass a temporary pointer which expires before
+    // rivet_racket_run reads the boot path. Keep all seven storage buffers
+    // borrowed for the entire synchronous C call.
+    let executableCS = Array(config.executable.path.utf8CString)
+    let petiteCS = Array(config.petiteBoot.path.utf8CString)
+    let schemeCS = Array(config.schemeBoot.path.utf8CString)
+    let racketCS = Array(config.racketBoot.path.utf8CString)
+    let coreCS = Array(config.core.path.utf8CString)
+    let moduleCS = Array(config.moduleName.utf8CString)
+    let entryCS = Array(config.entryName.utf8CString)
+
+    return executableCS.withUnsafeBufferPointer { executable in
+        petiteCS.withUnsafeBufferPointer { petite in
+            schemeCS.withUnsafeBufferPointer { scheme in
+                racketCS.withUnsafeBufferPointer { racket in
+                    coreCS.withUnsafeBufferPointer { core in
+                        moduleCS.withUnsafeBufferPointer { module in
+                            entryCS.withUnsafeBufferPointer { entry in
+                                var cconfig = rivet_racket_config(
+                                    exec_file: executable.baseAddress,
+                                    petite_boot: petite.baseAddress,
+                                    scheme_boot: scheme.baseAddress,
+                                    racket_boot: racket.baseAddress,
+                                    core_zo: core.baseAddress,
+                                    module_name: module.baseAddress,
+                                    entry_name: entry.baseAddress,
+                                    collects_dir: nil,
+                                    config_dir: nil
+                                )
+                                return rivet_racket_run(&cconfig, inputFD, outputFD)
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
-    let executableCS = cChars(config.executable.path)
-    let petiteCS = cChars(config.petiteBoot.path)
-    let schemeCS = cChars(config.schemeBoot.path)
-    let racketCS = cChars(config.racketBoot.path)
-    let coreCS = cChars(config.core.path)
-    let moduleCS = cChars(config.moduleName)
-    let entryCS = cChars(config.entryName)
-    var cconfig = rivet_racket_config(
-        exec_file: executableCS,
-        petite_boot: petiteCS,
-        scheme_boot: schemeCS,
-        racket_boot: racketCS,
-        core_zo: coreCS,
-        module_name: moduleCS,
-        entry_name: entryCS,
-        collects_dir: nil,
-        config_dir: nil
-    )
-    return rivet_racket_run(&cconfig, inputFD, outputFD)
 }
 
 
