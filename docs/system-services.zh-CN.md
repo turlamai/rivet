@@ -53,6 +53,11 @@ Linux 异步读取，因为 Wayland 按需从当前所有者传输剪贴板内�
 
 - 命名 mutex 用于进程唯一性；
 - 命令行激活，用于 MSI 注册的 URL scheme 和文件关联；
+- 生成的 WinUI 3 宿主和 Taskboard 示例现在在创建窗口前调用 `ActivationArguments()`，
+  将最新 64 条非空 Unicode 参数（单条最多 4096 个 UTF-16 码元）保存到窗口的
+  `ActivationInbox`。产品代码必须显式调用 `TakeActivationArguments()` 并验证后才映射到
+  经过授权的类型化 RPC。**本切片仅支持新进程的启动参数接收**；Windows 第二实例转发、
+  实际 MSI 安装后的端到端激活仍未验收；
 - `Shell_NotifyIconW` 用于托盘存在和通知气泡，另有 `TrayController` 拥有窗口 subclass、
   原生弹出菜单、命令路由和 `TaskbarCreated` 恢复；
 - `GlobalShortcuts` 基于 `RegisterHotKey`：每个实例一个 message-only 窗口，`WM_HOTKEY`

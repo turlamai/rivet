@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "App.xaml.h"
 #include "MainWindow.xaml.h"
+#include "../../../platform/windows/system/system_services.hpp"
 
 #include <winrt/Microsoft.UI.Windowing.h>
 
@@ -22,7 +23,10 @@ App::App() {
 }
 
 void App::OnLaunched(Microsoft::UI::Xaml::LaunchActivatedEventArgs const&) {
-  window_ = winrt::make<MainWindow>();
+  // MSI URL/file associations pass their arguments to the new process.
+  // Capture before constructing the WinUI window and starting Racket CS.
+  // The native inbox does not execute these untrusted strings as RPCs.
+  window_ = winrt::make<MainWindow>(rivet::system::ActivationArguments());
   // The reference layout (status, task list, timing chart, actions) needs more
   // height than the WinUI default window provides; at that default the list
   // collapses into a virtualizing sliver whose rows never realize.
