@@ -239,7 +239,8 @@ changed.
 ## Next implementation handoff
 
 **Linux native activation bounded slice (2026-11-16):** generated GTK4
-and Taskboard hosts now connect `GApplication::command-line` with
+and Taskboard hosts now use the product's generated `kIdentifier`
+(as opposed to the shared `dev.rivet.host`), and connect `GApplication::command-line` with
 `G_APPLICATION_HANDLES_COMMAND_LINE`, retaining first and session-bus-
 forwarded second invocation arguments in a bounded `ActivationInbox`.
 The inbox is main-context-owned, retains at most 64 nonempty entries of
