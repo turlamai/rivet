@@ -16,10 +16,16 @@
                        (build-path root "examples" "taskboard" "windows"
                                    "App.xaml.cpp")))])
   (define contents (file->string app-path))
-  (check-true
-   (string-contains? contents
-                     "winrt::make<MainWindow>(rivet::system::ActivationArguments())")
-   "WinUI host must retain command-line activation before startup")
+  (for ([needle (in-list
+                 '("rivet::system::ActivationArguments()"
+                   "AppInstance::FindOrRegisterForKey"
+                   "RedirectActivationToAsync(activation)"
+                   "RedirectedActivationArguments(redirected)"
+                   "ReceiveActivationArguments("
+                   "OpenPrimaryWindow(std::move(initial_arguments))"))])
+    (check-true (string-contains? contents needle)
+                (format "WinUI host must retain and redirect activation: ~a"
+                        needle)))
   (check-false
    (string-contains? contents "window_ = winrt::make<MainWindow>();")
    "WinUI must not discard command-line activation payloads"))
