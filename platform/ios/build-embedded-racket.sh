@@ -105,9 +105,37 @@ if [ "$stage" != "host-base" ]; then
   [ -n "$scheme_dir" ] || [ -d "$scheme_dir" ] || { echo "Chez bootstrap dir not found under --base-dir: $base_dir" >&2; exit 1; }
 fi
 
-# Compile the libffi bundled in the Racket source for one SDK. pb builds
-# link libffi for their foreign-function boundary; the probe reads the
-# flags from the generated pkg-config file.
+# In the pinned Racket 9.3 bundled libffi, Apple ARM64's existing
+# executable trampoline table implementation is intentionally disabled at
+# configure time ("DISABLEaarch64-apple-*"), even though its Mach vm_remap
+# implementation and preassembled trampoline page are present. That selects
+# FFI_MMAP_EXEC_WRIT for simulator/device closure allocation, the path sampled
+# in #357's S_ffi_closure boot stall.
+#
+# Try the built-in Apple trampoline table instead; it maps an existing signed
+# executable page, avoiding generation of an RWX closure trampoline at runtime.
+# Keep the source patch in a private copy, never edit the provided source tree,
+# and require the generated *target* header to prove the intended path.
+prepare_target_libffi() {
+  local original="$source_dir/src/bc/foreign/libffi"
+  target_libffi_source="$work_dir/libffi-apple-trampoline-src"
+  cp -R "$original" "$target_libffi_source"
+  local config
+  for config in configure configure.ac; do
+    local file="$target_libffi_source/$config"
+    if ! grep -Fq 'DISABLEaarch64-apple-*' "$file"; then
+      echo "pinned libffi $config no longer has the expected Apple ARM64 gate" >&2
+      exit 1
+    fi
+    sed 's/DISABLEaarch64-apple-\*/aarch64-apple-*/g' "$file" > "$file.rivet-ios"
+    mv "$file.rivet-ios" "$file"
+  done
+  chmod +x "$target_libffi_source/configure"
+  echo "=== Rivet iOS libffi: Apple ARM64 executable trampoline table enabled"
+}
+
+# Compile the patched copy of libffi for one Apple SDK. The pb runtime links
+# its closure allocator from this same archive through the resulting .pc file.
 build_target_libffi() {
   # Function-scope the scratch variables: an unqualified `sdk=` here would
   # clobber the caller's canonicalized simulator SDK symlink.
@@ -121,10 +149,399 @@ build_target_libffi() {
     CC="xcrun -sdk $sdk_name clang" \
     CFLAGS="-arch $arch -isysroot $sdk $min_flag" \
     LDFLAGS="-arch $arch -isysroot $sdk" \
-    "$source_dir/src/bc/foreign/libffi/configure" \
+    "$target_libffi_source/configure" \
       --host="$arch-apple-darwin" --prefix="$prefix"
+    if ! grep -Eq '^#define FFI_EXEC_TRAMPOLINE_TABLE 1
+}
+
+# Assemble lib/libracketcs.a, the boot trio, and the embedding headers from
+# a cross build directory. Mirrors the non-Windows install path of
+# src/cs/c/build.zuo: repack the bundled static libraries, archive the pb
+# stage objects plus boot.o, install the -v boot files under their runtime
+# names, and copy the version-matched headers.
+harvest_cross_build() {
+  build_dir="$1" source_root="$2" dest="$3" bootstrap_racket="$4" libffi_prefix="$5"
+  cs_c="$build_dir/cs/c"
+  mach="tpb64l"
+  chez_boot="$cs_c/ChezScheme/$mach/boot/$mach"
+
+  repack="$cs_c/repack"
+  rm -rf "$repack"
+  mkdir -p "$repack" "$dest/lib" "$dest/include" "$dest/runtime"
+  # Extract each member archive into its own subdirectory: libkernel.a and
+  # libffi.a both contain an `ffi.o` (Chez's FFI glue vs libffi's raw
+  # layer), and a shared extraction directory would let one clobber the
+  # other.
+  (
+    cd "$repack"
+    mkdir libz liblz4 rktio libkernel libffi
+    (cd libz && ar x "$cs_c/ChezScheme/$mach/zlib/libz.a")
+    (cd liblz4 && ar x "$cs_c/ChezScheme/$mach/lz4/lib/liblz4.a")
+    (cd rktio && ar x "$cs_c/rktio/librktio.a")
+    (cd libkernel && ar x "$chez_boot/libkernel.a")
+    # libffi is merged in so consumers link a single archive; a native
+    # install would instead rely on a system libffi.
+    (cd libffi && ar x "$libffi_prefix/lib/libffi.a")
+  )
+  ar cr "$dest/lib/libracketcs.a" \
+    "$repack"/*/*.o \
+    "$cs_c"/petite*.o "$cs_c"/scheme*.o "$cs_c"/racket*.o \
+    "$cs_c/boot.o"
+  ranlib "$dest/lib/libracketcs.a"
+
+  # add-terminator.rkt applies the same defensive trailing byte the real
+  # install applies to the installed boot files.
+  for pair in "petite-v.boot:petite.boot" "scheme-v.boot:scheme.boot" \
+              "racket-v.boot:racket.boot"; do
+    src_boot="${pair%%:*}" dest_boot="${pair##*:}"
+    "$bootstrap_racket" "$source_root/src/cs/c/add-terminator.rkt" \
+      "$cs_c/$src_boot" "$dest/lib/$dest_boot"
+    cp "$dest/lib/$dest_boot" "$dest/runtime/$dest_boot"
+  done
+
+  cp "$source_root/src/cs/c/api.h" "$dest/include/racketcs.h"
+  cp "$source_root/src/cs/c/boot.h" "$dest/include/racketcsboot.h"
+  cp "$chez_boot/scheme.h" "$dest/include/chezscheme.h"
+}
+
+stage_build() {
+  mkdir -p "$output"
+  case "$stage" in
+    host-base)
+      build_dir="$work_dir/build-base"
+      mkdir -p "$build_dir"
+      (
+        cd "$build_dir"
+        "$source_dir/src/configure" --prefix="$(cd "$output" && pwd)" --enable-xonx
+        make -j"$jobs"
+        make install
+      )
+      # Persist the Chez bootstrap build tree inside the prefix: later
+      # stages need it (--enable-scheme), and the work directory is deleted
+      # on exit.
+      mv "$build_dir" "$output/build-base"
+      mkdir -p "$output/share"
+      printf '%s\n' "$(cd "$output/build-base/cs/c" && pwd)" \
+        > "$output/share/rivet-chez-build-dir"
+      ;;
+    host-compiler)
+      build_dir="$work_dir/build-host-pb"
+      mkdir -p "$build_dir"
+      (
+        cd "$build_dir"
+        "$source_dir/src/configure" \
+          --prefix="$(cd "$output" && pwd)" --enable-xonx \
+          --enable-pb --enable-mach=tpb64l \
+          --enable-racket="$base_racket" --enable-scheme="$scheme_dir"
+        make -j"$jobs"
+        make install
+      )
+      ;;
+    device|simulator)
+      if [ "$stage" = "device" ]; then
+        sdk_name="iphoneos" min_flag="-miphoneos-version-min=$ios_min_version"
+      else
+        sdk_name="iphonesimulator" min_flag="-miphonesimulator-version-min=$ios_min_version"
+      fi
+      sdk="$(xcrun -sdk "$sdk_name" --show-sdk-path)"
+      if [ "$stage" = "simulator" ]; then
+        # The CS configure only recognizes a simulator SDK when its path ENDS
+        # in "iPhoneSimulator.sdk" (versioned directories like
+        # "iPhoneSimulator27.2.sdk" fall through to -miphoneos-version-min,
+        # which retargets the build at the device and breaks the iconv link).
+        # A canonically named symlink satisfies the matcher without patching.
+        canonical="$work_dir/sdk-iPhoneSimulator.sdk"
+        ln -sfn "$sdk" "$canonical"
+        sdk="$canonical"
+      fi
+      libffi_prefix="$work_dir/libffi-$sdk_name"
+      prepare_target_libffi
+      build_target_libffi "$sdk_name" arm64 "$min_flag" "$libffi_prefix"
+      # The cross build's executables are build-side artifacts the harvest
+      # never consumes (only the archive, boot files, and headers are), and
+      # codesign rejects the simulator Mach-O layout under strict
+      # validation. Replace the mac signing helper with a no-op for this
+      # stage; native stages keep real signing.
+      cat > "$source_dir/src/mac/codesign.zuo" <<'ZUO'
+#lang zuo
+(require "../lib.zuo")
+(provide codesign-via-racket?
+         strip-signature*
+         restore-signature*
+         install_name_tool*)
+(define codesign-via-racket? #f)
+(define (strip-signature* cross? bootstrap-racket dest) (void))
+(define (restore-signature* cross? bootstrap-racket dest) (void))
+(define (install_name_tool* cross? bootstrap-racket args) (void))
+ZUO
+      echo "=== Rivet iOS toolchain: stage=$stage sdk=$sdk"
+      build_dir="$work_dir/build-$sdk_name"
+      mkdir -p "$build_dir"
+      (
+        cd "$build_dir"
+        PKG_CONFIG_PATH="$libffi_prefix/lib/pkgconfig" \
+        "$source_dir/src/configure" \
+          --prefix="$(cd "$output" && pwd)" --enable-xonx \
+          --host=aarch64-apple-darwin --enable-ios="$sdk" \
+          --enable-pb --enable-mach=tpb64l \
+          --enable-racket="$base_racket" --enable-scheme="$scheme_dir"
+        make -j"$jobs"
+      )
+      # A cross build's `make install` re-runs host-side steps (ad-hoc
+      # signing, package collection) that assume the built binaries run on
+      # this machine, so the embedding layout is harvested directly from the
+      # build tree following src/cs/c/build.zuo's install recipe instead.
+      harvest_cross_build "$build_dir" "$source_dir" "$output" "$base_racket" "$libffi_prefix"
+      ;;
+  esac
+}
+
+# Stages are idempotent: a completed stage is skipped (and re-verified)
+# unless RIVET_TOOLCHAIN_FORCE=1. This gives CI cache hits a clean hook.
+stage_done="$output/share/rivet-stage-$stage-done"
+if [ -f "$stage_done" ] && [ "${RIVET_TOOLCHAIN_FORCE:-0}" != "1" ]; then
+  echo "=== stage $stage already built; skipping (RIVET_TOOLCHAIN_FORCE=1 rebuilds)"
+else
+  stage_build
+  mkdir -p "$output/share"
+  touch "$stage_done"
+fi
+
+# Per-stage artifact verification. Host stages ship a runnable racket/raco
+# plus (for host-base) the persisted Chez bootstrap tree; cross stages ship
+# the merged static archive, the boot trio, and the embedding headers. The
+# verification matches each platform's install layout rather than the
+# macOS action's discovery.
+case "$stage" in
+  host-base)
+    for artifact in "$output/bin/racket" "$output/bin/raco" \
+                    "$output/share/rivet-chez-build-dir" \
+                    "$output/build-base/cs/c"; do
+      [ -e "$artifact" ] || { echo "missing expected artifact: $artifact" >&2; exit 1; }
+    done
+    printf 'RIVET_PB_HOST_BASE=%s\n' "$output"
+    ;;
+  host-compiler)
+    for artifact in "$output/bin/racket" "$output/bin/raco"; do
+      [ -e "$artifact" ] || { echo "missing expected artifact: $artifact" >&2; exit 1; }
+    done
+    printf 'RIVET_PB_HOST_COMPILER=%s\n' "$output"
+    ;;
+  device|simulator)
+    library="$(find "$output" -name 'libracketcs*.a' -print -quit)"
+    include_dir="$(dirname "$(find "$output" -name chezscheme.h -print -quit)")"
+    boot_dir="$output/runtime"
+    for artifact in "$library" "$include_dir/chezscheme.h" "$include_dir/racketcs.h" \
+                    "$boot_dir/petite.boot" "$boot_dir/scheme.boot" "$boot_dir/racket.boot"; do
+      [ -e "$artifact" ] || { echo "missing expected artifact: $artifact" >&2; exit 1; }
+    done
+    printf 'RIVET_IOS_LIBRARY=%s\n' "$library"
+    printf 'RIVET_IOS_INCLUDE=%s\n' "$include_dir"
+    printf 'RIVET_IOS_BOOT_DIR=%s\n' "$boot_dir"
+    ;;
+esac
+ fficonfig.h; then
+      echo "iOS libffi did not enable the Apple executable trampoline table" >&2
+      exit 1
+    fi
+    if grep -Eq '^#define FFI_MMAP_EXEC_WRIT 1
+}
+
+# Assemble lib/libracketcs.a, the boot trio, and the embedding headers from
+# a cross build directory. Mirrors the non-Windows install path of
+# src/cs/c/build.zuo: repack the bundled static libraries, archive the pb
+# stage objects plus boot.o, install the -v boot files under their runtime
+# names, and copy the version-matched headers.
+harvest_cross_build() {
+  build_dir="$1" source_root="$2" dest="$3" bootstrap_racket="$4" libffi_prefix="$5"
+  cs_c="$build_dir/cs/c"
+  mach="tpb64l"
+  chez_boot="$cs_c/ChezScheme/$mach/boot/$mach"
+
+  repack="$cs_c/repack"
+  rm -rf "$repack"
+  mkdir -p "$repack" "$dest/lib" "$dest/include" "$dest/runtime"
+  # Extract each member archive into its own subdirectory: libkernel.a and
+  # libffi.a both contain an `ffi.o` (Chez's FFI glue vs libffi's raw
+  # layer), and a shared extraction directory would let one clobber the
+  # other.
+  (
+    cd "$repack"
+    mkdir libz liblz4 rktio libkernel libffi
+    (cd libz && ar x "$cs_c/ChezScheme/$mach/zlib/libz.a")
+    (cd liblz4 && ar x "$cs_c/ChezScheme/$mach/lz4/lib/liblz4.a")
+    (cd rktio && ar x "$cs_c/rktio/librktio.a")
+    (cd libkernel && ar x "$chez_boot/libkernel.a")
+    # libffi is merged in so consumers link a single archive; a native
+    # install would instead rely on a system libffi.
+    (cd libffi && ar x "$libffi_prefix/lib/libffi.a")
+  )
+  ar cr "$dest/lib/libracketcs.a" \
+    "$repack"/*/*.o \
+    "$cs_c"/petite*.o "$cs_c"/scheme*.o "$cs_c"/racket*.o \
+    "$cs_c/boot.o"
+  ranlib "$dest/lib/libracketcs.a"
+
+  # add-terminator.rkt applies the same defensive trailing byte the real
+  # install applies to the installed boot files.
+  for pair in "petite-v.boot:petite.boot" "scheme-v.boot:scheme.boot" \
+              "racket-v.boot:racket.boot"; do
+    src_boot="${pair%%:*}" dest_boot="${pair##*:}"
+    "$bootstrap_racket" "$source_root/src/cs/c/add-terminator.rkt" \
+      "$cs_c/$src_boot" "$dest/lib/$dest_boot"
+    cp "$dest/lib/$dest_boot" "$dest/runtime/$dest_boot"
+  done
+
+  cp "$source_root/src/cs/c/api.h" "$dest/include/racketcs.h"
+  cp "$source_root/src/cs/c/boot.h" "$dest/include/racketcsboot.h"
+  cp "$chez_boot/scheme.h" "$dest/include/chezscheme.h"
+}
+
+stage_build() {
+  mkdir -p "$output"
+  case "$stage" in
+    host-base)
+      build_dir="$work_dir/build-base"
+      mkdir -p "$build_dir"
+      (
+        cd "$build_dir"
+        "$source_dir/src/configure" --prefix="$(cd "$output" && pwd)" --enable-xonx
+        make -j"$jobs"
+        make install
+      )
+      # Persist the Chez bootstrap build tree inside the prefix: later
+      # stages need it (--enable-scheme), and the work directory is deleted
+      # on exit.
+      mv "$build_dir" "$output/build-base"
+      mkdir -p "$output/share"
+      printf '%s\n' "$(cd "$output/build-base/cs/c" && pwd)" \
+        > "$output/share/rivet-chez-build-dir"
+      ;;
+    host-compiler)
+      build_dir="$work_dir/build-host-pb"
+      mkdir -p "$build_dir"
+      (
+        cd "$build_dir"
+        "$source_dir/src/configure" \
+          --prefix="$(cd "$output" && pwd)" --enable-xonx \
+          --enable-pb --enable-mach=tpb64l \
+          --enable-racket="$base_racket" --enable-scheme="$scheme_dir"
+        make -j"$jobs"
+        make install
+      )
+      ;;
+    device|simulator)
+      if [ "$stage" = "device" ]; then
+        sdk_name="iphoneos" min_flag="-miphoneos-version-min=$ios_min_version"
+      else
+        sdk_name="iphonesimulator" min_flag="-miphonesimulator-version-min=$ios_min_version"
+      fi
+      sdk="$(xcrun -sdk "$sdk_name" --show-sdk-path)"
+      if [ "$stage" = "simulator" ]; then
+        # The CS configure only recognizes a simulator SDK when its path ENDS
+        # in "iPhoneSimulator.sdk" (versioned directories like
+        # "iPhoneSimulator27.2.sdk" fall through to -miphoneos-version-min,
+        # which retargets the build at the device and breaks the iconv link).
+        # A canonically named symlink satisfies the matcher without patching.
+        canonical="$work_dir/sdk-iPhoneSimulator.sdk"
+        ln -sfn "$sdk" "$canonical"
+        sdk="$canonical"
+      fi
+      libffi_prefix="$work_dir/libffi-$sdk_name"
+      build_target_libffi "$sdk_name" arm64 "$min_flag" "$libffi_prefix"
+      # The cross build's executables are build-side artifacts the harvest
+      # never consumes (only the archive, boot files, and headers are), and
+      # codesign rejects the simulator Mach-O layout under strict
+      # validation. Replace the mac signing helper with a no-op for this
+      # stage; native stages keep real signing.
+      cat > "$source_dir/src/mac/codesign.zuo" <<'ZUO'
+#lang zuo
+(require "../lib.zuo")
+(provide codesign-via-racket?
+         strip-signature*
+         restore-signature*
+         install_name_tool*)
+(define codesign-via-racket? #f)
+(define (strip-signature* cross? bootstrap-racket dest) (void))
+(define (restore-signature* cross? bootstrap-racket dest) (void))
+(define (install_name_tool* cross? bootstrap-racket args) (void))
+ZUO
+      echo "=== Rivet iOS toolchain: stage=$stage sdk=$sdk"
+      build_dir="$work_dir/build-$sdk_name"
+      mkdir -p "$build_dir"
+      (
+        cd "$build_dir"
+        PKG_CONFIG_PATH="$libffi_prefix/lib/pkgconfig" \
+        "$source_dir/src/configure" \
+          --prefix="$(cd "$output" && pwd)" --enable-xonx \
+          --host=aarch64-apple-darwin --enable-ios="$sdk" \
+          --enable-pb --enable-mach=tpb64l \
+          --enable-racket="$base_racket" --enable-scheme="$scheme_dir"
+        make -j"$jobs"
+      )
+      # A cross build's `make install` re-runs host-side steps (ad-hoc
+      # signing, package collection) that assume the built binaries run on
+      # this machine, so the embedding layout is harvested directly from the
+      # build tree following src/cs/c/build.zuo's install recipe instead.
+      harvest_cross_build "$build_dir" "$source_dir" "$output" "$base_racket" "$libffi_prefix"
+      ;;
+  esac
+}
+
+# Stages are idempotent: a completed stage is skipped (and re-verified)
+# unless RIVET_TOOLCHAIN_FORCE=1. This gives CI cache hits a clean hook.
+stage_done="$output/share/rivet-stage-$stage-done"
+if [ -f "$stage_done" ] && [ "${RIVET_TOOLCHAIN_FORCE:-0}" != "1" ]; then
+  echo "=== stage $stage already built; skipping (RIVET_TOOLCHAIN_FORCE=1 rebuilds)"
+else
+  stage_build
+  mkdir -p "$output/share"
+  touch "$stage_done"
+fi
+
+# Per-stage artifact verification. Host stages ship a runnable racket/raco
+# plus (for host-base) the persisted Chez bootstrap tree; cross stages ship
+# the merged static archive, the boot trio, and the embedding headers. The
+# verification matches each platform's install layout rather than the
+# macOS action's discovery.
+case "$stage" in
+  host-base)
+    for artifact in "$output/bin/racket" "$output/bin/raco" \
+                    "$output/share/rivet-chez-build-dir" \
+                    "$output/build-base/cs/c"; do
+      [ -e "$artifact" ] || { echo "missing expected artifact: $artifact" >&2; exit 1; }
+    done
+    printf 'RIVET_PB_HOST_BASE=%s\n' "$output"
+    ;;
+  host-compiler)
+    for artifact in "$output/bin/racket" "$output/bin/raco"; do
+      [ -e "$artifact" ] || { echo "missing expected artifact: $artifact" >&2; exit 1; }
+    done
+    printf 'RIVET_PB_HOST_COMPILER=%s\n' "$output"
+    ;;
+  device|simulator)
+    library="$(find "$output" -name 'libracketcs*.a' -print -quit)"
+    include_dir="$(dirname "$(find "$output" -name chezscheme.h -print -quit)")"
+    boot_dir="$output/runtime"
+    for artifact in "$library" "$include_dir/chezscheme.h" "$include_dir/racketcs.h" \
+                    "$boot_dir/petite.boot" "$boot_dir/scheme.boot" "$boot_dir/racket.boot"; do
+      [ -e "$artifact" ] || { echo "missing expected artifact: $artifact" >&2; exit 1; }
+    done
+    printf 'RIVET_IOS_LIBRARY=%s\n' "$library"
+    printf 'RIVET_IOS_INCLUDE=%s\n' "$include_dir"
+    printf 'RIVET_IOS_BOOT_DIR=%s\n' "$boot_dir"
+    ;;
+esac
+ fficonfig.h; then
+      echo "iOS libffi unexpectedly selected executable writable mapping" >&2
+      exit 1
+    fi
     make -j"$jobs"
     make install
+    if ! nm "$prefix/lib/libffi.a" | grep -q 'ffi_closure_trampoline_table_page'; then
+      echo "iOS libffi archive lacks the preassembled Apple trampoline page" >&2
+      exit 1
+    fi
   )
 }
 
