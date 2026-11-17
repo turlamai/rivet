@@ -267,7 +267,7 @@ use the Windows App SDK `AppInstance` key scoped to generated product identity,
 redirect secondary activation objects asynchronously, decode Launch/File/Protocol
 payloads, and deliver them on the existing WinUI dispatcher to the bounded
 native inbox. A failed redirection must not silently discard launch arguments.
-The native Taskboard UIA driver launches a second process both from the
+The first WinUI window now drains a bounded App-level startup inbox so early redirected events are not discarded before window construction. A Racket scaffold regression pins the receive/drain handoff. Real simultaneous-launch and shutdown-race acceptance still requires separate stress evidence. The native Taskboard UIA driver launches a second process both from the
 packaged directory and from an actual MSI-installed executable. The first
 native inbox must acknowledge the expected URI **exactly once**, keep its
 own process alive, and the secondary must exit cleanly. The MSI acceptance
