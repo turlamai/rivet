@@ -261,10 +261,13 @@
                (xml-escape (path->string package)))
       (when registrations?
         (display "    <Component Id=\"NativeActivationRegistration\" Guid=\"*\">\n" out)
+        ;; This MSI uses Scope="perMachine". Install activation registrations in
+        ;; HKLM for all users, not in the elevated installer service's HKCU.
+        ;; HKCU here would leave ordinary users unable to ShellExecute the URI.
         (define key-path? #t)
         (define (registry key name value)
           (fprintf out
-                   "      <RegistryValue Root=\"HKCU\" Key=\"~a\"~a Type=\"string\" Value=\"~a\"~a />\n"
+                   "      <RegistryValue Root=\"HKLM\" Key=\"~a\"~a Type=\"string\" Value=\"~a\"~a />\n"
                    (xml-escape key)
                    (if (string=? name "")
                        ""

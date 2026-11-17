@@ -1,6 +1,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$Executable,
-    [Parameter(Mandatory = $true)][string]$OutputDirectory
+    [Parameter(Mandatory = $true)][string]$OutputDirectory,
+    [string]$ShellUri = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -111,7 +112,11 @@ function Save-Screenshot {
 $priorActivationMarker = [Environment]::GetEnvironmentVariable('RIVET_TEST_ACTIVATION_MARKER', 'Process')
 $priorActivationExpect = [Environment]::GetEnvironmentVariable('RIVET_TEST_ACTIVATION_EXPECT', 'Process')
 $activationMarker = Join-Path $OutputDirectory 'second-instance-received.txt'
-$expectedActivation = 'rivet://activation-test/second-instance-accepted'
+$expectedActivation = if ([string]::IsNullOrEmpty($ShellUri)) {
+    'rivet://activation-test/second-instance-accepted'
+} else {
+    $ShellUri
+}
 Remove-Item -LiteralPath $activationMarker -Force -ErrorAction SilentlyContinue
 [Environment]::SetEnvironmentVariable('RIVET_TEST_ACTIVATION_MARKER', $activationMarker, 'Process')
 [Environment]::SetEnvironmentVariable('RIVET_TEST_ACTIVATION_EXPECT', $expectedActivation, 'Process')
@@ -152,8 +157,19 @@ try {
     # product-level typed Racket RPC mapping remains a separate gate.
     $secondLaunch = $null
     try {
-        $secondLaunch = Start-Process -FilePath (Resolve-Path -LiteralPath $Executable) `
-            -ArgumentList @($expectedActivation) -PassThru
+        if ([string]::IsNullOrEmpty($ShellUri)) {
+            $secondLaunch = Start-Process -FilePath (Resolve-Path -LiteralPath $Executable) `
+                -ArgumentList @($expectedActivation) -PassThru
+        } else {
+            # Exercise the OS association, not a direct path to RivetHost.exe.
+            $shellStart = [System.Diagnostics.ProcessStartInfo]::new()
+            $shellStart.UseShellExecute = $true
+            $shellStart.FileName = $ShellUri
+            $secondLaunch = [System.Diagnostics.Process]::Start($shellStart)
+            if ($null -eq $secondLaunch) {
+                throw 'ShellExecute URI activation returned no secondary process handle'
+            }
+        }
         if (-not $secondLaunch.WaitForExit(15000)) {
             throw 'Secondary WinUI activation did not terminate after AppInstance redirection'
         }
@@ -187,6 +203,7 @@ try {
             primaryStillRunning = $true
             exactExpectedActivationArrived = $true
             nativeDeliveryCount = $receipts.Count
+            viaRegisteredShellUri = -not [string]::IsNullOrEmpty($ShellUri)
             nativeDeliveryOnly = $true
         } | ConvertTo-Json | Set-Content -LiteralPath (
             Join-Path $OutputDirectory 'second-instance-trace.json') -Encoding utf8

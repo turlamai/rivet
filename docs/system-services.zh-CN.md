@@ -52,7 +52,7 @@ Linux 异步读取，因为 Wayland 按需从当前所有者传输剪贴板内�
 `platform/windows/system` 使用第一方 Win32 表面：
 
 - 命名 mutex 用于进程唯一性；
-- 命令行激活，用于 MSI 注册的 URL scheme 和文件关联；
+- 命令行激活，用于 MSI 注册的 URL scheme 和文件关联。MSI 使用 `Scope="perMachine"`，因此协议与文件处理器必须注册到 `HKLM\\Software\\Classes`，而非提升权限的安装进程所对应的 HKCU，卸载时应由 MSI 清除；
 - 生成的 WinUI 3 宿主和 Taskboard 示例现在在创建窗口前调用 `ActivationArguments()`，
   将最新 64 条非空 Unicode 参数（单条最多 4096 个 UTF-16 码元）保存到窗口的
   `ActivationInbox`。产品代码必须显式调用 `TakeActivationArguments()` 并验证后才映射到
