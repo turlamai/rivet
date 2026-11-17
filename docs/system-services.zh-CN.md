@@ -52,12 +52,15 @@ Linux 异步读取，因为 Wayland 按需从当前所有者传输剪贴板内�
 `platform/windows/system` 使用第一方 Win32 表面：
 
 - 命名 mutex 用于进程唯一性；
-- 命令行激活，用于 MSI 注册的 URL scheme 和文件关联；
+- 命令行激活，用于 MSI 注册的 URL scheme 和文件关联。MSI 使用 `Scope="perMachine"`，因此协议与文件处理器必须注册到 `HKLM\\Software\\Classes`，而非提升权限的安装进程所对应的 HKCU，卸载时应由 MSI 清除；
 - 生成的 WinUI 3 宿主和 Taskboard 示例现在在创建窗口前调用 `ActivationArguments()`，
   将最新 64 条非空 Unicode 参数（单条最多 4096 个 UTF-16 码元）保存到窗口的
   `ActivationInbox`。产品代码必须显式调用 `TakeActivationArguments()` 并验证后才映射到
-  经过授权的类型化 RPC。**本切片仅支持新进程的启动参数接收**；Windows 第二实例转发、
-  实际 MSI 安装后的端到端激活仍未验收；
+  经过授权的类型化 RPC。父 PR **仅支持新进程启动参数接收**；后续堆叠的**实验性 AppLifecycle 方案**利用产品唯一
+  标识键和 `AppInstance.FindOrRegisterForKey` / `RedirectActivationToAsync`，尝试把第二实例
+  的 Launch/File/Protocol 参数送达主实例 WinUI dispatcher 的有界队列。主实例在创建第一个窗口之前另设有界的 App 层队列，先收到的重定向事件会在窗口创建后按顺序转交，不因窗口未就绪被直接丢弃。CI 对普通打包可执行文件及 **MSI 安装后的可执行文件** 都执行双进程启动，要求第一个实例
+  的原生队列恰好接收一次预期 URI，且原进程仍运行。此验收**不能替代** ShellExecute 的
+  已注册 URL/文件关联测试，也未验收产品定义的类型化 Racket RPC；
 - `Shell_NotifyIconW` 用于托盘存在和通知气泡，另有 `TrayController` 拥有窗口 subclass、
   原生弹出菜单、命令路由和 `TaskbarCreated` 恢复；
 - `GlobalShortcuts` 基于 `RegisterHotKey`：每个实例一个 message-only 窗口，`WM_HOTKEY`

@@ -238,6 +238,50 @@ changed.
 
 ## Next implementation handoff
 
+**Windows registered URI acceptance test (Draft, 2026-11-16):** build a
+CI-only Taskboard MSI that registers the `rivet-taskboard-ci` protocol
+scheme, without adding that scheme to the checked-in product configuration.
+After a real MSI installation, verify the machine-scoped `HKLM` registry command,
+invoke `rivet-taskboard-ci://activation-test/msi-shell` through Windows
+`ShellExecute` (not by directly launching `RivetHost.exe`), and require
+the primary WinUI process to remain alive and receive exactly one native
+activation. Then uninstall and verify the protocol registry key is gone.
+The test emits machine-readable acceptance and fixed-payload receipts only;
+it never records arbitrary incoming URI data. **Not yet validated:** the
+Windows native UI CI must pass on the exact PR head, including registry
+ownership, process lifecycle, removal, and any UAC/per-machine implications.
+This still does not validate a product-owned typed Racket activation RPC or
+all file-association paths. Starting parent #478 SHA:
+`21339bad35c0a9d416dcb897d5e7e710f821050b`;
+starting `main` SHA:
+`e54c03cd36432bfd25045f66b4120d28a55bd693`.
+
+中文：新增真实 MSI 注册的 URI 激活验收。CI 临时生成专用 scheme，
+安装后验证当前用户注册表，通过 Windows ShellExecute 而非直接调用
+EXE 打开 URI，要求主实例恰好接收一次，再检查卸载后关联已清理。
+这是待验证的 Draft 测试，并不等于产品 Racket RPC 已接入或文件关联
+已经全面通过；以最新提交的 Windows 原生 CI 为准。
+
+**Experimental Windows redirection slice (stacked on #477, 2026-11-16):**
+use the Windows App SDK `AppInstance` key scoped to generated product identity,
+redirect secondary activation objects asynchronously, decode Launch/File/Protocol
+payloads, and deliver them on the existing WinUI dispatcher to the bounded
+native inbox. A failed redirection must not silently discard launch arguments.
+The first WinUI window now drains a bounded App-level startup inbox so early redirected events are not discarded before window construction. A Racket scaffold regression pins the receive/drain handoff. Real simultaneous-launch and shutdown-race acceptance still requires separate stress evidence. The native Taskboard UIA driver launches a second process both from the
+packaged directory and from an actual MSI-installed executable. The first
+native inbox must acknowledge the expected URI **exactly once**, keep its
+own process alive, and the secondary must exit cleanly. The MSI acceptance
+wrapper verifies the trace as machine-readable evidence, without recording
+external URI content. Use only the **current HEAD** CI results as proof;
+shell-registered URL/file associations, simultaneous-launch stress, and
+typed product RPC dispatch remain separate release gates. Product-owned typed Racket RPC remains outside the scope. The
+starting parent commit was `d9376e3e336e3ff5aeac400a75b2af5464e233cb`;
+current `main` at start was `e35fa6f96645f08b7ba4328fa6099b08c6d1d6f4`.
+
+中文：本分支是基于 #477 的 Windows 第二实例重定向实验实现，
+使用 Windows App SDK 的 AppInstance，而非自制不安全 IPC。
+必须通过原生编译、真实安装包双进程激活和关闭竞态测试后才可合入。
+
 **Windows native activation bounded slice (2026-11-16):** the generated
 WinUI 3 host and reference Taskboard now call the existing Windows
 `ActivationArguments()` before constructing their native windows. Each

@@ -1,6 +1,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$Msi,
-    [Parameter(Mandatory = $true)][string]$OutputDirectory
+    [Parameter(Mandatory = $true)][string]$OutputDirectory,
+    [string]$Scheme = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -39,6 +40,9 @@ function Invoke-Msi {
 }
 
 $installed = $false
+$schemeKey = if ([string]::IsNullOrEmpty($Scheme)) { '' } else {
+    "Registry::HKEY_LOCAL_MACHINE\Software\Classes\$Scheme"
+}
 try {
     Invoke-Msi -Action i -LogFile $logInstall
     $installed = $true
@@ -46,13 +50,49 @@ try {
     if (-not (Test-Path -LiteralPath $exe -PathType Leaf)) {
         throw "MSI did not install RivetHost.exe under requested INSTALLFOLDER: $installRoot"
     }
-    & (Join-Path $PSScriptRoot 'windows-uia.ps1') -Executable $exe -OutputDirectory (Join-Path $OutputDirectory 'installed-host')
+    $installedEvidence = Join-Path $OutputDirectory 'installed-host'
+    if ([string]::IsNullOrEmpty($Scheme)) {
+        & (Join-Path $PSScriptRoot 'windows-uia.ps1') -Executable $exe -OutputDirectory $installedEvidence
+    } else {
+        # Verify the *actual MSI registration* under machine-wide Classes,
+        # then invoke the registered URI through ShellExecute.
+        $commandKey = "$schemeKey\shell\open\command"
+        if (-not (Test-Path -LiteralPath $commandKey)) {
+            throw "MSI installed no machine-scoped URL handler for $Scheme"
+        }
+        $registeredCommand = (Get-Item -LiteralPath $commandKey).GetValue('')
+        if (-not $registeredCommand -or
+            $registeredCommand.IndexOf($exe, [StringComparison]::OrdinalIgnoreCase) -lt 0) {
+            throw "MSI registered the wrong URL handler for $Scheme : $registeredCommand"
+        }
+        $uri = "${Scheme}://activation-test/msi-shell"
+        & (Join-Path $PSScriptRoot 'windows-uia.ps1') -Executable $exe -OutputDirectory $installedEvidence -ShellUri $uri
+    }
+    $activationTracePath = Join-Path $installedEvidence 'second-instance-trace.json'
+    if (-not (Test-Path -LiteralPath $activationTracePath -PathType Leaf)) {
+        throw 'Installed MSI did not produce second-instance activation evidence'
+    }
+    $activationTrace = Get-Content -LiteralPath $activationTracePath -Raw | ConvertFrom-Json
+    if (-not $activationTrace.secondaryExited -or
+        -not $activationTrace.primaryStillRunning -or
+        -not $activationTrace.exactExpectedActivationArrived -or
+        [int]$activationTrace.nativeDeliveryCount -ne 1 -or
+        ([bool]$activationTrace.viaRegisteredShellUri -ne (-not [string]::IsNullOrEmpty($Scheme)))) {
+        throw 'Installed MSI failed exact-once two-process native activation acceptance'
+    }
     [ordered]@{
         artifact = [System.IO.Path]::GetFileName($msiPath)
         installKind = 'msi'
         installedExe = $exe
+        installedSecondInstanceActivation = $true
+        nativeDeliveryCount = [int]$activationTrace.nativeDeliveryCount
+        # ShellExecute URI registration is proven only in the Scheme branch.
+        # File-extension association activation remains a separate gate.
+        registeredShellAssociationAcceptance = if ([string]::IsNullOrEmpty($Scheme)) { 'unrun' } else { 'passed' }
+        registeredScheme = $Scheme
         assertions = @(
             'MSI silently installed its exact packaged host',
+            'installed host redirected second process to live primary exactly once',
             'installed host exposed two titled WinUI windows',
             'both windows resolved the executable icon resource',
             'installed process completed the native UI and orderly exit scenario'
@@ -62,6 +102,9 @@ try {
 } finally {
     if ($installed) {
         Invoke-Msi -Action x -LogFile $logUninstall
+        if ($schemeKey -and (Test-Path -LiteralPath $schemeKey)) {
+            throw "MSI uninstall left protocol handler registration for $Scheme"
+        }
         if (Test-Path -LiteralPath $installRoot) {
             $binaries = @(Get-ChildItem -LiteralPath $installRoot -Filter '*.exe' -Recurse -ErrorAction SilentlyContinue)
             if ($binaries.Count -gt 0) { throw "MSI uninstall left application executables under $installRoot" }

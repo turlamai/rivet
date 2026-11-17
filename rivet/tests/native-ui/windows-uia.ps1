@@ -1,6 +1,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$Executable,
-    [Parameter(Mandatory = $true)][string]$OutputDirectory
+    [Parameter(Mandatory = $true)][string]$OutputDirectory,
+    [string]$ShellUri = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -106,6 +107,20 @@ function Save-Screenshot {
     }
 }
 
+# The first process inherits a fixed, private CI-only receipt marker. The
+# application never writes external activation content to this file.
+$priorActivationMarker = [Environment]::GetEnvironmentVariable('RIVET_TEST_ACTIVATION_MARKER', 'Process')
+$priorActivationExpect = [Environment]::GetEnvironmentVariable('RIVET_TEST_ACTIVATION_EXPECT', 'Process')
+$activationMarker = Join-Path $OutputDirectory 'second-instance-received.txt'
+$expectedActivation = if ([string]::IsNullOrEmpty($ShellUri)) {
+    'rivet://activation-test/second-instance-accepted'
+} else {
+    $ShellUri
+}
+Remove-Item -LiteralPath $activationMarker -Force -ErrorAction SilentlyContinue
+[Environment]::SetEnvironmentVariable('RIVET_TEST_ACTIVATION_MARKER', $activationMarker, 'Process')
+[Environment]::SetEnvironmentVariable('RIVET_TEST_ACTIVATION_EXPECT', $expectedActivation, 'Process')
+
 $priorProbe = [Environment]::GetEnvironmentVariable('RIVET_TEST_ICON_PROBE', 'Process')
 [Environment]::SetEnvironmentVariable('RIVET_TEST_ICON_PROBE', '1', 'Process')
 try {
@@ -134,6 +149,72 @@ try {
             if ($candidate.Current.Name -eq 'Rivet Icon Probe') { return $candidate }
         }
         return $null
+    }
+
+    # The packaged process must receive a *real secondary invocation* through
+    # Windows AppInstance, rather than opening a second independent window.
+    # This checks actual UTF-16 argument delivery into the native inbox;
+    # product-level typed Racket RPC mapping remains a separate gate.
+    $secondLaunch = $null
+    try {
+        if ([string]::IsNullOrEmpty($ShellUri)) {
+            $secondLaunch = Start-Process -FilePath (Resolve-Path -LiteralPath $Executable) `
+                -ArgumentList @($expectedActivation) -PassThru
+        } else {
+            # Exercise the OS association, not a direct path to RivetHost.exe.
+            $shellStart = [System.Diagnostics.ProcessStartInfo]::new()
+            $shellStart.UseShellExecute = $true
+            $shellStart.FileName = $ShellUri
+            $secondLaunch = [System.Diagnostics.Process]::Start($shellStart)
+            if ($null -eq $secondLaunch) {
+                throw 'ShellExecute URI activation returned no secondary process handle'
+            }
+        }
+        if (-not $secondLaunch.WaitForExit(15000)) {
+            throw 'Secondary WinUI activation did not terminate after AppInstance redirection'
+        }
+        if ($secondLaunch.ExitCode -ne 0) {
+            throw "Secondary WinUI activation exited with status $($secondLaunch.ExitCode)"
+        }
+        Wait-Until 'the primary native inbox receiving the second activation' {
+            if (Test-Path -LiteralPath $activationMarker) {
+                $markerText = Get-Content -LiteralPath $activationMarker -Raw
+                if ($markerText -match 'received') { return $true }
+            }
+            return $false
+        } | Out-Null
+        if ($process.HasExited) {
+            throw 'Primary WinUI process exited while the second activation was delivered'
+        }
+        if ($secondLaunch.Id -eq $process.Id) {
+            throw 'The second launch did not create a distinct process'
+        }
+        # Detect accidental duplicate AppInstance callbacks, not merely one
+        # successful delivery. The marker contains no external URI data.
+        Start-Sleep -Milliseconds 350
+        $receipts = @(Get-Content -LiteralPath $activationMarker)
+        if ($receipts.Count -ne 1 -or $receipts[0] -ne 'received') {
+            throw "Expected exactly one native activation receipt, saw $($receipts.Count)"
+        }
+        [ordered]@{
+            firstProcessId = $process.Id
+            secondaryProcessId = $secondLaunch.Id
+            secondaryExited = $true
+            primaryStillRunning = $true
+            exactExpectedActivationArrived = $true
+            nativeDeliveryCount = $receipts.Count
+            viaRegisteredShellUri = -not [string]::IsNullOrEmpty($ShellUri)
+            nativeDeliveryOnly = $true
+        } | ConvertTo-Json | Set-Content -LiteralPath (
+            Join-Path $OutputDirectory 'second-instance-trace.json') -Encoding utf8
+    } finally {
+        if ($null -ne $secondLaunch) {
+            if (-not $secondLaunch.HasExited) {
+                Stop-Process -Id $secondLaunch.Id -Force -ErrorAction SilentlyContinue
+                $secondLaunch.WaitForExit()
+            }
+            $secondLaunch.Dispose()
+        }
     }
 
     # Both top-level windows must expose the exact solid-color icon fixture
@@ -432,4 +513,6 @@ try {
     }
     $process.Dispose()
     [Environment]::SetEnvironmentVariable('RIVET_TASKBOARD_DATA_DIR', $priorDataDirectory, 'Process')
+    [Environment]::SetEnvironmentVariable('RIVET_TEST_ACTIVATION_MARKER', $priorActivationMarker, 'Process')
+    [Environment]::SetEnvironmentVariable('RIVET_TEST_ACTIVATION_EXPECT', $priorActivationExpect, 'Process')
 }
