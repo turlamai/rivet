@@ -123,11 +123,15 @@ prepare_target_libffi() {
   local config
   for config in configure configure.ac; do
     local file="$target_libffi_source/$config"
-    if ! grep -Fq 'DISABLEaarch64-apple-*' "$file"; then
+    if ! grep -Fq 'DISABLE*arm*-apple-* | DISABLEaarch64-apple-*' "$file"; then
       echo "pinned libffi $config no longer has the expected Apple ARM64 gate" >&2
       exit 1
     fi
-    sed 's/DISABLEaarch64-apple-\*/aarch64-apple-*/g' "$file" > "$file.rivet-ios"
+    # libffi may see either arm64-apple-* (the provided --host) or the
+    # canonicalized aarch64-apple-* target. Enable both spellings.
+    sed -e 's/DISABLE\*arm\*-apple-\*/*arm*-apple-*/g' \
+        -e 's/DISABLEaarch64-apple-\*/aarch64-apple-*/g' \
+        "$file" > "$file.rivet-ios"
     mv "$file.rivet-ios" "$file"
   done
   chmod +x "$target_libffi_source/configure"
