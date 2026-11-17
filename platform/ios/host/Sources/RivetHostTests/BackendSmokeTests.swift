@@ -41,7 +41,10 @@ final class BackendSmokeTests: XCTestCase {
                                           "embedded VM was not serving before the stop/restart test")
         XCTAssertTrue(runningBefore.isReady)
         _ = try await RivetAPI(client: runningBefore.client).set_counter(7)
-        runningBefore.stop()
+        // Stop through the shared owner, not the bare backend: stopping the
+        // backend alone leaves SharedBackend.started=true and its stale
+        // reference allocated, so a subsequent start() becomes a no-op.
+        SharedBackend.stop()
 
         SharedBackend.start()
         let after = await SharedBackend.waitForStart(timeout: 180)
