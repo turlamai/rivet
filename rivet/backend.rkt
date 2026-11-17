@@ -1048,16 +1048,13 @@
                 (for/list ([arg (in-list args)]
                            [arg-name (in-list (rpc-info-arg-names info))]
                            [arg-type (in-list (rpc-info-arg-types info))])
-                  (if (and (symbol? arg-type)
-                           (or (hash-has-key? record-registry arg-type)
-                               (hash-has-key? enum-registry arg-type)))
-                      ;; Named Record/Enum arguments arrive in wire form;
-                      ;; wire->typed validates and constructs the Racket value
-                      ;; that the RPC body expects.
-                      (wire->typed arg-type arg)
-                      (begin
-                        (validate-value rpc-name arg-name arg-type arg)
-                        arg))))
+                  ;; Every RPC argument arrives in RVT1 wire form, including
+                  ;; Lists and Optionals containing named Records or Enums.
+                  ;; Convert recursively before validating the typed value so
+                  ;; native clients can send nested DTOs just like scalars.
+                  (let ([typed-arg (wire->typed arg-type arg)])
+                    (validate-value rpc-name arg-name arg-type typed-arg)
+                    typed-arg)))
               (define value (apply (rpc-info-procedure info) typed-args))
               (validate-value rpc-name
                               'result
