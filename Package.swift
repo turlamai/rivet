@@ -32,6 +32,14 @@ let package = Package(
             targets: ["RivetDeviceAppleTransport"]
         ),
         .library(name: "RivetWatchConnectivity", targets: ["RivetWatchConnectivity"]),
+        .library(
+            name: "RivetDeviceAppleCompanion",
+            targets: ["RivetDeviceAppleCompanion"]
+        ),
+        .library(
+            name: "RivetDeviceAppleCompanionUI",
+            targets: ["RivetDeviceAppleCompanionUI"]
+        ),
         .library(name: "RivetEmbedding", targets: ["RivetEmbedding"]),
         .library(name: "RivetSystem", targets: ["RivetSystem"]),
         .library(name: "RivetUpdate", targets: ["RivetUpdate"]),
@@ -71,6 +79,28 @@ let package = Package(
                 .linkedFramework("Network"),
                 .linkedFramework("Security")
             ]
+        ),
+        .target(
+            name: "RivetDeviceAppleCompanion",
+            dependencies: [
+                "RivetDevice",
+                "RivetDeviceSession",
+                "RivetDeviceAppleSecurity",
+                "RivetDeviceAppleTransport"
+            ],
+            path: "platform/macos/Sources/RivetDeviceAppleCompanion",
+            linkerSettings: [
+                .linkedFramework("Network")
+            ]
+        ),
+        .target(
+            name: "RivetDeviceAppleCompanionUI",
+            dependencies: [
+                "RivetDevice",
+                "RivetDeviceAppleTransport",
+                "RivetDeviceAppleCompanion"
+            ],
+            path: "platform/macos/Sources/RivetDeviceAppleCompanionUI"
         ),
         .target(
             name: "RivetWatchConnectivity",
@@ -133,6 +163,11 @@ let package = Package(
             name: "RivetDeviceAppleTransportTests",
             dependencies: ["RivetDeviceAppleTransport", "RivetDeviceSession"],
             path: "platform/macos/Tests/RivetDeviceAppleTransportTests"
+        ),
+        .testTarget(
+            name: "RivetDeviceAppleCompanionTests",
+            dependencies: ["RivetDeviceAppleCompanion"],
+            path: "platform/macos/Tests/RivetDeviceAppleCompanionTests"
         ),
         .testTarget(
             name: "RivetSystemTests",
