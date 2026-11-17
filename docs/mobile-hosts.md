@@ -95,6 +95,13 @@ and a stop/restart cycle. It has not passed: in the latest sampled local
 run, the embedded pb VM stalls in `S_ffi_closure` before serving the
 RVT1 Hello frame. Treat it as a pending M4 acceptance gate.
 
+The experimental host now waits for the actual serving state before sending
+its first UI RPC. A failed or expired 180-second startup wait must return no
+backend and show a visible failure instead of sending an RPC to a stalled VM.
+The simulator XCTest gate also asserts `isReady` before each RPC. These are
+fail-closed readiness safeguards, **not** a fix or passing simulator proof
+for the underlying libffi/Chez boot hang.
+
 Device builds (iPhoneOS SDK, Release configuration, signing) require a
 publisher development team and are part of the remaining qualification
 gates, not part of `raco rivet build --ios`.
@@ -161,7 +168,11 @@ raco rivet build --ios
 ```
 
 当前生成的 XCTest 已包含启动、类型化 RPC 与重启用例，但执行时
-Racket VM 卡在 `S_ffi_closure`，尚未通过。下一步是复现并解决该底层
-阻塞、得到真实模拟器 Hello/RPC/生命周期通过证据，再建立完整 CI。
+Racket VM 卡在 `S_ffi_closure`，尚未通过。实验宿主现在必须等待实际的
+serving 状态才执行首个 UI RPC；180 秒超时或启动失败会返回空值并显示
+失败状态，不会将尚未就绪的后端误认为成功。XCTest 在 RPC 前也会核对
+`isReady`。这些是防止误报及无限等待的保护措施，**并未修复或验证通过**
+libffi/Chez 的启动阻塞。下一步仍须通过真实模拟器 Hello/RPC/生命周期
+验收，再建立完整 CI。
 之后仍需真机 Release、无 JIT/可执行内存违规、签名、权限、进程
 恢复与商店审核的独立验证。Android 独立宿主目前尚未生成。
