@@ -128,18 +128,19 @@ enum SharedBackend {
 
     static var current: EmbeddedRacketBackend? { backend }
 
-    /// Waits (bounded) for the detached boot to finish AND the embedded
-    /// VM to reach its serving state, returning the running backend — or
-    /// nil when startup failed (see `lastError`).
+    /// Waits (bounded) until the detached VM reaches serving state.
+    /// Never expose a merely allocated backend after a boot timeout: doing
+    /// so makes clients issue RPCs into a VM that may be stuck in libffi.
+    /// Nil means startup failed or did not become ready before the deadline.
     @MainActor
     static func waitForStart(timeout: TimeInterval = 180) async -> EmbeddedRacketBackend? {
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
-            if let error = startupError { _ = error; return nil }
+            if startupError != nil { return nil }
             if let running = backend, running.isReady { return running }
             try? await Task.sleep(nanoseconds: 200_000_000)
         }
-        return backend
+        return nil
     }
     static var lastError: Error? { startupError }
 }

@@ -42,28 +42,41 @@ final class AppModel: ObservableObject {
     @Published var count: Int64 = 0
     @Published var ready = false
 
+    private var startupTask: Task<Void, Never>?
+
     func start() {
-        guard !SharedBackend.started else { return }
+        // The detached boot publishes SharedBackend.current on the main
+        // actor *later*. Reading it synchronously here races that handoff,
+        // and sending an RPC before isReady can wait forever on a hung VM.
+        guard !ready, startupTask == nil else { return }
+        status = "Starting embedded Racket CS…"
         SharedBackend.start()
-        if let error = SharedBackend.lastError {
-            status = "Configuration error: \(error)"
-            return
-        }
-        guard let backend = SharedBackend.current else { return }
-        Task.detached { [weak self] in
+
+        startupTask = Task { [weak self] in
+            defer { self?.startupTask = nil }
+            guard let self else { return }
+
+            guard let backend = await SharedBackend.waitForStart() else {
+                self.ready = false
+                if let error = SharedBackend.lastError {
+                    self.status = "Backend startup failed: \(error)"
+                } else {
+                    // The test suite fails rather than treating an allocated
+                    // backend as ready when the pb VM stalls in S_ffi_closure.
+                    self.status = "Embedded Racket CS did not become ready within 180 seconds"
+                }
+                return
+            }
+
             do {
                 let api = RivetAPI(client: backend.client)
                 let initialCount = try await api.get_counter()
-                await MainActor.run {
-                    self?.count = initialCount
-                    self?.ready = true
-                    self?.status = "Embedded Racket CS is ready"
-                }
+                self.count = initialCount
+                self.ready = true
+                self.status = "Embedded Racket CS is ready"
             } catch {
-                await MainActor.run {
-                    self?.ready = false
-                    self?.status = "Backend error: \(error)"
-                }
+                self.ready = false
+                self.status = "Backend error: \(error)"
             }
         }
     }
