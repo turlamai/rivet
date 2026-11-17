@@ -1,0 +1,45 @@
+name: Experimental iOS libffi cross-build
+
+# This is a toolchain-only gate for the unmerged standalone iOS experiment.
+# Building the archive does NOT establish simulator VM boot, RVT1 Hello, RPC,
+# native lifecycle, physical-device signing, or App Store qualification.
+on:
+  pull_request:
+    branches: [feat/mobile-hosts]
+    paths:
+      - 'platform/ios/**'
+      - '.github/workflows/ios-libffi-experiment.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-libffi-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  simulator-toolchain:
+    name: Pinned Racket pb simulator archive with Apple libffi trampolines
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Validate Apple libffi patch syntax
+        shell: bash
+        run: bash -n platform/ios/build-embedded-racket.sh
+      - name: Build pinned Racket CS and iOS simulator archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="$RUNNER_TEMP/rivet-ios-pb"
+          bash platform/ios/build-embedded-racket.sh \
+            --stage host-base --output "$output/host-base" --jobs 4
+          bash platform/ios/build-embedded-racket.sh \
+            --stage simulator --output "$output/simulator" \
+            --base-dir "$output/host-base" --jobs 4
+          test -s "$output/simulator/lib/libracketcs.a"
+          test -s "$output/simulator/runtime/petite.boot"
+          test -s "$output/simulator/runtime/scheme.boot"
+          test -s "$output/simulator/runtime/racket.boot"
+          echo 'Experimental Apple libffi archive built; simulator VM boot/RPC remains unverified.'
