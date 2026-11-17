@@ -165,9 +165,9 @@
   (write-frame
    (frame message:request id (encode-value (list name arg)))
    client-out)
-  (define response (read-frame client-in))
-  (check-equal? (frame-id response) id)
-  response)
+  (let ([response (read-frame client-in)])
+    (check-equal? (frame-id response) id)
+    response))
 
 (define enum-list-wire (list "active" "inactive"))
 (define enum-list-response
