@@ -70,6 +70,13 @@ project adheres to [Semantic Versioning](https://semver.org/).
   installer kind, and rollback policy; it survives a failed or cancelled
   download and is cleared by the next check.
 
+### Fixed
+
+- RPC parameters declared as `(List Record)`, `(List Enum)`, or nested
+  `List`/`Optional` combinations now recursively decode RVT1 wire forms into
+  typed Racket values before invoking the backend handler (issue #480).
+  Malformed DTO fields and unknown Enum cases remain request-local errors.
+
 ## [0.16.0] - 2026-11-12
 
 ### Added
