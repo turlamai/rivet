@@ -7,6 +7,12 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-11-18
+
+This is the Racket framework source release. Standalone iOS host development
+remains experimental on the unmerged #472 branch and is not qualified or
+advertised as part of this release.
+
 ### Added
 
 - Flatpak bundle support in `raco rivet release` (issue #449): add
