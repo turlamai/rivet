@@ -19,6 +19,7 @@
 (provide updater?
          make-updater
          updater-state
+         updater-candidate
          updater-check!
          updater-download!
          updater-cancel!
@@ -27,12 +28,13 @@
 
 (struct updater
   (application-id current-version channel platform architecture install-kind
+                  component
                   public-key resolved-key key-id trusted-keys manifest-url
-                  data-directory
+                  data-directory destination after-download
                   rollout-bucket maximum-manifest-bytes maximum-download-bytes
                   check-timeout stall-timeout total-timeout
                   fetch-manifest download
-                  lock snapshot candidate operation worker cancel-reason)
+                  lock snapshot selected-candidate operation worker cancel-reason)
   #:mutable)
 
 (define current-managed-fetch-manifest (make-parameter fetch-update-manifest))
@@ -93,11 +95,14 @@
                       #:platform [platform (current-update-platform)]
                       #:architecture [architecture (current-update-architecture)]
                       #:install-kind [install-kind #f]
+                      #:component [component #f]
                       #:public-key public-key
                       #:key-id key-id
                       #:trusted-keys [trusted-keys '()]
                       #:manifest-url manifest-url
                       #:data-directory data-directory
+                      #:destination [destination #f]
+                      #:after-download [after-download #f]
                       #:rollout-bucket rollout-bucket
                       #:maximum-manifest-bytes
                       [maximum-manifest-bytes (* 1024 1024)]
@@ -125,6 +130,13 @@
      'make-updater
      "(or/c #f 'portable 'targz 'msi 'appimage 'package-manager)"
      install-kind))
+  (unless (or (not component) (memq component '(app cli tool)))
+    (raise-argument-error
+     'make-updater "(or/c #f 'app 'cli 'tool)" component))
+  (unless (or (not destination) (procedure? destination))
+    (raise-argument-error 'make-updater "(or/c #f procedure?)" destination))
+  (unless (or (not after-download) (procedure? after-download))
+    (raise-argument-error 'make-updater "(or/c #f procedure?)" after-download))
   (unless (and (string? key-id) (not (string=? key-id "")))
     (raise-argument-error 'make-updater "non-empty string?" key-id))
   ;; Key-rotation dual-trust window (issue #370): additional
@@ -161,7 +173,7 @@
   (updater (string->immutable-string application-id)
            (string->immutable-string current-version)
            channel platform architecture
-           install-kind
+           install-kind component
            (if (bytes? public-key)
                (bytes->immutable-bytes public-key)
                public-key)
@@ -169,7 +181,8 @@
            (string->immutable-string key-id)
            trusted-keys
            (string->immutable-string manifest-url)
-           (path->complete-path data-directory) rollout-bucket
+           (path->complete-path data-directory) destination after-download
+           rollout-bucket
            maximum-manifest-bytes maximum-download-bytes check-timeout
            stall-timeout total-timeout
            (current-managed-fetch-manifest) (current-managed-download)
@@ -190,6 +203,16 @@
   (unless (updater? instance)
     (raise-argument-error 'updater-state "updater?" instance))
   (with-updater-lock instance (lambda () (updater-snapshot instance))))
+
+;; Products that own the install handoff need the authenticated candidate
+;; (artifact SHA-256, installer kind, rollback policy) after the check; the
+;; candidate also survives a failed or cancelled download for an explicit
+;; retry, and a new check clears it first.
+(define (updater-candidate instance)
+  (unless (updater? instance)
+    (raise-argument-error 'updater-candidate "updater?" instance))
+  (with-updater-lock instance
+    (lambda () (updater-selected-candidate instance))))
 
 (define (resolved-public-key instance)
   (or (updater-resolved-key instance)
@@ -239,7 +262,7 @@
                   (updater-key-id instance)
                   (updater-rollout-bucket instance)
                   (updater-maximum-download-bytes instance)
-                  #f))
+                  (updater-component instance)))
 
 (define (available-result instance candidate)
   (define manifest (update-candidate-manifest candidate))
@@ -251,7 +274,10 @@
            'build (update-manifest-build manifest)
            'publishedAt (update-manifest-published-at manifest)
            'installer (symbol->string (update-artifact-installer artifact))
-           'sizeBytes (update-artifact-size artifact))))
+           'sizeBytes (update-artifact-size artifact)
+           ;; Not part of the state RPC — product CLIs use it to report the
+           ;; pinned download URL the signed manifest selected.
+           'url (update-artifact-url artifact))))
 
 (define (record-check-error! instance error)
   (with-updater-lock
@@ -271,7 +297,7 @@
      (when (updater-operation instance)
        (error 'updater-check! "another updater operation is already running"))
      (set-updater-operation! instance 'check)
-     (set-updater-candidate! instance #f)
+     (set-updater-selected-candidate! instance #f)
      (set-updater-snapshot!
       instance
       (hash-set* (initial-state (updater-current-version instance))
@@ -312,7 +338,7 @@
      instance
      (lambda ()
        (set-updater-operation! instance #f)
-       (set-updater-candidate! instance candidate)
+       (set-updater-selected-candidate! instance candidate)
        (state-set*/locked!
         instance
         'phase (if candidate "available" "up-to-date")
@@ -324,10 +350,13 @@
     result))
 
 (define (candidate-destination instance candidate)
+  (define custom (updater-destination instance))
   (path->complete-path
-   (default-destination (updater-application-id instance)
-                        (updater-data-directory instance)
-                        candidate)))
+   (if custom
+       (custom candidate)
+       (default-destination (updater-application-id instance)
+                            (updater-data-directory instance)
+                            candidate))))
 
 (define (publish-download-failure! instance worker error)
   (with-updater-lock
@@ -385,7 +414,7 @@
      (lambda ()
        (when (updater-operation instance)
          (error 'updater-download! "another updater operation is already running"))
-       (define candidate (updater-candidate instance))
+       (define candidate (updater-selected-candidate instance))
        (unless candidate
          (error 'updater-download! "no update is available; run updater-check! first"))
        (define key (resolved-public-key instance))
@@ -421,6 +450,12 @@
                           (when (eq? worker (updater-worker instance))
                             (state-set*/locked! instance 'percent percent)))))
                      #:progress-every 1))
+                  ;; The product may install or post-process the verified
+                  ;; artifact here (for example an AppImage in-place swap);
+                  ;; the path it returns is what the state publishes.
+                  (define final-path
+                    (let ([hook (updater-after-download instance)])
+                      (if hook (hook path candidate) path)))
                   (with-updater-lock
                    instance
                    (lambda ()
@@ -433,7 +468,7 @@
                         'phase "downloaded"
                         'percent 100
                         'message #f
-                        'downloadedPath (path->string path)))))))))
+                        'downloadedPath (path->string final-path)))))))))
        (set-updater-operation! instance 'download)
        (set-updater-worker! instance worker)
        (set-updater-cancel-reason! instance #f)

@@ -6,12 +6,23 @@
 #include <microsoft.ui.xaml.window.h>
 #include "../../../platform/windows/chart/rivet_chart_control.hpp"
 #include "../../../platform/windows/system/system_services.hpp"
+#include "../../../platform/windows/system/activation_inbox.hpp"
 #include "../../../platform/windows/system/winui_window.hpp"
 
 namespace winrt::RivetHost::implementation {
 
 struct MainWindow : MainWindowT<MainWindow> {
   MainWindow();
+  explicit MainWindow(std::vector<std::wstring> initial_activations);
+
+  // Product action routing is intentionally explicit; an untrusted file/URL
+  // argument must never run a domain RPC just because the OS launched us.
+  [[nodiscard]] std::vector<std::wstring> TakeActivationArguments() {
+    return activations_.take();
+  }
+  // Called only on the WinUI dispatcher after AppLifecycle redirects a
+  // second instance. Keep input native until product validation.
+  void ReceiveActivationArguments(std::vector<std::wstring> arguments);
 
   void TaskList_SelectionChanged(
       winrt::Windows::Foundation::IInspectable const& sender,
@@ -58,6 +69,7 @@ struct MainWindow : MainWindowT<MainWindow> {
   void RepullChartWindow(std::string const& series);
 
   std::shared_ptr<rivet::windows::Backend> backend_;
+  rivet::system::ActivationInbox activations_;
   std::vector<rivet_app::BoardTask> tasks_;
   winrt::Windows::Foundation::Collections::IObservableVector<
       winrt::Windows::Foundation::IInspectable>

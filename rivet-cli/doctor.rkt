@@ -9,6 +9,7 @@
          racket/string
          racket/system
          setup/dirs
+         "../rivet/share-watch.rkt"
          "codegen.rkt"
          "i18n.rkt"
          "project.rkt"
@@ -21,6 +22,7 @@
          run-doctor
          installed-rivet-release-version
          installed-rivet-release-version-attempts
+         read-info-release-version
          update-api-contract-violations
          repository-pin-findings
          release-doctor-report
@@ -116,6 +118,32 @@
              'message "The WinUI 3 host requires the Windows Store application-type MSBuild props, but the detected Visual Studio/Build Tools installation does not provide them."
              'remediation "Open Visual Studio Installer, modify the installation, and add the `Microsoft.VisualStudio.Workload.UniversalBuildTools` workload (C++ Universal Windows Platform tools). MSVC and a Windows SDK alone are not sufficient for the WinUI 3 host; rerun `raco rivet doctor` afterwards."))))
 
+;; A mapped drive in "Reconnecting" parks every filesystem call on the
+;; engine's single OS thread for the SMB timeout. Surface the redirector
+;; state from the declared `share-paths` instead of letting the product
+;; discover it as an unresponsive backend.
+(define (share-path-findings project
+                             #:status-probe [status-probe mapped-drive-status])
+  (filter
+   values
+   (for/list ([declared (in-list (project-share-paths project))])
+     (define value (string->path declared))
+     (define path (if (absolute-path? value)
+                      value
+                      (project-path project declared)))
+     (define status (status-probe path))
+     (and (memq status
+                '(reconnecting unavailable disconnected connecting other))
+          (hash 'code "unreachable-network-share"
+                'severity "warning"
+                'message
+                (format
+                 "The configured share path ~a is on a mapped drive whose redirector state is ~a."
+                 (path->string path)
+                 status)
+                'remediation
+                "Reconnect the mapped drive, or point `share-paths` at a reachable location. Rivet's share scans run only while the state table says OK; a dead share otherwise parks the engine's single OS thread for the SMB timeout.")))))
+
 (define (doctor-report)
   (define os (system-type 'os))
   (define arch (system-type 'arch))
@@ -191,6 +219,18 @@
                'message "The project has no committed rivet-schema.json compatibility baseline."
                'remediation "Run `raco rivet schema --output rivet-schema.json`, review and commit it, then add `raco rivet schema check rivet-schema.json --json` to CI."))
         '()))
+  (define share-findings
+    (if project (share-path-findings project) '()))
+  (define network-shares
+    (if project
+        (for/list ([declared (in-list (project-share-paths project))])
+          (define value (string->path declared))
+          (define path (if (absolute-path? value)
+                           value
+                           (project-path project declared)))
+          (hash 'path (path->string path)
+                'status (symbol->string (mapped-drive-status path))))
+        '()))
   (define warnings
     (append schema-warnings
             (if (and windows-tools project)
@@ -198,7 +238,8 @@
                 '())
             (if project
                 (windows-icon-source-warnings (rivet-project-root project))
-                '())))
+                '())
+            share-findings))
   (hash 'os (symbol->string os)
         'architecture (format "~a" arch)
         'rivet-version (installed-rivet-release-version)
@@ -211,6 +252,7 @@
         'runtime (and runtime (runtime->report runtime))
         'runtime-error runtime-error
         'project-readiness project-readiness
+        'network-shares network-shares
         'warnings warnings
         'tools tools))
 
@@ -399,12 +441,32 @@
   ;; leading #lang reader directive that plain `read` cannot parse. Reading
   ;; the rest as data is deliberate: release checks want every datum,
   ;; including quoted ones.
+  ;;
+  ;; The package catalog's builder rewrites a packaged `info.rkt` into a
+  ;; single-line `(module info setup/infotab (#%module-begin …))` wrapper
+  ;; with no #lang line, so a plain scan sees one giant datum and none of
+  ;; the definitions the release checks need. When a visited datum is that
+  ;; wrapper shape, feed the definitions inside its #%module-begin to
+  ;; visit as well.
+  (define (visit-form! datum)
+    (visit datum)
+    (define wrapper-body
+      (and (list? datum)
+           (>= (length datum) 4)
+           (eq? (car datum) 'module)
+           (list? (list-ref datum 3))
+           (pair? (list-ref datum 3))
+           (eq? (car (list-ref datum 3)) '#%module-begin)
+           (cdr (list-ref datum 3))))
+    (when (list? wrapper-body)
+      (for ([inner (in-list wrapper-body)])
+        (visit inner))))
   (define (scan-forms! in)
     (let loop ()
       (define datum (with-handlers ([exn:fail? (lambda (_) eof)])
                       (read in)))
       (unless (eof-object? datum)
-        (visit datum)
+        (visit-form! datum)
         (loop))))
   (call-with-input-file path
     (lambda (in)
@@ -520,10 +582,13 @@
                   #rx"[.]rkt$"))
 
 ;; The ref position also matches the variable-mediated forms a workflow
-;; install step uses (`${{ env.RIVET_PIN }}`, `${RIVET_PIN}`, `$env:RIVET_PIN`);
-;; a plain character-class scan saw those as empty refs (issue #310).
+;; install step uses (`${{ env.RIVET_PIN }}`, `${RIVET_PIN}`, `$env:RIVET_PIN`)
+;; and the Racket `format` placeholder a .rkt installer script substitutes
+;; at runtime (`rivet.git#~a`); a plain character-class scan saw the
+;; workflow forms as empty refs (issue #310) and the template form caught
+;; the same way in product ci-install-windows-deps.rkt scripts.
 (define pin-regex
-  #px"rivet\\.git#(\\$\\{\\{ ?env\\.[A-Za-z_][A-Za-z0-9_]* ?\\}\\}|\\$\\{[A-Za-z_][A-Za-z0-9_]*\\}|\\$env:[A-Za-z_][A-Za-z0-9_]*|[A-Za-z0-9._-]*)")
+  #px"rivet\\.git#(\\$\\{\\{ ?env\\.[A-Za-z_][A-Za-z0-9_]* ?\\}\\}|\\$\\{[A-Za-z_][A-Za-z0-9_]*\\}|\\$env:[A-Za-z_][A-Za-z0-9_]*|~a|[A-Za-z0-9._-]*)")
 
 (define (mediated-var-name ref)
   (define match
@@ -607,6 +672,11 @@
      (list 'finding
            (format "~a: dependency pin `rivet.git#` has an empty ref and silently tracks the default branch; pin a tag or commit SHA"
                    path))]
+    ;; A Racket `format` placeholder binds its argument at runtime, so the
+    ;; static scan can neither read the pinned value nor confuse the
+    ;; template with the empty-ref incident shape (`URL#`).
+    [(string-prefix? ref "~")
+     (list 'ok ref)]
     ;; Tag-shaped refs must name the installed release; commit SHAs cannot
     ;; be compared and are accepted as-is. The comparison runs only on
     ;; configuration files: markdown prose documents history — a changelog
@@ -772,4 +842,5 @@
   (if (zero? (hash-ref report 'failed)) 0 1))
 
 (module+ test-support
-  (provide windows-application-type-warnings))
+  (provide windows-application-type-warnings
+           share-path-findings))

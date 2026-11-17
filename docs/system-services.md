@@ -31,7 +31,8 @@ The adapters return local filesystem paths only. Windows uses the Common Item Di
 `platform/windows/system` uses first-party Win32 surfaces:
 
 - named mutexes for process uniqueness;
-- command-line activation for URL schemes and file associations registered by MSI;
+- command-line activation for URL schemes and file associations registered by MSI. Because MSI installation uses `Scope="perMachine"`, protocol and file handlers are registered under `HKLM\\Software\\Classes` (not the elevated installer's HKCU), and must be removed by MSI uninstall;
+- generated WinUI 3 and Taskboard hosts now read `ActivationArguments()` before creating the window, storing the latest 64 nonempty Unicode items (each at most 4096 UTF-16 code units) in a per-window `ActivationInbox`. Product logic explicitly calls `TakeActivationArguments()` to validate and map them to authorized typed RPCs. This covers **new-process startup intake** in the parent PR; an **experimental stacked AppLifecycle candidate** additionally uses product-keyed `AppInstance.FindOrRegisterForKey` and `RedirectActivationToAsync` to send later Launch/File/Protocol activations to the existing WinUI dispatcher and its bounded inbox. An additional bounded **App-level** inbox retains redirections arriving before the first window is constructed, and replays them into the window inbox after creation. CI tests both the packaged binary and the **MSI-installed executable** by launching a second process with a known URI and requiring exactly one receipt in the live primary native inbox. This does **not** prove a shell-registered URL/file association via ShellExecute or any product-owned typed Racket RPC; those remain separate acceptance gates;
 - `Shell_NotifyIconW` for tray presence and notification balloons, plus a
   `TrayController` that owns the window subclass, native popup menu, command
   routing, and `TaskbarCreated` recovery;
@@ -65,7 +66,7 @@ private endpoint, or no uploader; Rivet does not bind to any provider.
 
 `RivetSystem` uses AppKit and Apple system frameworks:
 
-- an OS file lock automatically released on process death;
+- a persistent Application Support `flock` single-instance lease, plus a compatibility lease at the prior Caches path so an older running host using the original cache inode and an upgraded host cannot both claim primary ownership; if that inode was already unlinked, an unmodified older process cannot recognize the new persistent lock. Both descriptors are closed on teardown and OS-released on process death. Do not unlink live lock files: the persistent lease also protects newer hosts if the cache entry is evicted;
 - SwiftUI `onOpenURL` plus packaged `CFBundleURLTypes`/`CFBundleDocumentTypes` metadata;
 - `UNUserNotificationCenter`;
 - `NSStatusItem` for menu-bar UI;
@@ -80,7 +81,7 @@ private endpoint, or no uploader; Rivet does not bind to any provider.
   presented as a sheet for a supplied `NSWindow`;
 - `SMAppService.mainApp` for login-item registration;
 - Security.framework Keychain generic-password items;
-- an activation router that stays on the main actor.
+- a main-actor URL/file activation router that keeps the newest 64 activations while the native callback is unregistered, replays them in arrival order upon registration, and exposes `droppedURLCount` for older overflow events. The generated SwiftUI host delivers `onOpenURL` directly to bounded `AppModel.activatedURLs` even before the view's startup task runs (and without requiring newer router APIs from installed Rivet packages), but **does not automatically call a backend RPC**: each product must validate and route its own activation contract after backend readiness.
 
 macOS asks the user for notification and login-item consent as required by the OS. Code must not treat denial as a crash.
 
@@ -92,6 +93,7 @@ macOS asks the user for notification and login-item consent as required by the O
 
 - an abstract-namespace Unix socket for the single-instance lease; secondaries forward their activation arguments to the primary over that socket;
 - `ActivationArguments()` from `/proc/self/cmdline` for URL-scheme and file-association payloads registered by installers;
+- the generated GTK4 host and Taskboard reference use `G_APPLICATION_HANDLES_COMMAND_LINE` to capture first-launch and (with a working session bus) second-invocation arguments in their primary main context. `ActivationInbox` retains the latest 64 nonempty entries of at most 4096 bytes, exposes rejected/overflow counts, and allows explicit `take()` by product code. Both hosts use the generated product-specific `rivet_app::kIdentifier` for their GApplication ID rather than a shared `dev.rivet.host` value, preventing unrelated Rivet products from competing for one activation endpoint. This is **native intake only**; no untrusted argument is automatically dispatched to Racket, and OS URL/file MIME registration plus packaged end-to-end activation remains unverified;
 - `org.freedesktop.Notifications` over the session bus (GDBus), with stable notification ids for tagged replacements;
 - `GlobalShortcuts` — the asynchronous `org.freedesktop.portal.GlobalShortcuts` session API. `support()` exposes the portal version, `bind(...)` reports bound, cancelled, unavailable, and failed outcomes without blocking GTK's main context, and activation callbacks preserve the compositor timestamp and activation token. The compositor owns the final shortcut and may replace or reject an application's preferred trigger. Rivet does not fall back to `XGrabKey`; applications on a session without this portal can expose their existing single-instance activation command (for example, an executable `--toggle` action) for the user to bind in compositor settings;
 - `Clipboard` — GTK4/GDK text read, write, and `changed` observation on the

@@ -24,6 +24,25 @@
 (define-rpc (echo-status [status : Status] : Status)
   status)
 
+;; Native clients encode named DTOs inside Lists using the same positional
+;; Record and String Enum wire shapes as scalar arguments.
+(define-rpc (echo-status-list [statuses : (List Status)] : (List Status))
+  (for ([status (in-list statuses)])
+    (enum-case status))
+  statuses)
+
+(define-rpc (echo-people [people : (List Person)] : (List Person))
+  (for ([person (in-list people)])
+    (record-ref person 'name))
+  people)
+
+(define-rpc (echo-nested-statuses [groups : (List (Optional (List Status)))]
+                                  : (List (Optional (List Status))))
+  (for ([group (in-list groups)] #:unless (void? group))
+    (for ([status (in-list group)])
+      (enum-case status)))
+  groups)
+
 (define-state selected : Person (Person "Ada" 37 (void)))
 
 (define ada (Person "Ada" 37 (void)))
@@ -138,6 +157,63 @@
  client-out)
 (define enum-error (read-frame client-in))
 (check-equal? (frame-type enum-error) message:error)
+
+;; Regression for #480: all these requests are raw RVT1 values, not
+;; backend-only Record/Enum structures. Conversion must recurse through both
+;; Lists and Optionals before the RPC handler sees them.
+(define (send-named-list-request id name arg)
+  (write-frame
+   (frame message:request id (encode-value (list name arg)))
+   client-out)
+  (let ([response (read-frame client-in)])
+    (check-equal? (frame-id response) id)
+    response))
+
+(define enum-list-wire (list "active" "inactive"))
+(define enum-list-response
+  (send-named-list-request 9 "echo-status-list" enum-list-wire))
+(check-equal? (frame-type enum-list-response) message:response)
+(check-equal? (decode-value (frame-payload enum-list-response))
+              enum-list-wire)
+
+(define people-wire
+  (list (list "Ada" 37 (void))
+        (list "Grace" 44 "G")))
+(define people-response
+  (send-named-list-request 10 "echo-people" people-wire))
+(check-equal? (frame-type people-response) message:response)
+(check-equal? (decode-value (frame-payload people-response))
+              people-wire)
+
+(define nested-statuses-wire
+  (list (list "active" "inactive") (void) '()))
+(define nested-response
+  (send-named-list-request 11 "echo-nested-statuses" nested-statuses-wire))
+(check-equal? (frame-type nested-response) message:response)
+(check-equal? (decode-value (frame-payload nested-response))
+              nested-statuses-wire)
+
+;; Invalid names, Record arity and inner primitive types must still be rejected
+;; as request-local Errors without executing an RPC on malformed DTOs.
+(for ([request (in-list
+                (list (list 12 "echo-status-list" (list "unknown"))
+                      (list 13 "echo-people" (list (list "Ada" 37)))
+                      (list 14 "echo-people" (list (list "Ada" "bad-age" (void))))
+                      (list 15 "echo-nested-statuses"
+                            (list (list "active" "unknown")))))])
+  (let ([error-response
+         (send-named-list-request (car request)
+                                  (cadr request)
+                                  (caddr request))])
+    (check-equal? (frame-type error-response) message:error)
+    (check-true (string? (decode-value (frame-payload error-response))))))
+
+;; A failed DTO call cannot poison subsequent valid RPCs; empty Lists also
+;; remain valid on the wire.
+(define after-error-response
+  (send-named-list-request 16 "echo-status-list" '()))
+(check-equal? (frame-type after-error-response) message:response)
+(check-equal? (decode-value (frame-payload after-error-response)) '())
 
 (write-frame (frame message:shutdown 0 #"") client-out)
 (thread-wait server-thread)

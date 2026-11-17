@@ -91,6 +91,14 @@ if(LIBSECRET_FOUND)
   target_link_libraries(RivetIntegration PRIVATE PkgConfig::LIBSECRET)
 endif()
 
+add_executable(RivetActivationInboxTest
+  activation_inbox_test.cpp
+)
+target_compile_features(RivetActivationInboxTest PRIVATE cxx_std_17)
+target_include_directories(RivetActivationInboxTest PRIVATE ../system)
+target_compile_options(RivetActivationInboxTest PRIVATE -Wall -Wextra -Wpedantic)
+
 enable_testing()
 add_test(NAME RivetUpdateHandoffTest COMMAND RivetUpdateHandoffTest)
 add_test(NAME RivetLayoutTest COMMAND RivetLayoutTest)
+add_test(NAME RivetActivationInboxTest COMMAND RivetActivationInboxTest)

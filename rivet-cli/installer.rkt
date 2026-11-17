@@ -10,6 +10,7 @@
          "../rivet/distribution/crypto.rkt"
          "appimage.rkt"
          "deb.rkt"
+         "flatpak.rkt"
          "linux-package.rkt"
          "package.rkt"
          "project.rkt"
@@ -242,7 +243,7 @@
     #:exists 'truncate/replace
     (lambda (out)
       (fprintf out
-               "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Wix xmlns=\"http://wixtoolset.org/schemas/v4/wxs\" xmlns:ui=\"http://wixtoolset.org/schemas/v4/wxs/ui\">\n  <Package Name=\"~a\" Manufacturer=\"~a\" Version=\"~a\" UpgradeCode=\"~a\" Scope=\"perMachine\">\n    <MajorUpgrade DowngradeErrorMessage=\"A newer version is already installed.\" />\n    <MediaTemplate EmbedCab=\"yes\" />\n    <Feature Id=\"Main\"><ComponentGroupRef Id=\"ProductComponents\" /><ComponentGroupRef Id=\"ShortcutComponents\" /></Feature>\n~a~a  </Package>\n  <Fragment><StandardDirectory Id=\"ProgramFiles6432Folder\"><Directory Id=\"INSTALLFOLDER\" Name=\"~a\" /></StandardDirectory></Fragment>\n  <Fragment><StandardDirectory Id=\"ProgramMenuFolder\"><Directory Id=\"ApplicationProgramsFolder\" Name=\"~a\" /></StandardDirectory><StandardDirectory Id=\"DesktopFolder\" /></Fragment>\n  <Fragment><ComponentGroup Id=\"ShortcutComponents\" Directory=\"ApplicationProgramsFolder\">\n    <Component Id=\"StartMenuShortcutComponent\" Guid=\"*\">\n      <Shortcut Id=\"StartMenuApplicationShortcut\" Name=\"~a\" Description=\"~a\" Target=\"[INSTALLFOLDER]RivetHost.exe\" WorkingDirectory=\"INSTALLFOLDER\" />\n      <RemoveFolder Id=\"RemoveApplicationProgramsFolder\" Directory=\"ApplicationProgramsFolder\" On=\"uninstall\" />\n      <RegistryValue Root=\"HKLM\" Key=\"Software\\~a\\Shortcuts\" Name=\"StartMenu\" Type=\"integer\" Value=\"1\" KeyPath=\"yes\" />\n    </Component>\n    <Component Id=\"DesktopShortcutComponent\" Guid=\"*\" Directory=\"DesktopFolder\">\n      <Shortcut Id=\"DesktopApplicationShortcut\" Name=\"~a\" Description=\"~a\" Target=\"[INSTALLFOLDER]RivetHost.exe\" WorkingDirectory=\"INSTALLFOLDER\" />\n      <RegistryValue Root=\"HKLM\" Key=\"Software\\~a\\Shortcuts\" Name=\"Desktop\" Type=\"integer\" Value=\"1\" KeyPath=\"yes\" />\n    </Component>\n  </ComponentGroup></Fragment>\n  <Fragment><ComponentGroup Id=\"ProductComponents\" Directory=\"INSTALLFOLDER\">\n"
+               "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Wix xmlns=\"http://wixtoolset.org/schemas/v4/wxs\" xmlns:ui=\"http://wixtoolset.org/schemas/v4/wxs/ui\">\n  <Package Name=\"~a\" Manufacturer=\"~a\" Version=\"~a\" UpgradeCode=\"~a\" Scope=\"perMachine\">\n    <MajorUpgrade DowngradeErrorMessage=\"A newer version is already installed.\" />\n    <MediaTemplate EmbedCab=\"yes\" />\n    <Feature Id=\"Main\"><ComponentGroupRef Id=\"ProductComponents\" /><ComponentGroupRef Id=\"ShortcutComponents\" /></Feature>\n~a~a  </Package>\n  <Fragment><StandardDirectory Id=\"ProgramFiles6432Folder\"><Directory Id=\"INSTALLFOLDER\" Name=\"~a\" /></StandardDirectory></Fragment>\n  <Fragment><StandardDirectory Id=\"ProgramMenuFolder\"><Directory Id=\"ApplicationProgramsFolder\" Name=\"~a\" /></StandardDirectory></Fragment>\n  <Fragment><ComponentGroup Id=\"ShortcutComponents\" Directory=\"ApplicationProgramsFolder\">\n    <Component Id=\"StartMenuShortcutComponent\" Guid=\"*\">\n      <Shortcut Id=\"StartMenuApplicationShortcut\" Name=\"~a\" Description=\"~a\" Target=\"[INSTALLFOLDER]RivetHost.exe\" WorkingDirectory=\"INSTALLFOLDER\" />\n      <RemoveFolder Id=\"RemoveApplicationProgramsFolder\" Directory=\"ApplicationProgramsFolder\" On=\"uninstall\" />\n      <RegistryValue Root=\"HKLM\" Key=\"Software\\~a\\Shortcuts\" Name=\"StartMenu\" Type=\"integer\" Value=\"1\" KeyPath=\"yes\" />\n    </Component>\n  </ComponentGroup></Fragment>\n  <Fragment><ComponentGroup Id=\"ProductComponents\" Directory=\"INSTALLFOLDER\">\n"
                (xml-escape display-name)
                (xml-escape publisher)
                (xml-escape (project-version project))
@@ -253,9 +254,6 @@
                (xml-escape display-name)
                (xml-escape display-name)
                (xml-escape display-name)
-               (xml-escape identifier)
-               (xml-escape display-name)
-               (xml-escape display-name)
                (xml-escape identifier))
       ;; WiX v4 recursively harvests the verified package at build time,
       ;; preserving the runtime/res hierarchy without a second file list.
@@ -263,10 +261,13 @@
                (xml-escape (path->string package)))
       (when registrations?
         (display "    <Component Id=\"NativeActivationRegistration\" Guid=\"*\">\n" out)
+        ;; This MSI uses Scope="perMachine". Install activation registrations in
+        ;; HKLM for all users, not in the elevated installer service's HKCU.
+        ;; HKCU here would leave ordinary users unable to ShellExecute the URI.
         (define key-path? #t)
         (define (registry key name value)
           (fprintf out
-                   "      <RegistryValue Root=\"HKCU\" Key=\"~a\"~a Type=\"string\" Value=\"~a\"~a />\n"
+                   "      <RegistryValue Root=\"HKLM\" Key=\"~a\"~a Type=\"string\" Value=\"~a\"~a />\n"
                    (xml-escape key)
                    (if (string=? name "")
                        ""
@@ -434,6 +435,38 @@
           (car dmg-app-icon-position) (cdr dmg-app-icon-position)
           (car dmg-applications-icon-position) (cdr dmg-applications-icon-position)))
 
+;; Finder draws the icon-view backdrop at the image's DPI-derived point
+;; size, not scaled to the window: a 2x artwork once rendered cropped to
+;; its top-left quarter (#322), and resampling alone was not enough —
+;; `sips -z` keeps the source DPI, so a 144dpi source staged at the
+;; window's pixel size still drew at half the window (#444). Stage the
+;; raster at the window's point size AND 72dpi (one pixel per point) so
+;; what Finder draws matches the window exactly; products keep authoring
+;; 2x artwork for sharpness, and the artwork aspect must already match
+;; the window geometry (a mismatch resamples distorted rather than
+;; hiding layout).
+(define (stage-dmg-background! background staged-background sips)
+  (copy-file background staged-background)
+  (define window-size (list dmg-window-width dmg-window-height))
+  (unless (equal? (raster-pixel-size staged-background sips) window-size)
+    (run! 'create-installer! sips "-z"
+          (number->string dmg-window-height)
+          (number->string dmg-window-width)
+          (path->string staged-background)))
+  (run! 'create-installer! sips
+        "-s" "dpiHeight" "72" "-s" "dpiWidth" "72"
+        (path->string staged-background))
+  (define staged-size (raster-pixel-size staged-background sips))
+  (unless (equal? staged-size window-size)
+    (error 'create-installer!
+           "the staged dmg background did not resample to the window size (expected ~s, staged ~s): ~a"
+           window-size staged-size staged-background))
+  (define staged-dpi (raster-dpi-size staged-background sips))
+  (unless (and staged-dpi (andmap (lambda (v) (and v (= v 72))) staged-dpi))
+    (error 'create-installer!
+           "the staged dmg background must draw at one pixel per point (expected 72dpi, staged ~s): ~a"
+           staged-dpi staged-background)))
+
 (define (delete-optional! path)
   (when (file-exists? path) (delete-file path))
   (when (directory-exists? path) (delete-directory/files path)))
@@ -524,6 +557,18 @@
   (list (string->number (cadr width))
         (string->number (cadr height))))
 
+(define (raster-dpi-size path sips)
+  (define output
+    (with-output-to-string
+      (lambda ()
+        (run! 'create-installer! sips
+              "-g" "dpiWidth" "-g" "dpiHeight"
+              (path->string path)))))
+  (define width (regexp-match #px"dpiWidth:\\s*([0-9.]+)" output))
+  (define height (regexp-match #px"dpiHeight:\\s*([0-9.]+)" output))
+  (list (and width (string->number (cadr width)))
+        (and height (string->number (cadr height)))))
+
 ;; Commercial drag-to-install image: stage the volume contents (bundle,
 ;; /Applications link, hidden background asset), attach a read/write image,
 ;; let Finder size the window and place both icons, then convert to the
@@ -610,29 +655,10 @@
                                (build-path staging "Applications"))
   (make-directory* (build-path staging ".background"))
   (define staged-background (build-path staging ".background" "background.png"))
-  (copy-file background staged-background)
-  ;; Finder draws the backdrop 1:1 at its native pixel size — it does not
-  ;; scale it to the window, so a 2x artwork rendered only its top-left
-  ;; quarter and the bottom of the layout fell outside the view (issue
-  ;; #322). Stage the raster at the window's point size so what Finder
-  ;; draws matches the window exactly; products keep authoring 2x artwork
-  ;; for sharpness, and the artwork aspect must already match the window
-  ;; geometry (a mismatch resamples distorted rather than hiding layout).
   (define sips (find-executable-path "sips"))
   (unless sips
     (error 'create-installer! "sips is required to stage the dmg background"))
-  (unless (equal? (raster-pixel-size staged-background sips)
-                  (list dmg-window-width dmg-window-height))
-    (run! 'create-installer! sips "-z"
-          (number->string dmg-window-height)
-          (number->string dmg-window-width)
-          (path->string staged-background))
-    (unless (equal? (raster-pixel-size staged-background sips)
-                    (list dmg-window-width dmg-window-height))
-      (error 'create-installer!
-             "the staged dmg background did not resample to the window size"
-             "background" staged-background
-             "expected" (list dmg-window-width dmg-window-height))))
+  (stage-dmg-background! background staged-background sips)
   (delete-optional! rw-image)
   (run! 'create-installer! hdiutil "create" "-fs" "HFS+" "-volname" volume-name
         "-srcfolder" (path->string staging)
@@ -704,9 +730,10 @@
   (when gpg-settings
     (gpg-detach-sign! output gpg-settings))
   ;; Native system installer formats ride along with the signed tar.gz:
-  ;; deb/rpm integrate with the distribution package manager, while AppImage
+  ;; deb/rpm integrate with the distribution package manager, AppImage
   ;; carries its own GTK4 dependency closure and becomes the signed in-place
-  ;; update payload when enabled.
+  ;; update payload when enabled, and Flatpak wraps the same verified tar.gz
+  ;; in the GNOME runtime bundle.
   ;; `fmt`, not `format`: the builtin stays reachable inside the branches.
   (for ([fmt (in-list (project-linux-formats project))])
     (define artifact
@@ -714,6 +741,7 @@
         [("deb") (create-deb! project package)]
         [("rpm") (create-rpm! project package)]
         [("appimage") (create-appimage! project package)]
+        [("flatpak") (create-flatpak-bundle! project output)]
         [else #f]))
     (when (and gpg-settings artifact (path? artifact))
       (gpg-detach-sign! artifact gpg-settings)))
@@ -733,6 +761,8 @@
            text->rtf
            dmg-style-applescript
            raster-pixel-size
+           raster-dpi-size
+           stage-dmg-background!
            create-macos-installer!
            convert-detached-dmg!
            convert-released-dmg!

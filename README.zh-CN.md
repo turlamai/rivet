@@ -1,6 +1,6 @@
 # Rivet
 
-用 [Racket](https://racket-lang.org/) 构建第一方原生桌面应用。Windows 使用 WinUI 3，macOS 使用 SwiftUI，Linux 使用 GTK4；把应用逻辑放在 Racket 中，最终交付的是真正原生应用，而不是 WebView 或跨平台控件封装层。
+用 [Racket](https://racket-lang.org/) 构建第一方原生桌面应用。Windows 使用 WinUI 3，macOS 使用 SwiftUI，Linux 使用 GTK4；把应用逻辑放在 Racket 中，各平台界面直接用该平台的第一方 UI 框架编写——不用 WebView，也没有统一控件 API。
 
 **Human-first. Agent-native. Local by design. —— 为人而生，为 Agent 原生设计，本地优先。**
 
@@ -11,6 +11,8 @@
 ## 使用入口
 
 当第一方原生交互值得维护 SwiftUI、WinUI 3、GTK4 三份界面时，选择 Rivet。共享领域逻辑归 Racket，渲染与系统交互归原生宿主。需要共享 HTML/CSS 界面时可评估 Glaze。
+
+双语主页见 [rivet.jrtx.site](https://rivet.jrtx.site/)。
 
 [使用选择、成熟度、升级与支持](docs/USING.zh-CN.md) · [English](docs/USING.md)
 
@@ -48,14 +50,14 @@ Rivet 补上的是这一层：
 - **第一方原生 UI** —— Windows 使用 WinUI 3，macOS 使用 SwiftUI/AppKit，Linux 使用 GTK4
 - **Racket 负责应用逻辑** —— 宏、模式匹配、并发、数据处理、业务逻辑都留在 Racket
 - **一套后端契约** —— typed RPC、Event、共享 State、取消与生命周期统一走 RVT1
-- **共享应用模型** —— 将后端 schema 投影到与 Glaze 共用的传输无关契约 [Keel](https://github.com/turlamai/keel)，但 RVT1 与原生 UI 所有权仍留在 Rivet
+- **共享应用模型** —— 将后端 schema 投影到与 [Glaze](https://github.com/turlamai/glaze) 共用的传输无关契约 [Keel](https://github.com/turlamai/keel)，但 RVT1 与原生 UI 所有权仍留在 Rivet
 - **自动生成原生客户端** —— Racket 侧的声明在构建时生成 Swift/C++/Kotlin 类型化 API
 - **实时图表** —— 三桌面宿主统一的滚动时间序列控件走同一套类型化数据面（`rivet/chart` 环形缓冲 + 带间隙检测的二进制批次）；见 [docs/chart-series.md](docs/chart-series.md)
 - **进程内嵌 Racket CS** —— 不需要额外启动后端进程，Racket runtime 直接嵌入应用
 - **精确 runtime 匹配** —— 构建时使用当前安装的精确 Racket CS 版本，不会静默退回相邻版本
 - **明确的生态扩展路径** —— 新项目的 Agent 指南和 `inspect --json` 会说明何时选择 Racket 包、原生宿主 API、FFI、外部 CLI 或隔离 sidecar，并列出每种选择必须完成的安全与发布检查
 
-Rivet 刻意不做 WebView 框架，也不做统一跨平台控件层。Windows、macOS 与 Linux 都保留各自第一方原生 UI 和平台行为。
+Rivet 刻意不做 WebView 框架，也不提供统一控件 API：各平台界面直接用 SwiftUI、WinUI 3 或 GTK4 编写。（相比之下，`racket/gui` 提供的是一套 Racket 控件 API、底层为原生控件——那是 Rivet 刻意不做的一种取舍。）Windows、macOS 与 Linux 都保留各自第一方现代 UI 技术栈和平台行为。
 
 ### Hello Rivet
 
@@ -298,6 +300,8 @@ raco rivet release --update-payload <installer>:<glob>[:<component>]
 raco rivet manifest-compose <inputs...> [--output <file>]
                                    组合更新 manifest
 raco rivet sign-manifest ...       组合并签名经过验证的家族更新 manifest
+raco rivet update-keys --key-id <id>  生成 Ed25519 更新签名密钥对
+raco rivet check-release-version [tag]  校验 VERSION、rivet.rktd、carrier 与 tag
 raco rivet verify-release-assets ...  校验已签名发布资产的完整性
 raco rivet i18n                    校验 shared/i18n 对齐并重生成内嵌表
 raco rivet measure                 报告打包产物大小与启动存活
@@ -343,7 +347,7 @@ hello/
 
 ```text
 rivet/
-├── rivet/                    # Racket backend、协议、State/RPC 定义
+├── rivet/                    # Racket backend、协议、State/RPC 定义与测试
 ├── rivet-cli/                # new / doctor / clean / build / dev / package / verify / codegen
 ├── runtime/                  # 共享 C++ RVT1 codec 与测试
 ├── platform/
@@ -351,11 +355,13 @@ rivet/
 │   │   ├── runtime/          # Racket CS bridge + native client
 │   │   └── host/             # WinUI 3 模板
 │   ├── macos/
-│       ├── Sources/          # Swift protocol/client + C embedding bridge
-│       └── host/             # SwiftUI 模板
+│   │   ├── Sources/          # Swift protocol/client + C embedding bridge
+│   │   └── host/             # SwiftUI 模板
+│   ├── linux/                # GTK4 runtime + host（CMake）：system、chart、update、theme
 │   └── android/              # Kotlin RVT1 协议/runtime 与 Gradle 构建
-├── rivet/tests/
-└── docs/
+├── examples/                 # 维护中的参考应用（taskboard）及其测试
+├── benches/                  # event-throughput 基准
+└── docs/                     # 指南、规范性说明与官网素材
 ```
 
 ## 测试

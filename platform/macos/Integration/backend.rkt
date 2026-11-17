@@ -1,5 +1,10 @@
 #lang racket/base
 
+;; The AppKit harness deliberately differs from the Linux and Windows samples:
+;; it also loads rivet/distribution into the embedded runtime (proving the
+;; shared library links there) and leaves the cancellation probe to the other
+;; two samples.
+
 (require rivet/backend
          rivet/distribution)
 

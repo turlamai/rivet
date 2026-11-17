@@ -52,7 +52,15 @@ Linux 异步读取，因为 Wayland 按需从当前所有者传输剪贴板内�
 `platform/windows/system` 使用第一方 Win32 表面：
 
 - 命名 mutex 用于进程唯一性；
-- 命令行激活，用于 MSI 注册的 URL scheme 和文件关联；
+- 命令行激活，用于 MSI 注册的 URL scheme 和文件关联。MSI 使用 `Scope="perMachine"`，因此协议与文件处理器必须注册到 `HKLM\\Software\\Classes`，而非提升权限的安装进程所对应的 HKCU，卸载时应由 MSI 清除；
+- 生成的 WinUI 3 宿主和 Taskboard 示例现在在创建窗口前调用 `ActivationArguments()`，
+  将最新 64 条非空 Unicode 参数（单条最多 4096 个 UTF-16 码元）保存到窗口的
+  `ActivationInbox`。产品代码必须显式调用 `TakeActivationArguments()` 并验证后才映射到
+  经过授权的类型化 RPC。父 PR **仅支持新进程启动参数接收**；后续堆叠的**实验性 AppLifecycle 方案**利用产品唯一
+  标识键和 `AppInstance.FindOrRegisterForKey` / `RedirectActivationToAsync`，尝试把第二实例
+  的 Launch/File/Protocol 参数送达主实例 WinUI dispatcher 的有界队列。主实例在创建第一个窗口之前另设有界的 App 层队列，先收到的重定向事件会在窗口创建后按顺序转交，不因窗口未就绪被直接丢弃。CI 对普通打包可执行文件及 **MSI 安装后的可执行文件** 都执行双进程启动，要求第一个实例
+  的原生队列恰好接收一次预期 URI，且原进程仍运行。此验收**不能替代** ShellExecute 的
+  已注册 URL/文件关联测试，也未验收产品定义的类型化 Racket RPC；
 - `Shell_NotifyIconW` 用于托盘存在和通知气泡，另有 `TrayController` 拥有窗口 subclass、
   原生弹出菜单、命令路由和 `TaskbarCreated` 恢复；
 - `GlobalShortcuts` 基于 `RegisterHotKey`：每个实例一个 message-only 窗口，`WM_HOTKEY`
@@ -79,7 +87,7 @@ Taskboard 是可执行配方。
 
 `RivetSystem` 使用 AppKit 和 Apple 系统框架：
 
-- 进程死亡时自动释放的操作系统文件锁；
+- 放在 Application Support 下的持久 `flock` 单实例锁，并同时持有旧版 Caches 路径的兼容锁，在旧 Caches 锁文件未被删除的情况下防止升级前后的宿主同时成为主实例；如果旧版进程仍在运行但缓存锁文件已被删除，旧版无法识别新的持久锁。进程退出或崩溃时操作系统释放这两个锁；不要主动删除正在使用的锁文件，缓存条目被清理后新版宿主仍受持久锁保护；
 - SwiftUI `onOpenURL` 加随包 `CFBundleURLTypes`/`CFBundleDocumentTypes` 元数据；
 - `UNUserNotificationCenter`；
 - `NSStatusItem` 用于菜单栏 UI；
@@ -92,7 +100,7 @@ Taskboard 是可执行配方。
   sheet 呈现；
 - `SMAppService.mainApp` 用于登录项注册；
 - Security.framework Keychain generic-password 条目；
-- 保持在 main actor 上的激活路由。
+- 在 main actor 上运行的 URL/文件激活路由：注册原生回调前缓存最新 64 条事件，注册后按接收顺序交付，超限丢弃较早事件并通过 `droppedURLCount` 计数。生成的 SwiftUI 宿主直接把 `onOpenURL` 接入有界的 `AppModel.activatedURLs`，不依赖视图启动任务或已安装 Rivet 包中的新版路由器 API；但**不会自动调用后端 RPC**；产品需在后端就绪后自行校验事件并路由到产品定义的类型化 RPC。
 
 macOS 会按操作系统要求询问通知和登录项同意。代码不得把拒绝当作崩溃。
 
@@ -110,6 +118,11 @@ Objective-C 异常。
   primary；
 - `ActivationArguments()` 从 `/proc/self/cmdline` 读取安装器注册的 URL scheme 和文件关联
   负载；
+- 生成的 GTK4 宿主和 Taskboard 示例使用 `G_APPLICATION_HANDLES_COMMAND_LINE`，
+  在主进程的 GTK 主上下文接收首次启动参数，以及会话总线可用时从第二次启动转发来的参数。
+  `ActivationInbox` 最多保存 64 条非空且不超过 4096 字节的参数，记录超限拒绝和队列溢出，
+  由产品代码显式 `take()` 后校验、路由。两类宿主都以生成的 `rivet_app::kIdentifier` 作为 GApplication ID，避免不同 Rivet 产品争用写死的 `dev.rivet.host` 激活入口。**本次只实现原生接收**，不会自动执行未经校验的 Racket RPC；
+  Linux 文件/MIME 注册和实际安装包的端到端激活尚未通过验收；
 - 会话总线上的 `org.freedesktop.Notifications`（GDBus），带稳定通知 id 以支持标记替换；
 - `GlobalShortcuts`——异步 `org.freedesktop.portal.GlobalShortcuts` 会话 API。`support()`
   暴露 portal 版本，`bind(...)` 在不阻塞 GTK 主上下文的情况下报告 bound、cancelled、

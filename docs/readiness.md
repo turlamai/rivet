@@ -1,6 +1,6 @@
 # Commercial desktop readiness
 
-Status: living completion contract, started 2026-11-04. Scope: the
+Status: living completion contract, started 2026-11-04; evidence refreshed 2026-11-16. Scope: the
 Windows/macOS/Linux desktop framework, its CLI, packaging, documentation and
 release engineering. Mobile delivery is explicitly out of scope here and stays
 in the active [desktop closeout and mobile start plan](desktop-closeout-mobile-plan.md)
@@ -10,6 +10,12 @@ This page answers one question: **can a commercial desktop application be built,
 shipped, supported and recovered on Rivet without the application reimplementing
 a framework responsibility?** It is not a marketing checklist. Every row names
 the owning evidence; a row is not "done" because a document says so.
+
+Current evidence boundary (2026-11-16): `main` at
+`33de65ccb5d72f9ac38ff982aa4495467f89f213`, latest published framework
+release `v0.16.0`, and passing main CI are meaningful framework evidence, not
+proof of every native installation, first-launch or product recovery journey.
+Framework first-install qualification remains open in [#405](https://github.com/turlamai/rivet/issues/405).
 
 ## How to read the states
 
@@ -45,9 +51,9 @@ Shipped.
 | File and folder dialogs | Shipped | Platform adapters | Default directory, message text, and macOS "allow other types" polish |
 | Clipboard | **Partial** | Text-only adapters | No HTML/RTF/image/file-list; document the limit or extend |
 | Drag and drop | **Missing** | No `IDropTarget`/`NSDragging`/`GtkDropTarget` | File-drop helpers plus a doc recipe |
-| URL schemes and file associations | **Partial** | Windows MSI + macOS `Info.plist` registration | Linux emits no `MimeType`/`x-scheme-handler`; Windows per-machine install writes HKCU keys |
-| Activation delivery into app code | **Missing** | macOS router closure never assigned; Windows `ActivationArguments()` and Linux argv never consumed | Wire all three hosts, forward to a Racket activation RPC, add acceptance coverage |
-| Single instance | **Partial** | Linux lease + argument forwarding | Windows/macOS lease only (no forwarding); no scaffold acquires the lease; macOS lock lives in purgeable `~/Library/Caches` |
+| URL schemes and file associations | **Partial** | Windows MSI + macOS `Info.plist` registration | Linux emits no `MimeType`/`x-scheme-handler`; Windows per-machine MSI registration uses HKLM; exact installed ShellExecute URL/file acceptance still requires native proof |
+| Activation delivery into app code | **Partial** | macOS `RivetActivationRouter` buffers deferred URL/file activations; generated SwiftUI host receives opens directly into bounded `AppModel.activatedURLs`; WinUI 3 generated/Taskboard hosts now capture Windows `ActivationArguments()` in a bounded native inbox at process launch (AppInstance second-instance forwarding is covered by packaged and MSI-installed EXE command-line tests; shell URL/file associations and typed Racket RPC remain unverified); GTK4 generated/Taskboard hosts now receive first/second launch arguments into a bounded native `ActivationInbox` (session bus required for remote forwarding) | Wire the product-owned typed Racket activation contract across all three hosts; add actual packaged acceptance coverage |
+| Single instance | **Partial** | Linux lease + argument forwarding; macOS persistent Application Support lease with legacy Caches compatibility and Swift regression tests | Windows/macOS forwarding and generated scaffold lease acquisition remain missing |
 | Launch at login / autostart | Shipped (adapter) | Run key, `SMAppService`, XDG autostart | Scaffold does not wire it; Windows passes `--autostart`, Linux does not |
 | Secure storage | Shipped | Credential Manager, Keychain, libsecret | Conditional Linux availability must be checked by the product |
 | Settings / structured logging | **Partial** | `rivet/system/settings.rkt`, `rivet-log` sink | No file sink, rotation, retention, or Racket↔native correlation |
@@ -68,7 +74,7 @@ Shipped.
 | Typed RPC / Event / State / Cancel | Shipped | `rivet/backend.rkt`, protocol tests, generated Swift/C++/Kotlin clients | Cooperative cancellation below |
 | Schema snapshot and breaking-change gate | Shipped | `raco rivet schema`, `rivet-schema.json` | Baseline format is not specified (documentation gap) |
 | Pagination, large payloads, runtime limits | Shipped | `docs/large-payloads.md`, `docs/runtime-limits.md`, decoder limit tests | — |
-| Real-time chart series | Shipped | `docs/chart-series.md`, chart tests, per-host widgets | `rivet/chart` is missing from the public-API/stability snapshot |
+| Real-time chart series | Shipped | `docs/chart-series.md`, chart tests, per-host widgets, `rivet/tests/public-api.rkt` | — |
 | I18n parity and embedded host tables | Shipped | `raco rivet i18n`, `docs/configuration.md` | Product strings only |
 | Cooperative RPC cancellation | **Missing** | `docs/large-payloads.md` records that handlers cannot observe Cancel | Handler-visible check, cleanup window, first real consumer |
 | `Float64`, string-key Map, structured Error | **Deferred** | `docs/protocol.md` keeps the RVT1 v1 tag set closed | Phase 8 negotiation plus cross-runtime golden/fuzz evidence |
@@ -103,7 +109,7 @@ Shipped.
 | Generated project tests | Shipped (2026-11-04) | `tests/smoke.rkt` plus the `starter-smoke` unit suite; scaffold test asserts both | Products still replace the scenario with real behavior |
 | CLI exit-code contract | **Partial** | Documented 0/1/2 vocabulary in both diagnostics guides | Parse vs policy failures still collapse to 1; add stable error codes |
 | Upgrade/migration guide per release | **Partial** | `docs/USING.md`, `CHANGELOG` | Migration section for public-contract changes |
-| API stability and deprecation | **Partial** | `docs/api-stability.md` (pre-1.0) | State Racket 9.0+ explicitly; define deprecation markers/window and a support matrix |
+| API stability and deprecation | **Partial** | `docs/api-stability.md` specifies Racket CS 9.0+ and the pre/post-1.0 deprecation window | The 1.0 contract and full supported-platform compatibility promises still need stabilization |
 
 ## Documentation
 
@@ -126,25 +132,27 @@ keep one normative English definition. See the central
 | API reference (`rivet/scribblings`) | Yes | Not required | Fix the reference gaps below |
 | Docs site (`docs/index.html`) | Yes | Yes | Keep command examples in sync with the CLI |
 
-## Reference and contract drift (verified 2026-11-04)
+## Reference and contract drift (2026-11-04 audit; 2026-11-16 corrections)
 
-These are documentation defects, not missing features. They matter because
-agents and products copy the reference.
+This list preserves the dated audit but distinguishes closed items from current
+work. Historical findings are not proof of a present defect: use the linked
+current code and the open-slices section before acting.
 
 - The manual keyword omissions are fixed (2026-11-04): `#:trusted-keys` on
   `make-updater`/`fetch-update-manifest`, `#:diagnostic-sink` on
   `serve`/`serve-fds`, and `#:install-kind` on `select-update` are documented
   and guarded by `rivet/tests/manual-keywords.rkt`.
-- `rivet/chart` is absent from `docs/api-stability.md` and
-  `rivet/tests/public-api.rkt`, so its exports can change without the gate.
+- **Fixed:** `rivet/chart` now appears in both `docs/api-stability.md` and
+  `rivet/tests/public-api.rkt`; public exports are snapshot-tested.
 - The Scribble CLI section lists 13 commands while `raco rivet help` exposes
   about 45, including `--version`, `acceptance`, `matrix`, `verify-remote`,
   `generate`, `entitlements`, `i18n`, `measure`, `compliance`, `apple-review`,
   and the manifest commands.
 - `linux-desktop-id` and `linux-binary-name` are validated, defaulted and
   consumed but undocumented in `configuration.md`.
-- `api-stability.md` never states the minimum Racket version (9.0 in `info.rkt`)
-  and has no deprecation window or marker policy.
+- **Fixed:** `docs/api-stability.md` now states the Racket CS 9.0+ minimum
+  and a one-minor-release deprecation window after 1.0. The final 1.0 stability
+  contract remains a separate release gate.
 - There is no exit-code table; a usage error, a failed build and a policy
   rejection all exit 1.
 - The documentation test still does not parse every Scribble signature; the
@@ -173,7 +181,7 @@ agents and products copy the reference.
 | Crash report capture | **Partial** | `make-crash-file-reporter` covers uncaught Racket exceptions; native hooks exist | macOS has no native fatal-signal hook; Windows writes no dump; Linux does not restart |
 | Performance thresholds | **Deferred** | `docs/benchmarks.md` explains why timing has no pass/fail gate | Promote metrics only on stable hardware |
 | Windows system-adapter tests | **Missing** | 936 source lines, no test target, no CI job | Win32 test executable for tray/menu/hotkey/clipboard/credential paths |
-| macOS system-adapter tests | **Partial** | Clipboard, filters, menu bar, notification availability | Single instance, Keychain, login item, activation router |
+| macOS system-adapter tests | **Partial** | Clipboard, filters, menu bar, notification availability, single-instance lease, activation router buffer | Keychain and login-item behavior remain unqualified on a real user session |
 
 ## Verified backlog (2026-11-04 source audits)
 
@@ -273,9 +281,11 @@ Completed in this pass, with tests and both language paths where public:
 
 ## Open slices, in order
 
-1. **Activation delivery** — one payload path from OS to a Racket RPC on all
-   three platforms, with acceptance coverage. Packaging already registers the
-   schemes, so this is the highest-risk broken promise.
+1. **Activation delivery** — macOS now buffers and dispatches URL/file opens
+   into the native `AppModel`, but no host forwards them to a product-owned
+   typed Racket RPC yet. Wire the backend contract and Windows/Linux native
+   activation intake, then prove real packaged activation on all three OSes.
+   Packaging already registers the schemes; this remains high risk.
 2. **Generated app baseline, remainder** — single-instance acquisition,
    About/Quit, window-state restore and a release-workflow template in
    `raco rivet new`. CI, starter test and updater scaffold are done.

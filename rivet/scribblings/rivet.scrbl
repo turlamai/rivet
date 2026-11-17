@@ -3,10 +3,16 @@
 @(require (for-label (except-in racket/base sha256-bytes)
                      racket/contract/base
                      rivet
+                     rivet/app-info
+                     rivet/backend
+                     rivet/chart
                      rivet/distribution
+                     rivet/keel
                      rivet/protocol
                      rivet/resources
-                     rivet/system))
+                     rivet/share-watch
+                     rivet/system
+                     rivet/testing))
 
 @title[#:tag "rivet"]{Rivet: First-Party Native Desktop Applications with Racket}
 @author{TurLamAI}
@@ -90,6 +96,7 @@ packaged dependency-closure, and clean-machine checks.
 @section{Application Backend}
 
 @defmodule[rivet]
+@defmodule[rivet/backend]
 
 The backend declaration and serving surface is also available without the
 aggregate module as @racketmodname[rivet/backend]; require whichever is
@@ -315,18 +322,38 @@ Cancels a pending request by identifier.}
 @defthing[message:shutdown exact-positive-integer? #:value 7]{
 Requests orderly backend shutdown.}
 
-@subsection{Application Resources}
+@subsection{Test-only HTTP helpers}
 
 @defmodule[rivet/testing]
 
-Test-only helpers for exercising code that performs HTTP:
-@racket[ephemeral-http-listener] starts a bounded loopback listener,
-@racket[serve-http!] accepts one request, and
-@racket[fake-request], @racket[fake-request?], @racket[fake-request-body],
-@racket[fake-request-headers], @racket[fake-request-method] and
-@racket[fake-request-path] construct and inspect a deterministic request.
-They are stable enough for product tests but are not a production HTTP
-server.
+Test-only helpers for exercising code that performs HTTP. They are stable
+enough for product tests but are not a production HTTP server.
+
+@defproc[(ephemeral-http-listener [first-port exact-nonnegative-integer? 18432]
+                                  [count exact-positive-integer? 512]
+                                  [#:backlog backlog exact-positive-integer? 16]
+                                  [#:host host string? "127.0.0.1"])
+         (values exact-nonnegative-integer? tcp-listener?)]{
+Probes a bounded loopback port range and returns the first free port with
+its listener, so tests never hardcode ports. Raises when no port in the
+range is free.}
+
+@defstruct*[fake-request ([method symbol?]
+                          [path string?]
+                          [headers (listof (cons/c string? string?))]
+                          [body bytes?])]{
+One deterministic request handed to a fake handler.}
+
+@defproc[(serve-http! [listener tcp-listener?]
+                      [handler procedure?])
+         void?]{
+A minimal sequential HTTP/1.1 fake: accepts one connection at a time,
+parses the request line, headers, and a declared Content-Length body, hands
+a @racket[fake-request] to @racket[handler], and writes back
+@racket[(cons status-line response-bytes)] with @tt{Connection: close}. Run
+it on a thread; killing the thread stops the fake.}
+
+@subsection{Application resources}
 
 @defmodule[rivet/resources]
 
@@ -471,6 +498,67 @@ The build writes @filepath{rivet-app-info.rktd} into the application resource
 root on every platform. The procedures fail explicitly when that generated
 file is absent or malformed, so update checks cannot silently use a stale
 hardcoded fallback.
+
+@section{Network Shares}
+
+@defmodule[rivet/share-watch]
+
+On Windows, a filesystem call that parks on a mapped-but-disconnected SMB
+share blocks the single OS thread that runs every Racket thread, freezing the
+engine and every RPC. Reachability therefore comes from the redirector's
+state table (parameterless @exec{net use}), and directory scans run in a
+@racket[place] so a stalled share can stall only the worker.
+
+@defstruct*[share-entry ([name string?]
+                         [path path?]
+                         [directory? boolean?]
+                         [size exact-nonnegative-integer?]
+                         [modify-seconds exact-nonnegative-integer?])]{
+One entry returned by @racket[share-directory-snapshot].}
+
+@defstruct*[share-state ([status symbol?]
+                         [entries (vectorof share-entry?)])]{
+The result of a share scan. The status is @racket['ok], @racket['unreachable],
+@racket['missing], @racket['timeout], @racket['unsupported], or
+@racket['error].}
+
+@defproc[(share-state-ok? [state share-state?]) boolean?]{
+Returns true when the scan succeeded.}
+
+@defproc[(mapped-drive-status [path path-string?]) symbol?]{
+Returns the redirector status for the drive containing @racket[path]:
+@racket['ok], @racket['reconnecting], @racket['unavailable],
+@racket['disconnected], @racket['connecting], @racket['other],
+@racket['not-mapped], or @racket['unknown] for a UNC path. The probe reads the
+local state table and never opens the share.}
+
+@defproc[(share-reachable? [path path-string?]) boolean?]{
+Returns true for a healthy mapped drive, a local path, and a UNC path whose
+reachability is decided by the scan timeout.}
+
+@defproc[(share-directory-snapshot [path path-string?]
+                                   [#:timeout timeout real? 5.0]) share-state?]{
+Lists @racket[path] in a worker place and waits at most @racket[timeout]
+seconds. A timeout kills the worker and returns @racket['timeout]; a mapped
+drive whose state is not @racket['ok] returns @racket['unreachable] without
+touching the share.}
+
+@defproc[(start-share-watcher [path path-string?]
+                              [#:interval interval real? 5.0]
+                              [#:timeout timeout real? 5.0]
+                              [#:on-change on-change
+                               (-> share-state? any/c) void]) share-watcher?]{
+Polls @racket[path] and calls @racket[on-change] whenever the status or the
+entry set changes. The first callback carries the initial state.}
+
+@defproc[(share-watcher? [value any/c]) boolean?]{
+Recognizes a running or stopped share watcher.}
+
+@defproc[(share-watcher-state [watcher share-watcher?]) share-state?]{
+Returns the most recent scan state.}
+
+@defproc[(share-watcher-stop! [watcher share-watcher?]) void?]{
+Stops the watcher thread. Safe to call from its own callback.}
 
 @section{System Services}
 
@@ -958,11 +1046,15 @@ Returns the architecture symbol used by Rivet release manifests.}
            (or/c 'x64 'arm64) (current-update-architecture)]
           [#:install-kind install-kind
            (or/c #f 'portable 'targz 'msi 'appimage 'package-manager) #f]
+          [#:component component (or/c #f 'app 'cli 'tool) #f]
           [#:public-key public-key any/c]
           [#:key-id key-id string?]
           [#:trusted-keys trusted-keys (listof (cons/c string? bytes?)) '()]
           [#:manifest-url manifest-url string?]
           [#:data-directory data-directory path-string?]
+          [#:destination destination (or/c #f (-> update-candidate? path-string?)) #f]
+          [#:after-download after-download
+           (or/c #f (-> path? update-candidate? path?)) #f]
           [#:rollout-bucket rollout-bucket (integer-in 0 99)]
           [#:maximum-manifest-bytes maximum-manifest-bytes
            exact-positive-integer? (* 1024 1024)]
@@ -978,9 +1070,19 @@ selection, bounded background download, progress, cancellation, and terminal
 state. @racket[public-key] may be a parsed Ed25519 key or DER bytes, which are
 decoded lazily during the first check. @racket[rollout-bucket] must be a stable
 per-installation value from 0 through 99; do not choose a new random value on
-each check. Unsupported platforms and architectures fail at construction
-instead of silently selecting the wrong artifact. Installation and restart
-remain owned by the native host or platform adapter.}
+each check. @racket[component] selects a component-tagged artifact
+(@racket['app], @racket['cli], or @racket['tool]); the default @racket[#f]
+selects the component-less artifact. @racket[destination] maps the selected
+candidate to the product's staging path; when it is @racket[#f], the default
+name under @racket[data-directory] is used. @racket[after-download] runs once
+the artifact is verified and before the updater publishes the terminal
+@racket["downloaded"] phase; it receives the verified path and the selected
+candidate, and returns the path to publish — products that replace a running
+image in place (an AppImage swap) use this to install the artifact and report
+the replaced image's path. Unsupported platforms and
+architectures fail at construction instead of silently selecting the wrong
+artifact. Installation and restart remain owned by the native host or
+platform adapter.}
 
 On Windows, pass @racket['msi] for an MSI-installed copy; release manifests
 carry a signed MSI entry alongside the portable ZIP, and the linked host
@@ -995,7 +1097,9 @@ Recognizes an updater created by @racket[make-updater].}
 Synchronously fetches and authenticates the manifest under
 @racket[check-timeout], selects the matching candidate, and returns a JSON-safe
 immutable result whose @racket['status] is @racket["available"],
-@racket["up-to-date"], or @racket["error"].}
+@racket["up-to-date"], or @racket["error"]. An available result also carries
+the artifact @racket['url], size, installer symbol, build, and published
+time for product CLIs and automation.}
 
 @defproc[(updater-download! [instance updater?]) void?]{
 Starts the selected download on one background worker. A second check or
@@ -1007,6 +1111,13 @@ error state.}
 @defproc[(updater-cancel! [instance updater?]) boolean?]{
 Requests cancellation of an active download. Returns @racket[#t] when a worker
 was interrupted and @racket[#f] when no download was active.}
+
+@defproc[(updater-candidate [instance updater?]) (or/c update-candidate? #f)]{
+Returns the authenticated candidate the last successful check selected, or
+@racket[#f] before any check selects one. The candidate survives a failed or
+cancelled download so a product can report the offered artifact and retry;
+a new check clears it first. Products that own the native install handoff use
+it for the artifact SHA-256, installer kind, and rollback policy.}
 
 @defproc[(updater-state [instance updater?]) hash?]{
 Returns an immutable, synchronized, JSON-safe snapshot with phase, percent,
@@ -1122,21 +1233,43 @@ same installation-scoped lock used by execution protects recovery.}
 
 @section{Command-Line Workflow}
 
+The command inventory below mirrors @filepath{rivet-cli/usage.rkt}, which is
+the single source of truth for every flag and variant; run @tt{raco rivet
+help} for the full annotated table.
+
 @verbatim{
-raco rivet new <name>       create a native starter project
-raco rivet inspect --json   emit the agent-readable project contract
-raco rivet doctor           inspect the native toolchain
-raco rivet schema --json    emit the current versioned API schema
-raco rivet schema --output rivet-schema.json
-                             write a compatibility baseline
-raco rivet schema check rivet-schema.json --json
-                             reject breaking API changes
-raco rivet dev              build and run the current application
-raco rivet build            compile backend and native host
-raco rivet package          create and verify a distributable
-raco rivet release          build installer, signed update manifest, and SBOM
-raco rivet verify           verify an existing packaged artifact
-raco rivet compliance       generate SBOM and third-party notices
+raco rivet new <name> [--with-updates]   create a native starter project
+raco rivet doctor [--json] [--release]   inspect the native toolchain; the
+                                         --release form runs the release gate
+raco rivet entitlements --json|--plist|--check APP
+                                         emit or enforce macOS entitlements
+raco rivet inspect [--json]              show the project edit/verification map
+raco rivet acceptance [--json] [--dry-run] [--suite <id>]
+                                         run declared acceptance suites
+raco rivet matrix <report.json>...       aggregate per-platform acceptance reports
+raco rivet verify-remote --repo O/R --ref REF
+                                         trigger and fold remote acceptance legs
+raco rivet schema --json|--output <file>|check <file>
+                                         emit, baseline, or reject API changes
+raco rivet clean                         remove generated .rivet/build/dist output
+raco rivet support-bundle                collect a redacted doctor/inspect/log bundle
+raco rivet build                         compile backend and native host
+raco rivet generate [--check]            regenerate Swift, C++, and Kotlin clients
+raco rivet dev                           build and run the current application
+raco rivet package [--production]        create and verify a distributable
+raco rivet release [--development] [--without-updates] [--update-payload ...]
+                                         build installer, signed update manifest, SBOM
+raco rivet manifest-compose <inputs...>  compose update manifests
+raco rivet sign-manifest ...             compose and sign a family update manifest
+raco rivet update-keys --key-id <id>     generate the Ed25519 update keypair
+raco rivet check-release-version [tag]   check VERSION, rivet.rktd, carriers, and tag
+raco rivet verify-release-assets ...     verify signed release asset parity
+raco rivet i18n                          verify shared/i18n parity, regenerate tables
+raco rivet measure size|startup          report artifact size/launch against budgets
+raco rivet compliance                    generate SBOM/notices and run the license audit
+raco rivet apple-review --channel ...    inspect an actual Apple artifact
+raco rivet verify [--production]         re-verify the current packaged artifact
+raco rivet help; raco rivet --version    help text; installed release version
 }
 
 Production application releases require publisher-controlled platform signing
@@ -1149,4 +1282,6 @@ application or to Rivet.
 The source repository contains the full getting-started guides, architecture,
 RVT1 protocol specification, runtime limits, production signing guide, system
 services guide, and release/update threat model. See
-@url{https://github.com/turlamai/rivet}.
+@url{https://github.com/turlamai/rivet} and the bilingual homepage at
+@url{https://rivet.jrtx.site/}; the transport-neutral schema contract lives in
+@url{https://github.com/turlamai/keel}.

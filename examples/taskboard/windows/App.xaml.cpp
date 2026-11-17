@@ -1,6 +1,9 @@
 #include "pch.h"
 #include "App.xaml.h"
 #include "MainWindow.xaml.h"
+#include "../../../platform/windows/system/system_services.hpp"
+#include "../../../platform/windows/system/app_instance_activation.hpp"
+#include "GeneratedBackend.hpp"
 
 #include <winrt/Microsoft.UI.Windowing.h>
 
@@ -21,26 +24,28 @@ App::App() {
 #endif
 }
 
-void App::OnLaunched(Microsoft::UI::Xaml::LaunchActivatedEventArgs const&) {
-  window_ = winrt::make<MainWindow>();
-  // The reference layout (status, task list, timing chart, actions) needs more
-  // height than the WinUI default window provides; at that default the list
-  // collapses into a virtualizing sliver whose rows never realize.
+App::~App() {
+  if (has_redirected_subscription_ && primary_instance_) {
+    primary_instance_.Activated(redirected_token_);
+  }
+}
+
+void App::OpenPrimaryWindow(std::vector<std::wstring> initial_arguments) {
+  // Preserve the dispatch order when a secondary activation was redirected
+  // after AppInstance registration but before the first window was created.
+  // MainWindow applies the same bounded 64-item retention policy.
+  auto early = pending_activations_.take();
+  for (auto& value : early) initial_arguments.push_back(std::move(value));
+  window_ = winrt::make<MainWindow>(std::move(initial_arguments));
+  // Taskboard's native layout requires more room than the WinUI default.
   window_.AppWindow().Resize({ 980, 700 });
   window_.Closed([this](auto const&, auto const&) {
-    // A WinUI 3 desktop Application owns its dispatcher independently of its
-    // windows. Releasing the final Window reference is necessary, but it does
-    // not consistently end the dispatcher on hosted CI desktops. The window's
-    // Closed handler was registered first and has already stopped the backend,
-    // so explicitly terminate the application lifecycle here.
     window_ = nullptr;
     Microsoft::UI::Xaml::Application::Current().Exit();
   });
   window_.Activate();
 
-  // An explicitly requested test-only second top-level window proves that
-  // the same executable icon resource is usable by non-scaffold windows.
-  // It does not change the reference app's normal single-window UX.
+  // Keep the real packaged two-window icon regression exactly as before.
   wchar_t probe_flag[2]{};
   if (::GetEnvironmentVariableW(L"RIVET_TEST_ICON_PROBE", probe_flag, 2) == 1 &&
       probe_flag[0] == L'1') {
@@ -49,14 +54,84 @@ void App::OnLaunched(Microsoft::UI::Xaml::LaunchActivatedEventArgs const&) {
     if (!rivet::system::ApplyAppIcon(icon_probe_window_)) {
       winrt::throw_hresult(E_FAIL);
     }
-    // Missing resource must return false without crashing or changing the
-    // icon that was just applied from the real EXE resource.
     if (rivet::system::detail::ApplyIconResource(
             icon_probe_window_, ::GetModuleHandleW(nullptr), 0xFFFF)) {
       winrt::throw_hresult(E_FAIL);
     }
     icon_probe_window_.Activate();
   }
+}
+
+void App::OnLaunched(Microsoft::UI::Xaml::LaunchActivatedEventArgs const&) {
+  namespace lifecycle = winrt::Microsoft::Windows::AppLifecycle;
+  // Read the process's own Unicode activation before starting Racket. A
+  // redirected activation arrives separately through AppInstance.Activated.
+  auto initial_arguments = rivet::system::ActivationArguments();
+  auto dispatcher =
+      winrt::Microsoft::UI::Dispatching::DispatcherQueue::GetForCurrentThread();
+  try {
+    auto current = lifecycle::AppInstance::GetCurrent();
+    auto activation = current.GetActivatedEventArgs();
+    // Keying by generated identity avoids different Rivet apps claiming a
+    // shared "single-instance" endpoint in the same user session.
+    auto selected = lifecycle::AppInstance::FindOrRegisterForKey(
+        winrt::to_hstring(rivet_app::kIdentifier));
+    if (!selected.IsCurrent() && activation) {
+      auto weak = get_weak();
+      pending_redirect_ = selected.RedirectActivationToAsync(activation);
+      pending_redirect_.Completed([weak, dispatcher,
+                          fallback = std::move(initial_arguments)](
+                             auto const& finished, auto const&) mutable {
+        bool delivered = false;
+        try {
+          finished.GetResults();
+          delivered = true;
+        } catch (...) {
+          // Do not silently discard an activation on a broken redirect.
+        }
+        dispatcher.TryEnqueue(
+            [weak, delivered, fallback = std::move(fallback)]() mutable {
+              if (auto app = weak.get()) {
+                app->pending_redirect_ = nullptr;
+                if (delivered) {
+                  Microsoft::UI::Xaml::Application::Current().Exit();
+                } else if (!app->window_) {
+                  app->OpenPrimaryWindow(std::move(fallback));
+                }
+              }
+            });
+      });
+      return;
+    }
+    if (selected.IsCurrent()) {
+      auto weak = get_weak();
+      primary_instance_ = current;
+      redirected_token_ = primary_instance_.Activated(
+          [weak, dispatcher](auto const&,
+                             lifecycle::AppActivationArguments const& redirected) {
+            auto arguments = rivet::system::RedirectedActivationArguments(redirected);
+            dispatcher.TryEnqueue([weak, arguments = std::move(arguments)]() mutable {
+              if (auto app = weak.get()) {
+                if (!app->window_) {
+                  // Secondary activation can arrive before OnLaunched builds
+                  // the first window. Defer on the UI thread, never drop.
+                  app->pending_activations_.push_all(std::move(arguments));
+                  return;
+                }
+                auto projected = app->window_.as<winrt::RivetHost::MainWindow>();
+                winrt::get_self<MainWindow>(projected)->ReceiveActivationArguments(
+                    std::move(arguments));
+                app->window_.Activate();
+              }
+            });
+          });
+      has_redirected_subscription_ = true;
+    }
+  } catch (winrt::hresult_error const&) {
+    // AppLifecycle may be unavailable on a development machine. Keep a
+    // visible process with its own startup payload instead of failing boot.
+  }
+  OpenPrimaryWindow(std::move(initial_arguments));
 }
 
 }  // namespace winrt::RivetHost::implementation

@@ -19,7 +19,9 @@ RIVET_UPDATE_ROLLOUT=100                     # optional; 0..100
 
 Run `raco rivet release`. The result is a signed MSI on Windows, a signed/notarized DMG on macOS, or an Ed25519-signed self-contained `.tar.gz` on Linux, plus a versioned portable zip, channel manifest, CycloneDX SBOM, and `THIRD_PARTY_NOTICES.txt`. The signed channel always includes the portable zip; Windows also includes the exact MSI, and Linux includes the exact AppImage when that format is enabled. One feed therefore serves each supported install shape without deriving sibling URLs or trusting unsigned sidecars. DMG, deb, rpm, and tar.gz remain direct-download or package-manager artifacts. `release --development` exercises the same flow without production platform signing, but the update manifest still requires its independent Ed25519 key.
 
-On Linux the release additionally builds native system installers: a `.deb` (dpkg-deb, unprivileged, installs under `/opt/<name>` with a desktop entry), an `.rpm` (rpmbuild BUILDROOT, distro-independent), and an `.AppImage` (bundled GTK4 dependency closure, so the same file runs on older distributions). Select the set with the `linux-formats` project setting. The signed tar.gz and portable zip are always retained as release assets. When AppImage is enabled, the signed manifest carries both the portable ZIP and AppImage entries, each with its exact URL, size, SHA-256, and installer kind; release also writes a human-facing `.AppImage.sha256` sidecar, but clients trust the signed feed. Package-manager installs upgrade through the package manager; AppImage installs use Rivet's verified atomic replacement.
+On Linux the release additionally builds native system installers: a `.deb` (dpkg-deb, unprivileged, installs under `/opt/<name>` with a desktop entry), an `.rpm` (rpmbuild BUILDROOT, distro-independent), an `.AppImage` (bundled GTK4 dependency closure, so the same file runs on older distributions), and an optional `.flatpak` bundle. Select the set with the `linux-formats` project setting. The signed tar.gz and portable zip are always retained as release assets. When AppImage is enabled, the signed manifest carries both the portable ZIP and AppImage entries, each with its exact URL, size, SHA-256, and installer kind; release also writes a human-facing `.AppImage.sha256` sidecar, but clients trust the signed feed. Package-manager installs upgrade through the package manager; AppImage installs use Rivet's verified atomic replacement.
+
+A Flatpak bundle wraps the same verified tar.gz in the GNOME Platform 50 runtime. Rivet owns the runtime choice and the lz4/ncurses module pins (the payload's only `NEEDED` entries outside the runtime); the product declares its sandbox in `flatpak-finish-args` and may replace the manifest with `flatpak-manifest`. The bundle is built unprivileged with `--disable-rofiles-fuse`, carries the same versioned artifact name, and gets a `.sha256` sidecar. `flatpak-builder` strips the closure with `eu-strip`; hosts that install packages with `--no-install-recommends` need the `elfutils` package as well. Flatpak installs update through Flatpak remotes, so the bundle is deliberately not part of the signed self-update feed.
 
 The native Debian and Fedora Wayland installer gates now create disposable
 `XDG_DATA_HOME` and `XDG_CONFIG_HOME` sentinels before first install, and
@@ -29,6 +31,16 @@ framework-native package-manager checks, not proof of any consumer's data
 migration or actual profile schema. AppImage packaging requires a `linux-icon` PNG in rivet.rktd — the format mandates a top-level icon and Rivet fails closed rather than shipping a placeholder.
 
 Applications that deliberately ship without an online update channel can run `raco rivet release --without-updates`. The command still builds, packages, platform-signs, verifies, and emits the installer, SBOM, and third-party notices; it skips only the channel manifest and does not read any `RIVET_UPDATE_*` credentials. Combine it with `--development` to exercise the unsigned release flow before publisher credentials exist. Omitting `--without-updates` keeps the fail-closed behavior above: all three update settings are required, and a partial configuration is an error.
+
+## Shared update toolchain
+
+Products that publish their own release legs (a CLI next to the app, a legacy feed alias, or a hand-built artifact matrix) use three Rivet commands instead of maintaining their own update scripts:
+
+- `raco rivet update-keys --key-id <id>` generates the Ed25519 keypair at `~/.<project>/update-signing-key.pem` (or `--key`), prints the DER base64 secret, the full SPKI hex, and the raw 32-byte hex for the verifier module, and refuses to overwrite without `--force`. `--json` emits the same fields for automation. Key ids are a trust-root decision, so the command never invents one.
+- `raco rivet check-release-version [tag]` requires the `rivet.rktd` version to match `VERSION` (or `--version-file`) and the tag, accepts `v<version>-rc.N` only with `--allow-rc`, and checks that each `--carrier <file>` contains the version. This replaces the per-repo preview scripts, including the extra backend fallback carrier.
+- `raco rivet sign-manifest` builds the signed channel manifest from explicitly named artifacts. It accepts DER or PEM private keys, a trailing `:<component>` discriminator (`app`, `cli`, `tool`), and `--alias <file>` for a byte-identical transition feed name. Products keep only their artifact naming and policy.
+
+A product wrapper can therefore be a few lines: derive the version/build, call `check-release-version`, pass the artifact list to `sign-manifest`, and publish. Rivet never guesses a product's artifact matrix; that remains product knowledge.
 
 Windows MSI CI now launches the executable from its real `Program Files`
 installation after the first MSI install and checks native window readiness,
@@ -234,7 +246,15 @@ monotonic no-progress and total deadlines, cleans partial files on cancellation
 or timeout, and rejects concurrent check/download operations. It deliberately
 stops at a verified downloaded artifact: installation consent, elevation,
 restart, and health policy remain with the native host and the platform
-installation APIs below.
+installation APIs below. Products that only need to control staging pass
+`#:destination` (candidate → path); products that must install the verified
+artifact before publishing the terminal phase — the Linux AppImage in-place
+swap is the case in the family — pass `#:after-download` (verified path,
+candidate → published path). The hook runs after size and SHA-256
+verification and before `phase "downloaded"`; raising fails the download
+through the normal error phase. `updater-candidate` exposes the authenticated
+candidate (artifact SHA-256, installer, rollback policy) for hosts that own
+the native install handoff.
 
 `raco rivet new --with-updates` generates a starter version of this surface:
 `app/update.rkt` wraps `make-updater` with the app identity, a persistent

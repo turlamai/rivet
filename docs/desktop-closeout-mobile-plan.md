@@ -238,6 +238,106 @@ changed.
 
 ## Next implementation handoff
 
+**Windows registered URI acceptance test (Draft, 2026-11-16):** build a
+CI-only Taskboard MSI that registers the `rivet-taskboard-ci` protocol
+scheme, without adding that scheme to the checked-in product configuration.
+After a real MSI installation, verify the machine-scoped `HKLM` registry command,
+invoke `rivet-taskboard-ci://activation-test/msi-shell` through Windows
+`ShellExecute` (not by directly launching `RivetHost.exe`), and require
+the primary WinUI process to remain alive and receive exactly one native
+activation. Then uninstall and verify the protocol registry key is gone.
+The test emits machine-readable acceptance and fixed-payload receipts only;
+it never records arbitrary incoming URI data. **Not yet validated:** the
+Windows native UI CI must pass on the exact PR head, including registry
+ownership, process lifecycle, removal, and any UAC/per-machine implications.
+This still does not validate a product-owned typed Racket activation RPC or
+all file-association paths. Starting parent #478 SHA:
+`21339bad35c0a9d416dcb897d5e7e710f821050b`;
+starting `main` SHA:
+`e54c03cd36432bfd25045f66b4120d28a55bd693`.
+
+中文：新增真实 MSI 注册的 URI 激活验收。CI 临时生成专用 scheme，
+安装后验证当前用户注册表，通过 Windows ShellExecute 而非直接调用
+EXE 打开 URI，要求主实例恰好接收一次，再检查卸载后关联已清理。
+这是待验证的 Draft 测试，并不等于产品 Racket RPC 已接入或文件关联
+已经全面通过；以最新提交的 Windows 原生 CI 为准。
+
+**Experimental Windows redirection slice (stacked on #477, 2026-11-16):**
+use the Windows App SDK `AppInstance` key scoped to generated product identity,
+redirect secondary activation objects asynchronously, decode Launch/File/Protocol
+payloads, and deliver them on the existing WinUI dispatcher to the bounded
+native inbox. A failed redirection must not silently discard launch arguments.
+The first WinUI window now drains a bounded App-level startup inbox so early redirected events are not discarded before window construction. A Racket scaffold regression pins the receive/drain handoff. Real simultaneous-launch and shutdown-race acceptance still requires separate stress evidence. The native Taskboard UIA driver launches a second process both from the
+packaged directory and from an actual MSI-installed executable. The first
+native inbox must acknowledge the expected URI **exactly once**, keep its
+own process alive, and the secondary must exit cleanly. The MSI acceptance
+wrapper verifies the trace as machine-readable evidence, without recording
+external URI content. Use only the **current HEAD** CI results as proof;
+shell-registered URL/file associations, simultaneous-launch stress, and
+typed product RPC dispatch remain separate release gates. Product-owned typed Racket RPC remains outside the scope. The
+starting parent commit was `d9376e3e336e3ff5aeac400a75b2af5464e233cb`;
+current `main` at start was `e35fa6f96645f08b7ba4328fa6099b08c6d1d6f4`.
+
+中文：本分支是基于 #477 的 Windows 第二实例重定向实验实现，
+使用 Windows App SDK 的 AppInstance，而非自制不安全 IPC。
+必须通过原生编译、真实安装包双进程激活和关闭竞态测试后才可合入。
+
+**Windows native activation bounded slice (2026-11-16):** the generated
+WinUI 3 host and reference Taskboard now call the existing Windows
+`ActivationArguments()` before constructing their native windows. Each
+window keeps a bounded `rivet::system::ActivationInbox` of raw Unicode
+arguments (64 entries, 4096 UTF-16 code units each), exposed only via
+explicit `TakeActivationArguments()`; no untrusted input invokes Racket
+on receipt. A cross-platform native CTest proves queue behavior and a
+Racket scaffold contract checks both WinUI call sites. This implements
+**new-process startup intake**, not second-instance delivery, typed backend
+RPC routing, or actual MSI-installed URL/file association acceptance.
+Starting main SHA: `ef2183d949266a4ffe22d458569f11de1480e191`.
+Require current-head Windows CLI/native UI/ARM64 tests before merge.
+
+中文：本切片使 Windows 生成宿主和 Taskboard 的新进程能保留启动参数，
+通过有界 Unicode 队列由产品代码自行取出、验证并决定类型化 RPC。
+第二实例转发、实际安装后 URL/文件关联以及后端 RPC 验收均未完成。
+
+**Linux native activation bounded slice (2026-11-16):** generated GTK4
+and Taskboard hosts now use the product's generated `kIdentifier`
+(as opposed to the shared `dev.rivet.host`), and connect `GApplication::command-line` with
+`G_APPLICATION_HANDLES_COMMAND_LINE`, retaining first and session-bus-
+forwarded second invocation arguments in a bounded `ActivationInbox`.
+The inbox is main-context-owned, retains at most 64 nonempty entries of
+4096 bytes or fewer, and reports overflow/rejected counts; product code
+must explicitly consume and validate entries. Linux Integration CTest
+and the Embedded Roundtrip workflow exercise FIFO, overflow, rejection,
+boundary length and drain. This is not proof of a packaged URL/MIME
+registration or an OS-to-typed-Racket RPC; no untrusted argument
+automatically invokes a backend operation. Starting main SHA:
+`ef2183d949266a4ffe22d458569f11de1480e191`.
+Require exact-head clean Linux integration and native UI jobs before merge.
+Next activation slice: Windows native argument intake, then product-owned
+typed RPC mapping and actual packaged three-platform acceptance.
+
+中文：Linux 生成宿主与 Taskboard 现接入 GTK 命令行激活事件，
+保留首次和（依赖会话总线的）第二实例参数，并对队列与输入长度设限。
+本切片不自动执行 Racket RPC，也不宣称文件/MIME 注册和真实安装包激活
+已完成；合并前仍须以最新提交的原生构建和测试证据为准。
+
+**Desktop activation bounded slice (2026-11-16, PR #474):** the generated
+macOS SwiftUI host now captures `onOpenURL` directly into bounded
+`AppModel.activatedURLs` before backend startup; the separate main-actor
+`RivetActivationRouter` utility buffers up to 64 early activations and
+exposes overflow for hosts that register deferred handlers.
+New Swift tests cover ordering, late registration, bounds and reentrancy.
+This is not automatic Racket RPC delivery and does not close the Windows/
+Linux activation, single-instance forwarding, or packaged first-launch
+acceptance gates. Validate the exact PR head across Swift, native UI and
+embedded CI before merging. Next activation slice: define product-owned
+typed RPC schema and exercise one real OS-to-backend activation per platform.
+Starting main SHA was `9a951de7cc5233c3904796c51f576e969b47f142`.
+
+中文：本次仅实现 macOS 原生 URL/文件激活的早期缓存和应用模型接收，
+不代表已发送到 Racket RPC，更不代表 Windows/Linux 或真实安装包
+激活通过。等待 PR #474 的完整 CI 证据，再推进类型化 RPC 及三平台验收。
+
 **Owner priority override, 2026-11-03:** unify all active product online-update
 mechanisms on Rivet before first-install, commercial or unrelated feature work.
 [Portfolio tracking](https://github.com/turlamai/turlamai.github.io/issues/14)
@@ -399,6 +499,22 @@ application handler, and watch action remain product inputs; no generated
 app, signing, or physical-device acceptance is implied.
 
 ### M4 — standalone mobile hosts
+
+**Evidence correction (2026-11-16):** the unmerged
+[`feat/mobile-hosts`](https://github.com/turlamai/rivet/tree/feat/mobile-hosts)
+branch (tip `3f0cb5505`) has an iOS pb toolchain, generated SwiftUI/XCTest
+scaffold and simulator app build/install/launch evidence. **It does not yet
+have a passing embedded-Racket simulator RPC/lifecycle test.** The newest
+[#357 investigation](https://github.com/turlamai/rivet/issues/357#issuecomment-6786294872)
+samples the pb VM boot hanging at `S_ffi_closure` in the libffi closure
+allocation path. Earlier guesses of a process kill or a complete simulator
+round trip were superseded by that stack. The branch's
+`docs/mobile-hosts.md` assertions about passing simulator RPC tests must be
+corrected before integration. The branch currently diverges from `main`;
+preserve its work, reconcile commits without force-updating either branch,
+then require clean simulator runtime evidence plus the normal pull-request
+matrix. Companion clients and deterministic framework tests remain valid,
+but are not substitute evidence for a standalone iOS host.
 
 Only after the shared contract is stable, pursue Android JNI/portable Racket +
 Compose and the corresponding Apple embedded-runtime application flow. Each

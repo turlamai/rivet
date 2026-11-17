@@ -30,19 +30,47 @@ CycloneDX SBOM 和 `THIRD_PARTY_NOTICES.txt`。签名通道始终包含便携 zi
 manifest 仍需要其独立的 Ed25519 密钥。
 
 Linux 上发布还会构建原生系统安装器：`.deb`（dpkg-deb，非特权，安装到 `/opt/<name>` 并带
-desktop entry）、`.rpm`（rpmbuild BUILDROOT，与发行版无关）和 `.AppImage`（打包 GTK4
-依赖闭包，因此同一文件可在较旧发行版运行）。用 `linux-formats` 项目设置选择集合。签名的
-tar.gz 和便携 zip 始终保留为发布资产。启用 AppImage 时，签名 manifest 同时携带便携 ZIP
-和 AppImage 条目，各自带精确 URL、大小、SHA-256 和安装器类型；发布还会写出面向人的
-`.AppImage.sha256` sidecar，但客户端信任签名 feed。包管理器安装通过包管理器升级；
-AppImage 安装使用 Rivet 的已验证原子替换。AppImage 打包需要 `rivet.rktd` 中的
-`linux-icon` PNG——该格式要求顶层图标，Rivet 会失败关闭而不是发布占位图。
+desktop entry）、`.rpm`（rpmbuild BUILDROOT，与发行版无关）、`.AppImage`（打包 GTK4
+依赖闭包，因此同一文件可在较旧发行版运行）以及可选的 `.flatpak` bundle。用
+`linux-formats` 项目设置选择集合。签名的 tar.gz 和便携 zip 始终保留为发布资产。启用
+AppImage 时，签名 manifest 同时携带便携 ZIP 和 AppImage 条目，各自带精确 URL、大小、
+SHA-256 和安装器类型；发布还会写出面向人的 `.AppImage.sha256` sidecar，但客户端信任
+签名 feed。包管理器安装通过包管理器升级；AppImage 安装使用 Rivet 的已验证原子替换。
+AppImage 打包需要 `rivet.rktd` 中的 `linux-icon` PNG——该格式要求顶层图标，Rivet 会
+失败关闭而不是发布占位图。
+
+Flatpak bundle 把同一个已验证 tar.gz 包进 GNOME Platform 50 runtime。runtime 选择与
+lz4/ncurses 模块 pin 由 Rivet 负责（它们是 payload 在 runtime 之外仅有的 `NEEDED` 项）；
+产品在 `flatpak-finish-args` 中声明沙箱，并可用 `flatpak-manifest` 替换整个 manifest。
+bundle 以非特权方式加上 `--disable-rofiles-fuse` 构建，沿用同一版本化产物命名，并生成
+`.sha256` sidecar。`flatpak-builder` 用 `eu-strip` 剥离闭包；以
+`--no-install-recommends` 安装软件包的机器还需要 `elfutils`。Flatpak 安装通过 Flatpak remote 升级，因此该 bundle 刻意不进入签名的
+自更新 feed。
 
 有意不提供在线更新通道的应用可以运行 `raco rivet release --without-updates`。该命令仍会
 build、package、平台签名、校验，并产出安装器、SBOM 和第三方 notices；只跳过 channel
 manifest，且不读取任何 `RIVET_UPDATE_*` 凭据。可与 `--development` 组合，在发布者凭据
 存在之前演练未签名发布流程。省略 `--without-updates` 会保持上述失败关闭行为：三项更新
 设置全部必需，部分配置即为错误。
+
+## 共享更新工具链
+
+自行发布更新产物的产品（应用旁边的 CLI、旧 feed 别名或手工产物矩阵）使用三个 Rivet 命令，
+不再维护各自的更新脚本：
+
+- `raco rivet update-keys --key-id <id>` 在 `~/.<project>/update-signing-key.pem`（或 `--key`）
+  生成 Ed25519 密钥对，输出 DER base64 secret、完整 SPKI hex 以及供 verifier 模块使用的
+  32 字节 raw hex；文件已存在时必须显式 `--force`。`--json` 为自动化输出相同字段。key id
+  是信任根决策，命令不会自动编造。
+- `raco rivet check-release-version [tag]` 要求 `rivet.rktd` 版本与 `VERSION`（或
+  `--version-file`）及 tag 一致；只有 `--allow-rc` 才接受 `v<version>-rc.N`；并检查每个
+  `--carrier <file>` 包含该版本。它取代各仓库的版本预检脚本，包括后端 fallback 这类额外 carrier。
+- `raco rivet sign-manifest` 从显式列出的产物构建签名 channel manifest，支持 DER 或 PEM
+  私钥、末尾 `:<component>`（`app`、`cli`、`tool`）以及用于过渡 feed 名的 `--alias <file>`
+  （字节一致）。产品只保留自己的产物命名与策略。
+
+因此产品 wrapper 只需几行：取得 version/build，调用 `check-release-version`，把产物列表交给
+`sign-manifest` 并发布。Rivet 不会猜测产品的产物矩阵；那属于产品知识。
 
 Windows MSI CI 现在会在首次 MSI 安装后从真实的 `Program Files` 安装位置启动可执行文件，
 检查原生窗口就绪、有序关闭和进程终止。第二次验收再次启动已安装 v1，并在 **v1 仍在运行**
@@ -214,7 +242,12 @@ Authenticode 或深度严格代码签名；开发构建可注入显式校验器�
 执行已认证检查和选择，`updater-download!` 启动一个有界后台 worker，`updater-state` 返回
 不可变、JSON 安全的轮询快照。`updater-cancel!` 中断活动传输。托管 worker 使用单调的
 无进度和总时限，在取消或超时时清理部分文件，并拒绝并发的 check/download 操作。它有意停在
-已验证的下载产物：安装同意、提权、重启和健康策略仍属于原生宿主和下文平台安装 API。
+已验证的下载产物：安装同意、提权、重启和健康策略仍属于原生宿主和下文平台安装 API。只需
+控制暂存位置的产品传 `#:destination`（候选 → 路径）；必须在发布终态前安装已验证产物的
+产品——家族中的 Linux AppImage 原地替换即此情形——传 `#:after-download`（已验证路径、
+候选 → 对外发布的路径）。该钩子在大小与 SHA-256 校验之后、`phase "downloaded"` 之前运行；
+抛错会走正常错误阶段使下载失败。`updater-candidate` 向自行负责原生安装交接的宿主暴露
+已认证候选（产物 SHA-256、安装器类型、回滚策略）。
 
 `raco rivet new --with-updates` 会生成这套表面的起步版本：`app/update.rkt` 用应用身份、
 持久 rollout 桶和 `shared/update.rktd` 包装 `make-updater`；在填入 feed URL、Ed25519 公钥和

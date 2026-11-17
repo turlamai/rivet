@@ -49,6 +49,13 @@
       struct:frame write-frame))
     (rivet/resources
      (current-resource-root resource-path resource-root))
+    (rivet/share-watch
+     (mapped-drive-status share-directory-snapshot share-entry
+      share-entry-directory? share-entry-modify-seconds share-entry-name
+      share-entry-path share-entry-size share-entry? share-reachable?
+      share-state share-state-entries share-state-ok? share-state-status
+      share-state? share-watcher? share-watcher-state share-watcher-stop!
+      start-share-watcher struct:share-entry struct:share-state))
     (rivet/system
      (acquire-single-instance! autostart-enabled? call-with-crash-reporting
       current-rivet-crash-reporter current-rivet-log-sink
@@ -100,7 +107,7 @@
       update-manifest-minimum-version update-manifest-previous-version
       update-manifest-published-at update-manifest-rollback-allowed?
       update-manifest-rollout update-manifest-version update-manifest?
-      updater-cancel! updater-check! updater-download!
+      updater-cancel! updater-candidate updater-check! updater-download!
       updater-runtime-box updater-runtime-check! updater-runtime-config
       updater-runtime-destination-dir updater-runtime-download
       updater-runtime-download! updater-runtime-fetch

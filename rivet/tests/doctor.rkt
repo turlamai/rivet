@@ -187,6 +187,25 @@
   (check-equal? (installed-rivet-release-version) expected-release-version
                 "an installed package must resolve its own version without collection lookups"))
 
+;; The package catalog's builder rewrites a packaged `info.rkt` into a
+;; single-line `(module info setup/infotab (#%module-begin …))` wrapper with
+;; no #lang line. The plain-text regexp above still matches inside that
+;; wrapper while a top-level-form scan sees only the wrapper datum — which
+;; is exactly how the catalog environment reported "release-version
+;; definition not found" against a file whose text declares it. The reader
+;; must descend into the wrapper.
+(define builder-info-form
+  (format "(module info setup/infotab (#%module-begin (define package-content-state (quote (built \"9.3\"))) (define collection (quote multi)) (define version \"0.15\") (define release-version \"~a\") (define license (quote MIT))))"
+          expected-release-version))
+(define builder-info-file (make-temporary-file "rivet-builder-info-~a"))
+(call-with-output-file builder-info-file
+  (lambda (out) (display builder-info-form out))
+  #:exists 'replace)
+(check-equal? (read-info-release-version builder-info-file)
+              expected-release-version
+              "the reader must see definitions inside the builder's module wrapper")
+(delete-file builder-info-file)
+
 ;; ---- Release gate (issues #245 and #255) ----
 ;;
 ;; The gate is exercised against a real scaffolded project: fresh generated
@@ -373,6 +392,31 @@ RKT
          "dependency pins are non-empty and match the installed release"
          #rx"empty ref")))
 
+    ;; A Racket `format` placeholder in an installer script
+    ;; (`rivet.git#~a`, the ci-install-windows-deps.rkt shape) binds its
+    ;; argument at runtime, so it is neither an empty ref nor comparable
+    ;; against the installed release. The prose check above leaves an
+    ;; empty-ref CHANGELOG behind; restore a harmless line first.
+    (call-with-output-file
+     (build-path project-root "CHANGELOG.md")
+     #:exists 'truncate
+     (lambda (out) (displayln "installed Rivet from a pinned commit" out)))
+    (make-directory* (build-path project-root "scripts"))
+    (call-with-output-file
+     (build-path project-root "scripts" "ci-install-windows-deps.rkt")
+     #:exists 'truncate
+     (lambda (out)
+       (displayln #<<RKT
+#lang racket/base
+(define rivet-pin (or (getenv "RIVET_PIN") "v1.2.3"))
+(define rivet-url (format "https://github.com/turlamai/rivet.git#~a" rivet-pin))
+RKT
+       out)))
+    (define template-report (release-doctor-report project))
+    (release-check-passed?
+     template-report
+     "dependency pins are non-empty and match the installed release")
+
     ;; The scanner itself is exported so products can run just this check.
     ;; updater-usage.rkt still holds the red-2 drifted call here, so the
     ;; direct scan must report the violation against the live contract.
@@ -388,3 +432,37 @@ RKT
   (lambda ()
     (when (directory-exists? temp-gate-root)
       (delete-directory/files temp-gate-root))))
+
+;; A mapped share that the redirector reports as not-OK is surfaced as a
+;; warning without touching the share itself.
+(define share-project-root
+  (make-temporary-file "rivet-share-doctor-~a" 'directory))
+(dynamic-wind
+ void
+ (lambda ()
+   (define project
+     (rivet-project share-project-root
+                    #hasheq((name . "Share Doctor")
+                            (share-paths . ("department")))))
+   (define findings
+     (share-path-findings project
+                          #:status-probe (lambda (_path) 'reconnecting)))
+   (check-equal? (length findings) 1)
+   (check-equal? (hash-ref (car findings) 'code)
+                 "unreachable-network-share")
+   (check-true
+    (regexp-match?
+     #rx"department"
+     (hash-ref (car findings) 'message)))
+   ;; A healthy or unmapped path produces no warning.
+   (check-equal?
+    (share-path-findings project
+                         #:status-probe (lambda (_path) 'not-mapped))
+    '())
+   (check-equal?
+    (share-path-findings project
+                         #:status-probe (lambda (_path) 'ok))
+    '()))
+ (lambda ()
+   (when (directory-exists? share-project-root)
+     (delete-directory/files share-project-root))))

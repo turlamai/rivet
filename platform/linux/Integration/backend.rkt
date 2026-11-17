@@ -1,5 +1,10 @@
 #lang racket/base
 
+;; Intentionally byte-identical to the other native Integration sample: both
+;; harnesses must exercise the same RVT1 surface.
+;; rivet/tests/platform-integration-samples.rkt enforces the parity, so change
+;; the two files together (or delete the duplicate deliberately).
+
 (require rivet/backend)
 
 (provide start)

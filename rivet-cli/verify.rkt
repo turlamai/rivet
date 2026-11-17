@@ -10,6 +10,7 @@
          "appimage.rkt"
          "deb.rkt"
          "entitlements.rkt"
+         "flatpak.rkt"
          "launch-smoke.rkt"
          "linux-native-package.rkt"
          "linux-package.rkt"
@@ -310,7 +311,20 @@
            (required-file! who (build-path squashfs-root (string-append name ".png"))
                            "AppImage icon"))
          (lambda ()
-           (delete-directory/files extraction)))])))
+           (delete-directory/files extraction)))]
+      [("flatpak")
+       (define installer (flatpak-bundle-path project))
+       (required-file! who installer "Flatpak bundle")
+       (when (zero? (file-size installer))
+         (raise-arguments-error who "Flatpak bundle is empty"
+                                "bundle" installer))
+       ;; `flatpak build-bundle` is the only writer, and importing the bundle
+       ;; with the real flatpak is covered by the Linux CI job. Non-empty plus
+       ;; the release checksum is the local contract.
+       (unless (file-exists? (string-append (path->string installer) ".sha256"))
+         (raise-arguments-error who
+                                "Flatpak bundle has no checksum sidecar"
+                                "bundle" installer))])))
 
 (define (verify-linux-package! project package production?)
   (define who 'verify-package!)
@@ -464,9 +478,13 @@
     ;; key set the channel manifest declares (issue #358). Extra keys widen
     ;; trust beyond the qualified policy; missing keys mean the bundle was
     ;; not signed with the policy at all. Both fail the release.
+    ;; `codesign -d` prints only Executable=/…; the flag word lives in the
+    ;; CodeDirectory line that `-v` adds (`flags=0x10000(runtime)`). Asking
+    ;; for the plain form made this gate fail every production-signed
+    ;; bundle, even though the signature carried the runtime flag.
     (define signature-description
       (capture-command! who codesign-tool
-                        "-d" (path->string app)))
+                        "-dv" (path->string app)))
     (unless (regexp-match? #rx"\\(runtime\\)" signature-description)
       (raise-arguments-error who
                              "production macOS package is not signed with the hardened runtime"
@@ -548,11 +566,29 @@
      (dynamic-wind
        void
        (lambda ()
-         (unzip archive
-                (make-filesystem-entry-reader
-                 #:dest extraction-root
-                 #:exists 'error)
-                #:preserve-attributes? #t)
+         ;; ditto writes the macOS bundle with its framework symlinks
+         ;; (Versions/Current -> 9.3_CS, Racket -> Versions/Current/Racket);
+         ;; Racket's unzip materializes them as tiny files holding the link
+         ;; target, so the extracted Racket.framework has no Mach-O main
+         ;; binary and codesign reports "code object is not signed at all".
+         ;; Extract with the same tool that wrote it.
+         (if (eq? (system-type 'os) 'macosx)
+             (let ([ditto (or (find-executable-path "ditto")
+                              (error 'verify-project-package!
+                                     "ditto was not found"))])
+               (unless (zero? (system*/exit-code
+                               ditto "-x" "-k"
+                               (path->string archive)
+                               (path->string extraction-root)))
+                 (raise-arguments-error
+                  'verify-project-package!
+                  "ditto failed to extract the portable archive"
+                  "archive" (path->string archive))))
+             (unzip archive
+                    (make-filesystem-entry-reader
+                     #:dest extraction-root
+                     #:exists 'error)
+                    #:preserve-attributes? #t))
          (define entries (directory-list extraction-root #:build? #t))
          (unless (= (length entries) 1)
            (raise-arguments-error

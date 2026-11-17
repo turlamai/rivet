@@ -36,6 +36,9 @@
          project-windows-installer-bitmaps
          project-linux-formats
          project-linux-desktop-id
+         project-flatpak-finish-args
+         project-flatpak-manifest
+         project-share-paths
          project-linux-binary-name
          project-macos-min-version
          project-windows-min-version)
@@ -284,15 +287,44 @@
             (lambda (v)
               (and (list? v)
                    (andmap (lambda (item)
-                             (member item '("deb" "rpm" "appimage")))
+                             (member item '("deb" "rpm" "appimage" "flatpak")))
                            v)))
-            "subset of (\"deb\" \"rpm\" \"appimage\") selecting native Linux installer formats; AppImage becomes the signed update payload when enabled")
+            "subset of (\"deb\" \"rpm\" \"appimage\" \"flatpak\") selecting native Linux installer formats; AppImage becomes the signed update payload when enabled")
+  ;; Flatpak's sandbox surface is a product security decision, so Rivet never
+  ;; supplies default permissions: a project that enables the format must
+  ;; declare them (an explicit empty list is allowed).
+  (optional 'flatpak-finish-args
+            (lambda (v)
+              (and (list? v)
+                   (andmap (lambda (item)
+                             (and (string? item)
+                                  (string-prefix? item "--")
+                                  (not (regexp-match? #rx"[\r\n]" item))))
+                           v)))
+            "list of Flatpak sandbox permissions such as \"--socket=x11\"")
+  (optional 'flatpak-manifest
+            (lambda (v)
+              (or (path-string-has-extension? v ".yml")
+                  (path-string-has-extension? v ".yaml")))
+            "project-relative Flatpak manifest override used verbatim")
   (optional 'linux-binary-name
             (lambda (v)
               (and (string? v)
                    (positive? (string-length v))
                    (regexp-match? #px"^[A-Za-z0-9][A-Za-z0-9._-]*$" v)))
             "executable file name such as \"fulcrum\" (letters, digits, '.', '_', '-')")
+  ;; Paths a product reads from a shared or mapped location. `raco rivet
+  ;; doctor` reports each mapped drive's redirector status, so a product does
+  ;; not discover a dead department share only when its RPC loop stalls.
+  (optional 'share-paths
+            (lambda (v)
+              (and (list? v)
+                   (andmap (lambda (item)
+                             (and (string? item)
+                                  (positive? (string-length item))
+                                  (not (regexp-match? #rx"[\r\n]" item))))
+                           v)))
+            "list of absolute or project-relative paths on shared or mapped storage")
   value)
 
 (define (load-config path)
@@ -431,6 +463,15 @@
 
 (define (project-linux-formats project)
   (project-ref project 'linux-formats (lambda () '("deb" "rpm" "appimage"))))
+
+(define (project-share-paths project)
+  (project-ref project 'share-paths (lambda () '())))
+
+(define (project-flatpak-finish-args project)
+  (project-ref project 'flatpak-finish-args (lambda () #f)))
+
+(define (project-flatpak-manifest project)
+  (project-ref project 'flatpak-manifest (lambda () #f)))
 
 (define (project-linux-desktop-id project)
   (project-ref project 'linux-desktop-id (lambda () (project-name project))))

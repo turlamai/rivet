@@ -3,12 +3,25 @@
 #include "pch.h"
 #include "MainWindow.g.h"
 #include "system_services.hpp"
+#include "activation_inbox.hpp"
 #include "winui_window.hpp"
 
 namespace winrt::RivetHost::implementation {
 
 struct MainWindow : MainWindowT<MainWindow> {
   MainWindow();
+  explicit MainWindow(std::vector<std::wstring> initial_activations);
+
+  // UI-thread-owned native activation inbox. A product can consume these
+  // arguments only after validating the intended file/URL operation.
+  [[nodiscard]] std::vector<std::wstring> TakeActivationArguments() {
+    return activations_.take();
+  }
+  // Called only on the WinUI dispatcher after AppLifecycle redirects a
+  // second instance. Keep input native until product validation.
+  void ReceiveActivationArguments(std::vector<std::wstring> arguments) {
+    activations_.push_all(std::move(arguments));
+  }
 
   // Stable HWND access for platform-owned features such as global hotkeys,
   // clipboard listeners, window subclassing, topmost policy, and tray icons.
@@ -30,6 +43,7 @@ struct MainWindow : MainWindowT<MainWindow> {
   void SetErrorUi(std::string const& message);
 
   std::shared_ptr<rivet::windows::Backend> backend_;
+  rivet::system::ActivationInbox activations_;
   std::atomic<std::int64_t> count_{0};
 };
 
