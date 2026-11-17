@@ -22,13 +22,24 @@
                    "RedirectActivationToAsync(activation)"
                    "RedirectedActivationArguments(redirected)"
                    "ReceiveActivationArguments("
-                   "OpenPrimaryWindow(std::move(initial_arguments))"))])
+                   "OpenPrimaryWindow(std::move(initial_arguments))"
+                   "pending_activations_.take()"
+                   "pending_activations_.push_all(std::move(arguments))"))])
     (check-true (string-contains? contents needle)
                 (format "WinUI host must retain and redirect activation: ~a"
                         needle)))
   (check-false
    (string-contains? contents "window_ = winrt::make<MainWindow>();")
    "WinUI must not discard command-line activation payloads"))
+
+(for ([header-path (in-list
+                    (list (build-path root "platform" "windows" "host" "App.xaml.h")
+                          (build-path root "examples" "taskboard" "windows"
+                                      "App.xaml.h")))])
+  (define contents (file->string header-path))
+  (check-true
+   (string-contains? contents "ActivationInbox pending_activations_")
+   "AppInstance must have a bounded native inbox before the first window"))
 
 (for ([header-path (in-list
                     (list (build-path root "platform" "windows" "host"
