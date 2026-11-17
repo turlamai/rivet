@@ -57,7 +57,14 @@ Details the script handles (each was a real failure mode):
 
 - pb builds link libffi; the libffi bundled in the Racket source is
   compiled per SDK and merged into `libracketcs.a`, so hosts link a single
-  archive.
+  archive. The pinned Racket 9.3 source disables the built-in Apple ARM64
+  executable trampoline table in both `configure` and `configure.ac`,
+  selecting the executable-writable allocation fallback. The experimental
+  iOS toolchain now re-enables the existing preassembled Mach trampoline table
+  in a private source copy and **fails the target build** unless the generated
+  libffi configuration and archive prove that selection. This is a targeted
+  candidate for the `S_ffi_closure` hang, not evidence that it is repaired
+  until simulator Hello/RPC and lifecycle pass.
 - The CS configure only recognizes a simulator SDK whose path ends in
   `iPhoneSimulator.sdk`; the script passes a canonically named symlink.
 - `make install` of a cross build re-runs host-side steps that assume the
@@ -144,8 +151,12 @@ iOS 限制可写且可执行的内存页；采用
 `host-base`（原生基础工具链）、`host-compiler`（编译 pb 后端）、
 `simulator`（模拟器运行时与 boot 文件）以及 `device`（真机 SDK
 运行时与 boot 文件）。目前 Linux 主机编译器与本地交叉构建有证据，
-但这不等于目标 iOS VM 已经运行成功。arm64 macOS 上 libffi 闭包的
-可执行内存限制也不能通过简单打开 static-trampoline 编译开关解决。
+但这不等于目标 iOS VM 已经运行成功。Racket 9.3 内置 libffi 的
+`configure` 与 `configure.ac` 默认禁用了 Apple ARM64 已有的可执行
+trampoline table。实验工具链已尝试在独立源码副本中启用 Mach 预编译
+跳板表，并检查目标 `fficonfig.h` 与归档符号；该尝试不同于 Linux 专用
+`FFI_EXEC_STATIC_TRAMP`，**尚无模拟器真实运行通过证据**，不得认定为
+已经解决 `S_ffi_closure` 启动阻塞。
 
 ```bash
 platform/ios/build-embedded-racket.sh --stage host-base --output "$OUT/host-base"
