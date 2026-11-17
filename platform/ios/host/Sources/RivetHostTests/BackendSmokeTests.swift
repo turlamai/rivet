@@ -18,7 +18,8 @@ final class BackendSmokeTests: XCTestCase {
         SharedBackend.start()
         let maybeBackend = await SharedBackend.waitForStart()
         let backend = try XCTUnwrap(maybeBackend,
-                                    "shared backend failed: \(String(describing: SharedBackend.lastError))")
+                                    "embedded VM did not become ready within 180s; startup error: \(String(describing: SharedBackend.lastError))")
+        XCTAssertTrue(backend.isReady, "do not issue RPCs before the embedded VM is serving")
         let api = RivetAPI(client: backend.client)
 
         let greeting = try await api.greet(name: "iOS")
@@ -36,13 +37,17 @@ final class BackendSmokeTests: XCTestCase {
         // initial state — the orderly process-death cycle, end to end.
         SharedBackend.start()
         let before = await SharedBackend.waitForStart()
-        let runningBefore = try XCTUnwrap(before)
+        let runningBefore = try XCTUnwrap(before,
+                                          "embedded VM was not serving before the stop/restart test")
+        XCTAssertTrue(runningBefore.isReady)
         _ = try await RivetAPI(client: runningBefore.client).set_counter(7)
         runningBefore.stop()
 
         SharedBackend.start()
         let after = await SharedBackend.waitForStart(timeout: 180)
-        let runningAfter = try XCTUnwrap(after)
+        let runningAfter = try XCTUnwrap(after,
+                                         "embedded VM did not become ready after restart")
+        XCTAssertTrue(runningAfter.isReady)
         let read = try await RivetAPI(client: runningAfter.client).get_counter()
         XCTAssertEqual(read, 0, "a fresh pb runtime must reset in-memory state")
         let greeting = try await RivetAPI(client: runningAfter.client).greet(name: "restart")
