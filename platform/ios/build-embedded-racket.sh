@@ -538,7 +538,8 @@ esac
     fi
     make -j"$jobs"
     make install
-    if ! nm "$prefix/lib/libffi.a" | grep -q 'ffi_closure_trampoline_table_page'; then
+    nm "$prefix/lib/libffi.a" > "$build_dir/libffi-symbols.txt"
+    if ! grep -q 'ffi_closure_trampoline_table_page' "$build_dir/libffi-symbols.txt"; then
       echo "iOS libffi archive lacks the preassembled Apple trampoline page" >&2
       exit 1
     fi
