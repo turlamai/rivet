@@ -195,16 +195,18 @@
 
 ;; Invalid names, Record arity and inner primitive types must still be rejected
 ;; as request-local Errors without executing an RPC on malformed DTOs.
-(for ([case (in-list
-             (list (list 12 "echo-status-list" (list "unknown"))
-                   (list 13 "echo-people" (list (list "Ada" 37)))
-                   (list 14 "echo-people" (list (list "Ada" "bad-age" (void))))
-                   (list 15 "echo-nested-statuses"
-                         (list (list "active" "unknown")))))])
-  (define error-response
-    (send-named-list-request (first case) (second case) (third case)))
-  (check-equal? (frame-type error-response) message:error)
-  (check-true (string? (decode-value (frame-payload error-response)))))
+(for ([request (in-list
+                (list (list 12 "echo-status-list" (list "unknown"))
+                      (list 13 "echo-people" (list (list "Ada" 37)))
+                      (list 14 "echo-people" (list (list "Ada" "bad-age" (void))))
+                      (list 15 "echo-nested-statuses"
+                            (list (list "active" "unknown")))))])
+  (let ([error-response
+         (send-named-list-request (car request)
+                                  (cadr request)
+                                  (caddr request))])
+    (check-equal? (frame-type error-response) message:error)
+    (check-true (string? (decode-value (frame-payload error-response))))))
 
 ;; A failed DTO call cannot poison subsequent valid RPCs; empty Lists also
 ;; remain valid on the wire.
