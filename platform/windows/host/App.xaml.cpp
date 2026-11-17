@@ -29,6 +29,11 @@ App::~App() {
 }
 
 void App::OpenPrimaryWindow(std::vector<std::wstring> initial_arguments) {
+  // Preserve the dispatch order when a secondary activation was redirected
+  // after AppInstance registration but before the first window was created.
+  // MainWindow applies the same bounded 64-item retention policy.
+  auto early = pending_activations_.take();
+  for (auto& value : early) initial_arguments.push_back(std::move(value));
   window_ = winrt::make<MainWindow>(std::move(initial_arguments));
   window_.Activate();
 }
@@ -83,7 +88,12 @@ void App::OnLaunched(Microsoft::UI::Xaml::LaunchActivatedEventArgs const&) {
             auto arguments = rivet::system::RedirectedActivationArguments(redirected);
             dispatcher.TryEnqueue([weak, arguments = std::move(arguments)]() mutable {
               if (auto app = weak.get()) {
-                if (!app->window_) return;  // UI dispatcher is shutting down.
+                if (!app->window_) {
+                  // Secondary activation can arrive before OnLaunched builds
+                  // the first window. Defer on the UI thread, never drop.
+                  app->pending_activations_.push_all(std::move(arguments));
+                  return;
+                }
                 auto projected = app->window_.as<winrt::RivetHost::MainWindow>();
                 winrt::get_self<MainWindow>(projected)->ReceiveActivationArguments(
                     std::move(arguments));
