@@ -118,10 +118,15 @@ gates, not part of `raco rivet build --ios`.
   Simulator RVT1 Hello, typed RPC, restart and process-death behavior are
   **not verified**. This supersedes earlier optimistic notes.
 
-**Before developer-preview status:** repair the libffi/Chez closure path,
-show a clean simulator XCTest run with real backend/RVT1 evidence, add
-cross-runner CI for the entire pb toolchain+app, and qualify Release signing,
-runtime restrictions, lifecycle and network behavior on a physical device.
+**Before developer-preview status:** repair the libffi/Chez closure path
+and show a clean simulator XCTest run with real backend/RVT1 evidence. The
+experimental `.github/workflows/ios-libffi-experiment.yml` now defines a
+cross-runner gate: Ubuntu builds a real `core.zo` with the Linux pb compiler,
+and an Apple Silicon macOS runner cross-builds target libffi/boot files,
+installs a fresh simulator and runs `RivetHostTests` for Hello, typed RPC,
+and restart. **The gate is not accepted until that exact workflow succeeds.**
+Qualify Release signing, runtime restrictions, lifecycle and network
+behavior on a physical device separately.
 App Store submission/reviewer acceptance and an Android standalone host
 are separate uncompleted gates. Keep this branch draft until then.
 
@@ -173,6 +178,10 @@ raco rivet build --ios
 
 当前生成的 XCTest 已包含启动、类型化 RPC 与重启用例，但执行时
 Racket VM 卡在 `S_ffi_closure`，尚未通过。下一步是复现并解决该底层
-阻塞、得到真实模拟器 Hello/RPC/生命周期通过证据，再建立完整 CI。
+阻塞、得到真实模拟器 Hello/RPC/生命周期通过证据。实验性
+`.github/workflows/ios-libffi-experiment.yml` 已添加 Linux pb 编译器
+生成 `core.zo` 与 Apple Silicon macOS 目标运行时交叉构建、真实模拟器
+`RivetHostTests` 的跨 runner 验收链路。**在该工作流成功之前不得宣称
+iOS 已经通过 Hello、RPC 和重启验证**。
 之后仍需真机 Release、无 JIT/可执行内存违规、签名、权限、进程
 恢复与商店审核的独立验证。Android 独立宿主目前尚未生成。
