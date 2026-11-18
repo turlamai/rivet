@@ -22,7 +22,22 @@
          "windows-tools.rkt")
 
 (provide verify-package!
-         verify-project-package!)
+         verify-project-package!
+         codesign-description-runtime-flagged?)
+
+;; True when a `codesign -dv` description carries the hardened-runtime
+;; CodeDirectory flag. The flag word lives in the CodeDirectory line that
+;; `-v` adds (`flags=0x10000(runtime)`); when the signature carries other
+;; CodeDirectory flags the word shares the parentheses
+;; (`flags=0x10002(adhoc,runtime)` on an ad-hoc development signature,
+;; `(runtime,linker-signed)` on some toolchains), so runtime must be
+;; matched inside the flags word, not as the exact `(runtime)` group.
+;; Racket's #rx has no POSIX [[:space:]] classes, so the word is captured
+;; with [^ ]+.
+(define (codesign-description-runtime-flagged? description)
+  (for/or ([line (in-list (string-split description "\n"))])
+    (define flags (regexp-match #rx"flags=([^ ]+)" line))
+    (and flags (regexp-match? #rx"runtime" (second flags)))))
 
 (define (required-file! who path label)
   (unless (file-exists? path)
@@ -479,23 +494,13 @@
     ;; trust beyond the qualified policy; missing keys mean the bundle was
     ;; not signed with the policy at all. Both fail the release.
     ;; `codesign -d` prints only Executable=/…; the flag word lives in the
-    ;; CodeDirectory line that `-v` adds (`flags=0x10000(runtime)`). Asking
-    ;; for the plain form made this gate fail every production-signed
-    ;; bundle, even though the signature carried the runtime flag. The
-    ;; exact `(runtime)` spelling is also wrong: when the signature carries
-    ;; other CodeDirectory flags the word shares the parentheses
-    ;; (`flags=0x10002(adhoc,runtime)` on an ad-hoc development signature,
-    ;; `(runtime,linker-signed)` on some toolchains), so the gate read the
-    ;; runtime flag as absent and failed every such bundle. Match runtime
-    ;; inside the flags word instead of the whole parenthesized group.
+    ;; CodeDirectory line that `-v` adds. Asking for the plain form made
+    ;; this gate fail every production-signed bundle, even though the
+    ;; signature carried the runtime flag.
     (define signature-description
       (capture-command! who codesign-tool
                         "-dv" (path->string app)))
-    (define runtime-flagged?
-      (for/or ([line (in-list (string-split signature-description "\n"))])
-        (define flags (regexp-match #rx"flags=([^ ]+)" line))
-        (and flags (regexp-match? #rx"runtime" (second flags)))))
-    (unless runtime-flagged?
+    (unless (codesign-description-runtime-flagged? signature-description)
       (raise-arguments-error who
                              "production macOS package is not signed with the hardened runtime"
                              "app" (path->string app)))
