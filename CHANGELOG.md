@@ -7,6 +7,22 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Typed network-channel device surface in codegen (issue #489): the same
+  `device-rpcs` allowlist that drives the JSON-envelope WatchConnectivity
+  surface now also emits a typed `RivetDeviceAppleRVT1Client` extension into
+  `GeneratedBackend.swift`, so products binding the accepted RVT1 stream no
+  longer hand-roll a per-RPC adapter (Payback's #63 was the first to need
+  one). v1 covers the closed RVT1 scalar tag set — `Bytes`, `String`,
+  `Int64`, `Bool` arguments/results plus `Void` — with `Bytes` results
+  returned raw; RPCs needing `Record`/`Enum`/`Optional`/`List` are listed in
+  a generated comment until the second batch. The block hides behind
+  `#if canImport(RivetDeviceAppleTransport)`, keeping hosts without the
+  transport module compiling unchanged, and the codegen fixture now links
+  the transport so CI compiles the surface for iOS and watchOS. The gateway
+  scope check stays authoritative; the surface is a usability aid only.
+
 ## [0.17.0] - 2026-11-18
 
 This is the Racket framework source release. Standalone iOS host development

@@ -19,7 +19,12 @@ let package = Package(
             name: "AppleDeviceCodegenFixture",
             dependencies: [
                 .product(name: "RivetRuntime", package: "macos"),
-                .product(name: "RivetDevice", package: "macos")
+                .product(name: "RivetDevice", package: "macos"),
+                // The generated RVT1 device surface extends
+                // RivetDeviceAppleRVT1Client behind canImport, so the
+                // fixture links the transport to compile that surface for
+                // iOS and watchOS.
+                .product(name: "RivetDeviceAppleTransport", package: "macos")
             ]
         )
     ]
