@@ -52,7 +52,9 @@ jobs:
   simulator-toolchain:
     name: Apple ARM64 pb runtime + real iOS Simulator Hello/RPC/restart
     needs: backend-bytecode
-    runs-on: macos-15-arm64
+    # macos-15-arm64 remained queued for many hours on this repository.
+    # Use the hosted macos-latest pool and assert arm64 before any cross build.
+    runs-on: macos-latest
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
