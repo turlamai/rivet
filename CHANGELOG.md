@@ -7,6 +7,12 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-11-18
+
+This is the Racket framework source release. Standalone iOS host development
+remains experimental on the unmerged #472 branch and is not qualified or
+advertised as part of this release.
+
 ### Added
 
 - Flatpak bundle support in `raco rivet release` (issue #449): add
@@ -77,6 +83,28 @@ project adheres to [Semantic Versioning](https://semver.org/).
   `List`/`Optional` combinations now recursively decode RVT1 wire forms into
   typed Racket values before invoking the backend handler (issue #480).
   Malformed DTO fields and unknown Enum cases remain request-local errors.
+- The production verify gate reads the hardened-runtime CodeDirectory flag
+  from the `codesign -dv` flags word instead of matching the exact
+  `(runtime)` spelling, so composite flag words such as
+  `flags=0x10002(adhoc,runtime)` or `(runtime,linker-signed)` no longer
+  fail an otherwise valid production package (PR #488; PodLens v0.8.0 was
+  the first release to hit the false negative). The shapes codesign emits
+  are pinned by unit tests, including the Racket `#rx` POSIX-class
+  limitation that dictated the `[^ ]+` capture.
+- Apple device identity creation compiles on every Apple SDK again
+  (PR #487): macOS keeps the public `SecIdentityCreateWithCertificate`
+  (the legacy `SecIdentityCreate` symbol is absent from the macOS 15 SDK
+  headers that macos-15 runners pin, which broke consumers such as
+  Payback), while the iOS/watchOS builds of `RivetDeviceAppleTransport`
+  keep the legacy spelling, which is the only one the iOS SDK ships. The
+  two duplicated call sites now share one `makeIdentity` helper gated per
+  platform.
+- The root `rivet` package now exposes `RivetDeviceAppleCompanion` and
+  `RivetDeviceAppleCompanionUI` as package products (PR #486), so a
+  downstream host consuming Rivet via `.package(path:)` can import the
+  iOS/iPadOS companion orchestrator and its SwiftUI surface instead of
+  failing with "Missing package product" (first hit by Payback's iOS
+  app).
 
 ## [0.16.0] - 2026-11-12
 
