@@ -156,18 +156,7 @@ package struct RivetDeviceSystemIdentityClient: RivetDeviceAppleIdentityClient {
             throw RivetDeviceAppleIdentityError.invalidIdentity
         }
         let privateKey = unsafeDowncast(keyResult, to: SecKey.self)
-        // SecIdentityCreate is absent from the macOS 15 SDK headers
-        // (Xcode 16.x) and only reappears in newer ones, which broke every
-        // pinned consumer building on macos-15 runners.
-        // SecIdentityCreateWithCertificate has been in every SDK since
-        // 10.6 and pairs the key already stored in the keychain above.
-        var created: SecIdentity?
-        let createStatus = SecIdentityCreateWithCertificate(
-            nil, certificate, &created)
-        guard createStatus == errSecSuccess, let identity = created else {
-            throw RivetDeviceAppleIdentityError.invalidIdentity
-        }
-        return try prepare(identity)
+        return try makeIdentity(certificate: certificate, privateKey: privateKey)
     }
 
     package func create(
@@ -236,13 +225,7 @@ package struct RivetDeviceSystemIdentityClient: RivetDeviceAppleIdentityClient {
                 kSecValueRef: certificate
             ] as CFDictionary, nil))
 
-            var created: SecIdentity?
-            let createStatus = SecIdentityCreateWithCertificate(
-                nil, certificate, &created)
-            guard createStatus == errSecSuccess, let identity = created else {
-                throw RivetDeviceAppleIdentityError.invalidIdentity
-            }
-            return try prepare(identity)
+            return try makeIdentity(certificate: certificate, privateKey: privateKey)
         } catch {
             try? remove(label: label)
             throw error
@@ -265,6 +248,36 @@ package struct RivetDeviceSystemIdentityClient: RivetDeviceAppleIdentityClient {
         if keyStatus != errSecItemNotFound {
             try mapStatus(keyStatus)
         }
+    }
+
+    /// Pair a keychain certificate with its private key as a SecIdentity.
+    /// The two SDKs disagree on which spelling exists: SecIdentityCreate is
+    /// absent from the macOS 15 SDK headers (Xcode 16.x) while iOS never
+    /// gained SecIdentityCreateWithCertificate, so each platform builds the
+    /// symbol its SDK actually ships. Both call sites guarantee the private
+    /// key is already in the keychain, which is what the macOS API pairs
+    /// with; the iOS spelling takes the key explicitly.
+    private func makeIdentity(
+        certificate: SecCertificate,
+        privateKey: SecKey
+    ) throws -> RivetDeviceAppleServerIdentity {
+        #if os(macOS)
+        var created: SecIdentity?
+        let createStatus = SecIdentityCreateWithCertificate(
+            nil, certificate, &created)
+        guard createStatus == errSecSuccess, let identity = created else {
+            throw RivetDeviceAppleIdentityError.invalidIdentity
+        }
+        #else
+        guard let identity = SecIdentityCreate(
+            nil,
+            certificate,
+            privateKey
+        ) else {
+            throw RivetDeviceAppleIdentityError.invalidIdentity
+        }
+        #endif
+        return try prepare(identity)
     }
 
     private func prepare(
