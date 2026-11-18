@@ -156,7 +156,15 @@ package struct RivetDeviceSystemIdentityClient: RivetDeviceAppleIdentityClient {
             throw RivetDeviceAppleIdentityError.invalidIdentity
         }
         let privateKey = unsafeDowncast(keyResult, to: SecKey.self)
-        guard let identity = SecIdentityCreate(nil, certificate, privateKey) else {
+        // SecIdentityCreate is absent from the macOS 15 SDK headers
+        // (Xcode 16.x) and only reappears in newer ones, which broke every
+        // pinned consumer building on macos-15 runners.
+        // SecIdentityCreateWithCertificate has been in every SDK since
+        // 10.6 and pairs the key already stored in the keychain above.
+        var created: SecIdentity?
+        let createStatus = SecIdentityCreateWithCertificate(
+            nil, certificate, &created)
+        guard createStatus == errSecSuccess, let identity = created else {
             throw RivetDeviceAppleIdentityError.invalidIdentity
         }
         return try prepare(identity)
@@ -228,11 +236,10 @@ package struct RivetDeviceSystemIdentityClient: RivetDeviceAppleIdentityClient {
                 kSecValueRef: certificate
             ] as CFDictionary, nil))
 
-            guard let identity = SecIdentityCreate(
-                nil,
-                certificate,
-                privateKey
-            ) else {
+            var created: SecIdentity?
+            let createStatus = SecIdentityCreateWithCertificate(
+                nil, certificate, &created)
+            guard createStatus == errSecSuccess, let identity = created else {
                 throw RivetDeviceAppleIdentityError.invalidIdentity
             }
             return try prepare(identity)
