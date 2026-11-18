@@ -57,7 +57,14 @@ Details the script handles (each was a real failure mode):
 
 - pb builds link libffi; the libffi bundled in the Racket source is
   compiled per SDK and merged into `libracketcs.a`, so hosts link a single
-  archive.
+  archive. The pinned Racket 9.3 source disables the built-in Apple ARM64
+  executable trampoline table in both `configure` and `configure.ac`,
+  selecting the executable-writable allocation fallback. The experimental
+  iOS toolchain now re-enables the existing preassembled Mach trampoline table
+  in a private source copy and **fails the target build** unless the generated
+  libffi configuration and archive prove that selection. This is a targeted
+  candidate for the `S_ffi_closure` hang, not evidence that it is repaired
+  until simulator Hello/RPC and lifecycle pass.
 - The CS configure only recognizes a simulator SDK whose path ends in
   `iPhoneSimulator.sdk`; the script passes a canonically named symlink.
 - `make install` of a cross build re-runs host-side steps that assume the
@@ -111,10 +118,15 @@ gates, not part of `raco rivet build --ios`.
   Simulator RVT1 Hello, typed RPC, restart and process-death behavior are
   **not verified**. This supersedes earlier optimistic notes.
 
-**Before developer-preview status:** repair the libffi/Chez closure path,
-show a clean simulator XCTest run with real backend/RVT1 evidence, add
-cross-runner CI for the entire pb toolchain+app, and qualify Release signing,
-runtime restrictions, lifecycle and network behavior on a physical device.
+**Before developer-preview status:** repair the libffi/Chez closure path
+and show a clean simulator XCTest run with real backend/RVT1 evidence. The
+experimental `.github/workflows/ios-libffi-experiment.yml` now defines a
+cross-runner gate: Ubuntu builds a real `core.zo` with the Linux pb compiler,
+and an Apple Silicon macOS runner cross-builds target libffi/boot files,
+installs a fresh simulator and runs `RivetHostTests` for Hello, typed RPC,
+and restart. **The gate is not accepted until that exact workflow succeeds.**
+Qualify Release signing, runtime restrictions, lifecycle and network
+behavior on a physical device separately.
 App Store submission/reviewer acceptance and an Android standalone host
 are separate uncompleted gates. Keep this branch draft until then.
 
@@ -144,8 +156,12 @@ iOS 限制可写且可执行的内存页；采用
 `host-base`（原生基础工具链）、`host-compiler`（编译 pb 后端）、
 `simulator`（模拟器运行时与 boot 文件）以及 `device`（真机 SDK
 运行时与 boot 文件）。目前 Linux 主机编译器与本地交叉构建有证据，
-但这不等于目标 iOS VM 已经运行成功。arm64 macOS 上 libffi 闭包的
-可执行内存限制也不能通过简单打开 static-trampoline 编译开关解决。
+但这不等于目标 iOS VM 已经运行成功。Racket 9.3 内置 libffi 的
+`configure` 与 `configure.ac` 默认禁用了 Apple ARM64 已有的可执行
+trampoline table。实验工具链已尝试在独立源码副本中启用 Mach 预编译
+跳板表，并检查目标 `fficonfig.h` 与归档符号；该尝试不同于 Linux 专用
+`FFI_EXEC_STATIC_TRAMP`，**尚无模拟器真实运行通过证据**，不得认定为
+已经解决 `S_ffi_closure` 启动阻塞。
 
 ```bash
 platform/ios/build-embedded-racket.sh --stage host-base --output "$OUT/host-base"
@@ -162,6 +178,10 @@ raco rivet build --ios
 
 当前生成的 XCTest 已包含启动、类型化 RPC 与重启用例，但执行时
 Racket VM 卡在 `S_ffi_closure`，尚未通过。下一步是复现并解决该底层
-阻塞、得到真实模拟器 Hello/RPC/生命周期通过证据，再建立完整 CI。
+阻塞、得到真实模拟器 Hello/RPC/生命周期通过证据。实验性
+`.github/workflows/ios-libffi-experiment.yml` 已添加 Linux pb 编译器
+生成 `core.zo` 与 Apple Silicon macOS 目标运行时交叉构建、真实模拟器
+`RivetHostTests` 的跨 runner 验收链路。**在该工作流成功之前不得宣称
+iOS 已经通过 Hello、RPC 和重启验证**。
 之后仍需真机 Release、无 JIT/可执行内存违规、签名、权限、进程
 恢复与商店审核的独立验证。Android 独立宿主目前尚未生成。

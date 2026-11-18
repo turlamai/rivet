@@ -105,9 +105,32 @@ if [ "$stage" != "host-base" ]; then
   [ -n "$scheme_dir" ] || [ -d "$scheme_dir" ] || { echo "Chez bootstrap dir not found under --base-dir: $base_dir" >&2; exit 1; }
 fi
 
-# Compile the libffi bundled in the Racket source for one SDK. pb builds
-# link libffi for their foreign-function boundary; the probe reads the
-# flags from the generated pkg-config file.
+# Pinned Racket 9.3's libffi disables its existing Apple ARM64 Mach
+# preassembled trampoline table. The resulting executable-writable mmap
+# fallback is a candidate cause of the S_ffi_closure boot hang (#357).
+# Re-enable the Apple table for iOS only in a private source copy, not in
+# the caller's vendored source tree. This does NOT prove simulator boot.
+prepare_target_libffi() {
+  local original="$source_dir/src/bc/foreign/libffi"
+  target_libffi_source="$work_dir/libffi-apple-trampoline-src"
+  cp -R "$original" "$target_libffi_source"
+  local config
+  for config in configure configure.ac; do
+    local file="$target_libffi_source/$config"
+    if ! grep -Fq 'DISABLE*arm*-apple-* | DISABLEaarch64-apple-*' "$file"; then
+      echo "pinned libffi $config no longer has the expected Apple ARM64 gate" >&2
+      exit 1
+    fi
+    sed -e 's/DISABLE\*arm\*-apple-\*/*arm*-apple-*/g' \
+        -e 's/DISABLEaarch64-apple-\*/aarch64-apple-*/g' \
+        "$file" > "$file.rivet-ios"
+    mv "$file.rivet-ios" "$file"
+  done
+  chmod +x "$target_libffi_source/configure"
+  echo "=== Rivet iOS libffi: Apple ARM64 trampoline table selected"
+}
+
+# Compile the patched libffi source for the requested iOS SDK.
 build_target_libffi() {
   # Function-scope the scratch variables: an unqualified `sdk=` here would
   # clobber the caller's canonicalized simulator SDK symlink.
@@ -121,10 +144,23 @@ build_target_libffi() {
     CC="xcrun -sdk $sdk_name clang" \
     CFLAGS="-arch $arch -isysroot $sdk $min_flag" \
     LDFLAGS="-arch $arch -isysroot $sdk" \
-    "$source_dir/src/bc/foreign/libffi/configure" \
+    "$target_libffi_source/configure" \
       --host="$arch-apple-darwin" --prefix="$prefix"
+    if ! grep -Eq '^#define FFI_EXEC_TRAMPOLINE_TABLE 1$' fficonfig.h; then
+      echo "iOS libffi did not enable the Apple executable trampoline table" >&2
+      exit 1
+    fi
+    if grep -Eq '^#define FFI_MMAP_EXEC_WRIT 1$' fficonfig.h; then
+      echo "iOS libffi unexpectedly selected executable writable mapping" >&2
+      exit 1
+    fi
     make -j"$jobs"
     make install
+    nm "$prefix/lib/libffi.a" > "$build_dir/libffi-symbols.txt"
+    if ! grep -q 'ffi_closure_trampoline_table_page' "$build_dir/libffi-symbols.txt"; then
+      echo "iOS libffi archive lacks the preassembled Apple trampoline page" >&2
+      exit 1
+    fi
   )
 }
 
@@ -229,6 +265,7 @@ stage_build() {
         sdk="$canonical"
       fi
       libffi_prefix="$work_dir/libffi-$sdk_name"
+      prepare_target_libffi
       build_target_libffi "$sdk_name" arm64 "$min_flag" "$libffi_prefix"
       # The cross build's executables are build-side artifacts the harvest
       # never consumes (only the archive, boot files, and headers are), and
