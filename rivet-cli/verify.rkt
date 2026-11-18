@@ -481,11 +481,21 @@
     ;; `codesign -d` prints only Executable=/…; the flag word lives in the
     ;; CodeDirectory line that `-v` adds (`flags=0x10000(runtime)`). Asking
     ;; for the plain form made this gate fail every production-signed
-    ;; bundle, even though the signature carried the runtime flag.
+    ;; bundle, even though the signature carried the runtime flag. The
+    ;; exact `(runtime)` spelling is also wrong: when the signature carries
+    ;; other CodeDirectory flags the word shares the parentheses
+    ;; (`flags=0x10002(adhoc,runtime)` on an ad-hoc development signature,
+    ;; `(runtime,linker-signed)` on some toolchains), so the gate read the
+    ;; runtime flag as absent and failed every such bundle. Match runtime
+    ;; inside the flags word instead of the whole parenthesized group.
     (define signature-description
       (capture-command! who codesign-tool
                         "-dv" (path->string app)))
-    (unless (regexp-match? #rx"\\(runtime\\)" signature-description)
+    (define runtime-flagged?
+      (for/or ([line (in-list (string-split signature-description "\n"))])
+        (define flags (regexp-match #rx"flags=([^ ]+)" line))
+        (and flags (regexp-match? #rx"runtime" (second flags)))))
+    (unless runtime-flagged?
       (raise-arguments-error who
                              "production macOS package is not signed with the hardened runtime"
                              "app" (path->string app)))
