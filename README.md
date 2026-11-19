@@ -1,5 +1,7 @@
 # Rivet
 
+**Support:** [Issues & feedback](https://github.com/turlamai/rivet/issues) · [Development policy](https://github.com/turlamai/turlamai.github.io/blob/master/PORTFOLIO.md)
+
 Build first-party native desktop apps with [Racket](https://racket-lang.org/). Use WinUI 3 on Windows, SwiftUI on macOS, and GTK4 on Linux; keep your application logic in Racket and write each platform's UI in its own first-party UI framework — no WebView, no shared widget API.
 
 **Human-first. Agent-native. Local by design.**
