@@ -142,7 +142,7 @@ State read and write are separate grants. Device clients never receive implicit 
 
 Configuration loading and code generation must fail when a device export names a missing declaration or grants State write to a non-State declaration. At pairing time the desktop assigns one or more scopes to a device; the default UI selects the least-privileged scope.
 
-The existing schema snapshot gains the device surface and scope names. Removing an exported declaration or narrowing its type or access is a compatibility break; adding an export is compatible. Code generation emits a device-only Swift and Kotlin client containing the union of exported declarations. A generated method being present is a usability aid, not an authorization decision.
+The existing schema snapshot gains the device surface and scope names. Removing an exported declaration or narrowing its type or access is a compatibility break; adding an export is compatible. Code generation emits a device-only Swift and Kotlin client containing the union of exported declarations, and the Swift file also carries a typed `RivetDeviceAppleRVT1Client` extension for this channel (scalar tag set first; see the generated network-channel surface in device-communication.md). A generated method being present is a usability aid, not an authorization decision.
 
 ## Discovery and reachability
 

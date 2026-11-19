@@ -281,6 +281,122 @@
        "    }\n"
        "}\n")))
 
+;; Typed surface for the network device channel (RVT1 value frames). The
+;; surface above targets the JSON-envelope transport (the WatchConnectivity
+;; relay); the network channel speaks typed positional RivetValue arguments,
+;; so products binding it hand-rolled per-RPC adapters with no compile-time
+;; tie to the allowlist (payback #63 was the first). v1 covers the closed
+;; RVT1 scalar tag set; RPCs whose arguments or result need
+;; Record/Enum/Optional/List wait for the second batch and are listed in a
+;; comment instead of drifting silently (issue #489). The gateway scope
+;; check stays authoritative — this surface is a usability aid, not an
+;; authorization decision.
+(define (swift-rvt1-scalar? type)
+  (and (memq type '(String Int64 Bool Bytes)) #t))
+
+(define (swift-rvt1-covered? rpc)
+  (and (andmap swift-rvt1-scalar? (schema-rpc-arg-types rpc))
+       (or (eq? (schema-rpc-result-type rpc) 'Void)
+           (swift-rvt1-scalar? (schema-rpc-result-type rpc)))))
+
+(define (swift-rvt1-argument-expr type name)
+  (match type
+    ['Bytes (format ".bytes(~a)" name)]
+    ['String (format ".string(~a)" name)]
+    ['Int64 (format ".int64(~a)" name)]
+    ['Bool (format ".bool(~a)" name)]))
+
+(define (swift-rvt1-decode-call type call-expr)
+  (format "try rivetRVT1~a(try await ~a)"
+          (match type
+            ['Bytes "Data"]
+            ['String "String"]
+            ['Int64 "Int64"]
+            ['Bool "Bool"])
+          call-expr))
+
+(define (swift-rvt1-method rpc)
+  (define names (map swift-id (schema-rpc-arg-names rpc)))
+  (define types (schema-rpc-arg-types rpc))
+  (define result (schema-rpc-result-type rpc))
+  (define params
+    (string-join
+     (for/list ([name (in-list names)] [type (in-list types)])
+       (format "~a: ~a" name (swift-type type)))
+     ", "))
+  (define route
+    (swift-string-literal (symbol->string (schema-rpc-name rpc))))
+  (define call-expr
+    (if (null? names)
+        (format "call(~a)" route)
+        (format "call(~a, arguments: [~a])"
+                route
+                (string-join
+                 (for/list ([name (in-list names)] [type (in-list types)])
+                   (swift-rvt1-argument-expr type name))
+                 ", "))))
+  ;; call(_:arguments:) is async throws on every path, decoded or discarded.
+  (define await-call-expr (format "try await ~a" call-expr))
+  (if (eq? result 'Void)
+      (format "    func ~a(~a) async throws {\n        _ = ~a\n    }\n"
+              (swift-id (schema-rpc-name rpc)) params await-call-expr)
+      (format "    func ~a(~a) async throws -> ~a {\n        ~a\n    }\n"
+              (swift-id (schema-rpc-name rpc)) params (swift-type result)
+              (swift-rvt1-decode-call result call-expr))))
+
+(define (generate-swift-device-rvt1 rpcs)
+  (define covered (filter swift-rvt1-covered? rpcs))
+  (define skipped (filter (lambda (rpc) (not (swift-rvt1-covered? rpc))) rpcs))
+  (string-append
+   "#if canImport(RivetDeviceAppleTransport)\n"
+   "import RivetDeviceAppleTransport\n\n"
+   "// Typed network-channel surface for the same `device-rpcs` allowlist as\n"
+   "// RivetDeviceClient above (issue #489): each allowlisted request becomes\n"
+   "// call(\"<name>\", [RivetValue…]) with positional typed arguments. Bytes\n"
+   "// results are returned raw — decode them exactly like the desktop host\n"
+   "// does. The gateway scope check stays authoritative; this surface is a\n"
+   "// usability aid, not an authorization decision.\n"
+   (if (null? covered)
+       ""
+       (string-append
+        "private func rivetRVT1Data(_ value: RivetValue) throws -> Data {\n"
+        "    guard case .bytes(let data) = value else {\n"
+        "        throw RivetGeneratedError.typeMismatch(\"bytes\")\n"
+        "    }\n"
+        "    return data\n"
+        "}\n\n"
+        "private func rivetRVT1String(_ value: RivetValue) throws -> String {\n"
+        "    guard case .string(let value) = value else {\n"
+        "        throw RivetGeneratedError.typeMismatch(\"string\")\n"
+        "    }\n"
+        "    return value\n"
+        "}\n\n"
+        "private func rivetRVT1Int64(_ value: RivetValue) throws -> Int64 {\n"
+        "    guard case .int64(let value) = value else {\n"
+        "        throw RivetGeneratedError.typeMismatch(\"int64\")\n"
+        "    }\n"
+        "    return value\n"
+        "}\n\n"
+        "private func rivetRVT1Bool(_ value: RivetValue) throws -> Bool {\n"
+        "    guard case .bool(let value) = value else {\n"
+        "        throw RivetGeneratedError.typeMismatch(\"bool\")\n"
+        "    }\n"
+        "    return value\n"
+        "}\n\n"
+        "public extension RivetDeviceAppleRVT1Client {\n"
+        (apply string-append (map swift-rvt1-method covered))
+        "}\n"))
+   (if (null? skipped)
+       ""
+       (string-append
+        (if (null? covered) "" "\n")
+        "// Not yet covered by the RVT1 scalar surface (second batch:\n"
+        "// Record/Enum/Optional/List arguments and results):\n"
+        (apply string-append
+               (for/list ([rpc (in-list skipped)])
+                 (format "// - ~a\n" (schema-rpc-name rpc))))))
+   "#endif\n"))
+
 (define (generate-swift rpcs events states records enums device-rpcs
                         module-name entry-name display-name version build
                         identifier release-channel)
@@ -317,4 +433,5 @@
    "}\n"
    (if (null? device-rpcs)
        ""
-       (string-append "\n" (generate-swift-device-api device-rpcs)))))
+       (string-append "\n" (generate-swift-device-api device-rpcs)
+                      "\n" (generate-swift-device-rvt1 device-rpcs)))))

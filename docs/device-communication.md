@@ -7,7 +7,7 @@ Rivet separates two boundaries that solve different problems:
 
 Keeping these layers separate lets an iPhone or iPad embed Racket CS while an Apple Watch remains a lightweight companion. It also leaves room for a future independently embedded watch runtime without making that the default or coupling WatchConnectivity details to RVT1.
 
-A phone can also be a client of a desktop-hosted backend. That direction needs a long-lived authenticated session, Events, State, discovery, pairing, and an explicit API allowlist rather than the request/reply semantics below. It is specified in the [network device channel design](network-device-channel.md). Its authorization/session core and the bounded Apple security, transport, listener, Bonjour-advertisement, and preface-host primitives are implemented, but the accepted RVT1 stream is not yet bound to a shipped product gateway.
+A phone can also be a client of a desktop-hosted backend. That direction needs a long-lived authenticated session, Events, State, discovery, pairing, and an explicit API allowlist rather than the request/reply semantics below. It is specified in the [network device channel design](network-device-channel.md). Its authorization/session core and the bounded Apple security, transport, listener, Bonjour-advertisement, and preface-host primitives are implemented; products bind the accepted RVT1 stream to their own gateway (Payback was the first), and `raco rivet generate` emits a typed client for that channel from the same allowlist (see Generated network-channel surface below).
 
 ## Generated companion API
 
@@ -100,6 +100,34 @@ Applications can still implement `RivetDeviceRequest` manually when a device
 message intentionally has no backend RPC equivalent.
 
 `RivetDeviceRouter` rejects duplicate/invalid routes, bounds request and response sizes, validates protocol version and correlation IDs, and converts registered remote errors into stable code/message pairs. `RivetWatchConnectivityTransport` adapts this contract to `WCSession.sendMessageData`; the typed channel itself is transport-neutral and testable with an in-memory transport.
+
+## Generated network-channel surface
+
+The same `device-rpcs` allowlist also feeds the network device channel: the
+WatchConnectivity surface above wraps a JSON envelope, while the network
+channel speaks RVT1 value frames with typed positional arguments. To keep
+products from hand-rolling a second, silently-drifting adapter (Payback had to
+write one per RPC), `raco rivet generate` appends a typed extension over
+`RivetDeviceAppleRVT1Client` to `GeneratedBackend.swift` (issue #489):
+
+```swift
+extension RivetDeviceAppleRVT1Client {   // generated
+    func load_all() async throws -> Data
+    func delete_device(id: String) async throws
+}
+```
+
+- The block hides behind `#if canImport(RivetDeviceAppleTransport)`, so
+  desktop hosts and watch apps that do not link the transport module compile
+  the file unchanged; companion apps that link it get the surface.
+- v1 covers the closed RVT1 scalar tag set: `Bytes`/`String`/`Int64`/`Bool`
+  arguments and results, plus `Void`. `Bytes` results are returned raw —
+  decode them exactly like the desktop host does.
+- RPCs whose arguments or results need `Record`/`Enum`/`Optional`/`List` are
+  skipped for now and listed in a comment in the generated file; they arrive
+  with the second batch. The generated method being present remains a
+  usability aid, not an authorization decision — the gateway scope check
+  stays authoritative.
 
 ## Desktop gateway policy core
 
