@@ -1,7 +1,5 @@
 # Rivet
 
-**支持：**[问题与反馈](https://github.com/turlamai/rivet/issues) · [当前交付策略](https://github.com/turlamai/turlamai.github.io/blob/master/PORTFOLIO.zh-CN.md)
-
 用 [Racket](https://racket-lang.org/) 构建第一方原生桌面应用。Windows 使用 WinUI 3，macOS 使用 SwiftUI，Linux 使用 GTK4；把应用逻辑放在 Racket 中，各平台界面直接用该平台的第一方 UI 框架编写——不用 WebView，也没有统一控件 API。
 
 **Human-first. Agent-native. Local by design. —— 为人而生，为 Agent 原生设计，本地优先。**
