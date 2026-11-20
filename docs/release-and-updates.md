@@ -60,6 +60,16 @@ running-app upgrade and final full uninstall. These are generic framework
 installer gates and do not replace each product's profile/data migration
 acceptance.
 
+Windows MSI setup defaults to the shorter WiX Minimal sequence: license
+acceptance, progress, and Finish with the Launch option. The app installs to
+Program Files under its stable product identity without prompting for a
+directory on every normal installation. The MSI still owns only one Start Menu
+shortcut and no unsolicited desktop icon; the product may set distinct
+`windows-installer-bitmaps` for its own brand. This reduces routine steps
+without replacing Microsoft signing, correct elevation or installed-app
+upgrade/repair/uninstall tests. Advanced or managed installation can set
+MSI properties explicitly via `msiexec`.
+
 The MSI Finish-page Launch checkbox is honored on first install and
 repair/reinstall; Rivet suppresses its launch action for full uninstall
 (`REMOVE="ALL"`) so a removed executable is never started. This is a WiX

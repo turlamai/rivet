@@ -208,7 +208,9 @@
            (format "    <WixVariable Id=\"~a\" Value=\"~a\" />\n"
                    wix-id
                    (xml-escape (path->string path))))))
-  ;; Use the stock install-dir wizard and its Finish-page Launch checkbox.
+  ;; Use the short WiX minimal wizard and its Finish-page Launch checkbox.
+   ;; Standard installs use Program Files without asking for a rarely changed
+   ;; directory; app-specific wizard artwork still overlays the stock UI.
   ;; Honor the user's selection on first install and repair/reinstall, but not
   ;; after complete removal (REMOVE="ALL" means the target no longer exists).
   ;; NOT Installed would incorrectly suppress the repair/reinstall action.
@@ -227,10 +229,9 @@
     (format (string-append
              "    <WixVariable Id=\"WixUILicenseRtf\" Value=\"~a\" />\n"
              "~a~a"
-             "    <Property Id=\"WIXUI_INSTALLDIR\" Value=\"INSTALLFOLDER\" />\n"
-             "    <Property Id=\"WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT\" Value=\"~a\" />\n"
+                          "    <Property Id=\"WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT\" Value=\"~a\" />\n"
              "~a"
-             "    <ui:WixUI Id=\"WixUI_InstallDir\" />\n"
+             "    <ui:WixUI Id=\"WixUI_Minimal\" />\n"
              "    <UI>\n"
              "      <Publish Dialog=\"ExitDialog\" Control=\"Finish\" Event=\"DoAction\" Value=\"LaunchApplication\" Condition=\"WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT (REMOVE = &quot;ALL&quot;)\" Order=\"2\" />\n"
              "    </UI>\n")
