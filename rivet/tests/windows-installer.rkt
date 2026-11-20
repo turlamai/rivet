@@ -127,13 +127,13 @@
 (check-false (regexp-match? #rx"ARPPRODUCTICON" plain-source)
              "projects without a windows icon must not pin an ARP icon")
 
-;; The wizard UI is unconditional: every MSI gets the standard install-dir
-;; sequence with a launch checkbox on the finish page.
-(check-regexp-match #rx"<ui:WixUI Id=\"WixUI_InstallDir\" />" plain-source
-                    "the MSI must author the install-dir wizard sequence through the UI extension")
+;; The short wizard is unconditional: license acceptance, progress and Finish
+;; with launch option. Standard installs use Program Files without a path prompt.
+(check-regexp-match #rx"<ui:WixUI Id=\"WixUI_Minimal\" />" plain-source
+                    "the MSI must author the minimal wizard sequence through the UI extension")
 (check-regexp-match #rx"xmlns:ui=\"http://wixtoolset.org/schemas/v4/wxs/ui\"" plain-source)
-(check-regexp-match #rx"<Property Id=\"WIXUI_INSTALLDIR\" Value=\"INSTALLFOLDER\" />" plain-source
-                    "the wizard must target the real install folder")
+(check-false (regexp-match? #rx"WIXUI_INSTALLDIR" plain-source)
+             "the short wizard must not ask users for an installation directory")
 (check-regexp-match #rx"<Property Id=\"WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT\" Value=\"Launch Smoke\" />" plain-source
                     "the finish page must offer launching the app")
 (check-regexp-match
