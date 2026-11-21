@@ -202,6 +202,16 @@ public final class EmbeddedRacketBackend: @unchecked Sendable {
         self.configuration = configuration
     }
 
+    /// True once the embedded server thread finished booting the VM and is
+    /// serving the contract. RPC calls issued earlier queue internally and
+    /// are served when the boot completes; poll this (or just call) to
+    /// sequence host-side startup.
+    public var isReady: Bool {
+        lifecycle.lock()
+        defer { lifecycle.unlock() }
+        return state == .running
+    }
+
     public func start(onEvent: RivetClient.EventHandler? = nil) throws {
         lifecycle.lock()
         guard state == .created else {
@@ -394,21 +404,35 @@ private func runEmbeddedRacket(
     inputFD: Int32,
     outputFD: Int32
 ) -> Int32 {
-    let result: Int32 = config.executable.path.withCString { executable in
-        config.petiteBoot.path.withCString { petite in
-            config.schemeBoot.path.withCString { scheme in
-                config.racketBoot.path.withCString { racket in
-                    config.core.path.withCString { core in
-                        config.moduleName.withCString { module in
-                            config.entryName.withCString { entry in
+    // Materialize NUL-terminated arrays once. Do not use String.withCString
+    // on this bridge: the iOS pb prototype previously stalled in that path.
+    // Constructing rivet_racket_config directly from [CChar] instead is not
+    // safe either: Swift may pass a temporary pointer which expires before
+    // rivet_racket_run reads the boot path. Keep all seven storage buffers
+    // borrowed for the entire synchronous C call.
+    let executableCS = Array(config.executable.path.utf8CString)
+    let petiteCS = Array(config.petiteBoot.path.utf8CString)
+    let schemeCS = Array(config.schemeBoot.path.utf8CString)
+    let racketCS = Array(config.racketBoot.path.utf8CString)
+    let coreCS = Array(config.core.path.utf8CString)
+    let moduleCS = Array(config.moduleName.utf8CString)
+    let entryCS = Array(config.entryName.utf8CString)
+
+    return executableCS.withUnsafeBufferPointer { executable in
+        petiteCS.withUnsafeBufferPointer { petite in
+            schemeCS.withUnsafeBufferPointer { scheme in
+                racketCS.withUnsafeBufferPointer { racket in
+                    coreCS.withUnsafeBufferPointer { core in
+                        moduleCS.withUnsafeBufferPointer { module in
+                            entryCS.withUnsafeBufferPointer { entry in
                                 var cconfig = rivet_racket_config(
-                                    exec_file: executable,
-                                    petite_boot: petite,
-                                    scheme_boot: scheme,
-                                    racket_boot: racket,
-                                    core_zo: core,
-                                    module_name: module,
-                                    entry_name: entry,
+                                    exec_file: executable.baseAddress,
+                                    petite_boot: petite.baseAddress,
+                                    scheme_boot: scheme.baseAddress,
+                                    racket_boot: racket.baseAddress,
+                                    core_zo: core.baseAddress,
+                                    module_name: module.baseAddress,
+                                    entry_name: entry.baseAddress,
                                     collects_dir: nil,
                                     config_dir: nil
                                 )
@@ -420,13 +444,8 @@ private func runEmbeddedRacket(
             }
         }
     }
-
-    if result != 0 {
-        Darwin.close(inputFD)
-        Darwin.close(outputFD)
-    }
-    return result
 }
+
 
 public enum EmbeddedBackendError: Error, CustomStringConvertible {
     case alreadyStarted
