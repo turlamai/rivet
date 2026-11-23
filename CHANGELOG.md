@@ -15,10 +15,12 @@ project adheres to [Semantic Versioning](https://semver.org/).
   schema-driven app-value codec (`make-bridge-codec` and accessors) extracted
   from Podlens so every embedding product shares one implementation instead
   of per-product copies. The transport owns lifecycle and framing only;
-  argument/result meaning stays with the product schema. Keel-schema
-  conventions preserved: kebab-case record keys and `void` for absent/null
-  optionals on the Racket side, camelCase and explicit null on the wire.
-  Covered by `rivet/tests/bridge-test.rkt` against a real child serve loop.
+  argument/result meaning stays with the product schema. Schema grammar
+  matches `raco rivet schema write` (named lists; scalar/optional/list/record
+  kinds): camelCase JSON objects with explicit null and base64 `Bytes` on the
+  JSON side, field-ordered record lists with `void` for absent optionals on
+  the wire. Covered by `rivet/tests/bridge-test.rkt` against a real child
+  serve loop.
 
 - Typed network-channel device surface in codegen (issue #489): the same
   `device-rpcs` allowlist that drives the JSON-envelope WatchConnectivity

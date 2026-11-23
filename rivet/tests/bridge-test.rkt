@@ -13,66 +13,73 @@
 (define-runtime-path here ".")
 
 ;; ---------------------------------------------------------------------------
-;; Codec
+;; Codec (schema grammar = `raco rivet schema write` output)
 ;; ---------------------------------------------------------------------------
+
+(define (scalar n) (hash 'kind "scalar" 'name n))
+(define (optional t) (hash 'kind "optional" 'element t))
+(define (record n) (hash 'kind "record" 'name n))
 
 (define schema
   (hash 'rpcs
-        (hash 'echo
-              (hash 'params (list (hash 'name "s" 'type "string?"))
-                    'result "string?")
-              'add
-              (hash 'params (list (hash 'name "a" 'type "exact-integer?")
-                                  (hash 'name "b" 'type "exact-integer?"))
-                    'result "exact-integer?")
-              'wrap
-              (hash 'params (list (hash 'name "item"
-                                        'type (hash 'kind "record" 'name "item")))
-                    'result (hash 'kind "record" 'name "item"))
-              'maybe
-              (hash 'params (list (hash 'name "x"
-                                        'type (hash 'kind "optional" 'type "string?")))
-                    'result (hash 'kind "optional" 'type "string?"))
-              'tone
-              (hash 'params (list (hash 'name "c" 'type "color"))
-                    'result "color"))
+        (list (hash 'name "echo"
+                    'arguments (list (hash 'name "s" 'type (scalar "String")))
+                    'result (scalar "String"))
+              (hash 'name "add"
+                    'arguments (list (hash 'name "a" 'type (scalar "Int64"))
+                                     (hash 'name "b" 'type (scalar "Int64")))
+                    'result (scalar "Int64"))
+              (hash 'name "wrap"
+                    'arguments (list (hash 'name "item" 'type (record "item")))
+                    'result (record "item"))
+              (hash 'name "maybe"
+                    'arguments (list (hash 'name "x" 'type (optional (scalar "String"))))
+                    'result (optional (scalar "String")))
+              (hash 'name "blob"
+                    'arguments (list (hash 'name "data" 'type (scalar "Bytes")))
+                    'result (scalar "Bytes")))
         'records
-        (hash 'item
-              (list (hash 'name "display-name" 'type "string?")
-                    (hash 'name "count" 'type "exact-integer?")
-                    (hash 'name "note" 'type (hash 'kind "nullable" 'type "string?"))))
-        'enums (hash 'color (list "red" "blue"))))
+        (list (hash 'name "item"
+                    'fields (list (hash 'name "display-name" 'type (scalar "String"))
+                                  (hash 'name "count" 'type (scalar "Int64"))
+                                  (hash 'name "note" 'type (optional (scalar "String"))))))
+        'enums '()))
 
 (define codec (make-bridge-codec schema))
 (define (encode name args) (bridge-codec-encode codec name args))
 (define (decode name result) (bridge-codec-decode codec name result))
 
 (test-case "codec: primitives round-trip"
-  (check-equal? (encode 'echo '("hi")) '("hi"))
+  (check-equal? (encode 'echo (hasheq 's "hi")) '("hi"))
   (check-equal? (decode 'echo "hi!") "hi!")
-  (check-equal? (encode 'add '(2 3)) '(2 3))
+  (check-equal? (encode 'add (hasheq 'a 2 'b 3)) '(2 3))
   (check-equal? (decode 'add 5) 5))
 
-(test-case "codec: record kebab->camel and field order"
-  (define item (hash 'display-name "A" 'count 2 'note (void)))
-  (define wire (car (encode 'wrap (list item))))
-  (check-equal? (hash-ref wire 'displayName) "A")
-  (check-equal? (hash-ref wire 'count) 2)
-  (check-equal? (hash-ref wire 'note) (json-null))
-  (check-equal? (decode 'wrap wire) item))
+(test-case "codec: record camel object <-> field-ordered wire list"
+  (define wire (encode 'wrap (hasheq 'item (hasheq 'displayName "A" 'count 2))))
+  (check-equal? wire (list (list "A" 2 (void))))
+  (check-equal? (decode 'wrap (car wire))
+                (hash 'displayName "A" 'count 2 'note 'null)))
 
-(test-case "codec: optional void <-> null"
-  (check-equal? (encode 'maybe (list (void))) (list (json-null)))
-  (check-equal? (decode 'maybe (json-null)) (void))
+(test-case "codec: optional null <-> void, false/zero stay real"
+  (check-equal? (encode 'maybe (hasheq)) (list (void)))
+  (check-equal? (encode 'maybe (hasheq 'x 'null)) (list (void)))
+  (check-equal? (decode 'maybe (void)) 'null)
   (check-equal? (decode 'maybe "x") "x"))
 
-(test-case "codec: enum passes validated strings"
-  (check-equal? (encode 'tone '("red")) '("red"))
-  (check-exn exn:fail? (lambda () (encode 'tone '(7)))))
+(test-case "codec: Bytes <-> base64 string"
+  (check-equal? (encode 'blob (hasheq 'data "aGk=")) (list #"hi"))
+  (check-equal? (decode 'blob #"hi") "aGk=")
+  ;; long payloads must not carry line separators
+  (define big (make-bytes 100 65))
+  (define b64 (decode 'blob big))
+  (check-false (regexp-match? #rx"[\r\n]" b64))
+  (check-equal? (encode 'blob (hasheq 'data b64)) (list big)))
 
-(test-case "codec: arity and unknown rpc raise"
-  (check-exn exn:fail? (lambda () (encode 'echo '())))
-  (check-exn exn:fail? (lambda () (encode 'nope '()))))
+(test-case "codec: scalar validation and unknown rpc raise"
+  (check-exn exn:fail? (lambda () (encode 'add (hasheq 'a "x" 'b 1))))
+  (check-exn exn:fail? (lambda () (encode 'echo (hasheq 's 7))))
+  (check-exn exn:fail? (lambda () (encode 'nope (hasheq)))))
 
 (test-case "codec: bad-param error shape"
   (define err (bridge-codec-bad-param-error codec 'echo "s: expected string"))
@@ -103,7 +110,7 @@
   (define-values (r1 e1) (bridge-call "echo" "hi"))
   (check-equal? r1 "hi!")
   (check-false e1)
-  (define-values (r2 e2) (bridge-call 'add 2 3))
+  (define-values (r2 e2) (bridge-call "add" 2 3))
   (check-equal? r2 5)
   (check-false e2)
   (define-values (r3 e3) (bridge-call "poke"))
@@ -117,7 +124,7 @@
 
 (test-case "transport: codec over the wire"
   (start-bridge! start-echo)
-  (define-values (r e) (bridge-call "echo" (car (encode 'echo '("wire")))))
+  (define-values (r e) (bridge-call "echo" (car (encode 'echo (hasheq 's "wire")))))
   (check-false e)
   (check-equal? (decode 'echo r) "wire!")
   (stop-bridge!))

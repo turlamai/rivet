@@ -13,6 +13,7 @@
          racket/string
          racket/async-channel
          racket/contract
+         net/base64
          json
          "protocol.rkt")
 
@@ -24,8 +25,8 @@
           [set-bridge-event-handler! (-> procedure? any)]
           [make-bridge-codec (-> jsexpr? bridge-codec?)]
           [bridge-codec? (-> any/c boolean?)]
-          [bridge-codec-encode (-> bridge-codec? symbol? list? jsexpr?)]
-          [bridge-codec-decode (-> bridge-codec? symbol? jsexpr? any/c)]
+          [bridge-codec-encode (-> bridge-codec? symbol? hash? list?)]
+          [bridge-codec-decode (-> bridge-codec? symbol? any/c jsexpr?)]
           [bridge-codec-bad-param-error (-> bridge-codec? symbol? any/c jsexpr?)]))
 
 ;; ---------------------------------------------------------------------------
@@ -175,10 +176,14 @@
 ;; ---------------------------------------------------------------------------
 ;; Schema-driven app-value codec.
 ;;
-;; `schema` is the product's rivet schema jsexpr (keys rpcs/records/enums).
-;; Racket-side conventions: kebab-case record keys, void for absent/null
-;; optionals; wire-side conventions: camelCase keys, explicit null. Record
-;; field order follows the schema declaration order.
+;; `schema` is the product's rivet schema jsexpr as written by
+;; `raco rivet schema write`: `rpcs` / `records` / `enums` are lists of
+;; named entries; type specs use kinds scalar / optional / list / record.
+;; JSON-side conventions: camelCase object keys, explicit null for absent
+;; optionals, base64 strings for Bytes. Wire-side conventions: records are
+;; field-ordered lists in schema declaration order, void for absent
+;; optionals. This mirrors the codec Podlens shipped (#63) so both products
+;; meet the wire identically.
 ;; ---------------------------------------------------------------------------
 
 (struct bridge-codec (%encode %decode %bad-param-error))
@@ -202,92 +207,98 @@
                               (string-append (string-upcase (substring p 0 1))
                                              (substring p 1)))))))
 
-(define (camel->kebab s)
-  (list->string
-   (for/fold ([acc '()]) ([c (in-string s)])
-     (if (char-upper-case? c)
-         (append acc (list #\- (char-downcase c)))
-         (append acc (list c))))))
-
 (define (make-bridge-codec schema)
-  (define rpcs (hash-ref schema 'rpcs))
-  (define records (hash-ref schema 'records (hash)))
-  (define enums (hash-ref schema 'enums (hash)))
-
-  (define (spec-kind spec)
-    (cond
-      [(string? spec) spec]
-      [(hash? spec) (hash-ref spec 'kind)]
-      [else (error 'bridge-codec "bad type spec: ~e" spec)]))
-
-  (define (encode-value* spec v)
-    (cond
-      [(void? v) (json-null)]
-      [else
-       (define k (spec-kind spec))
-       (cond
-         [(equal? k "optional")
-          (if (void? v) (json-null) (encode-value* (hash-ref spec 'type) v))]
-         [(equal? k "nullable")
-          (if (void? v) (json-null) (encode-value* (hash-ref spec 'type) v))]
-         [(equal? k "array")
-          (for/list ([x (in-list v)]) (encode-value* (hash-ref spec 'items) x))]
-         [(equal? k "map")
-          (for/hash ([(key val) (in-hash v)])
-            (values key (encode-value* (hash-ref spec 'values) val)))]
-         [(equal? k "record")
-          (define rname (hash-ref spec 'name))
-          (define fields (hash-ref records (string->symbol rname)))
-          (for/hash ([f (in-list fields)])
-            (define fname (hash-ref f 'name))
-            (values (string->symbol (kebab->camel fname))
-                    (encode-value* (hash-ref f 'type)
-                                   (hash-ref v (string->symbol fname)))))]
-         [(hash-ref enums (string->symbol k) #f)
-          (unless (string? v)
-            (error 'bridge-codec "enum ~a expects string, got ~e" k v))
-          v]
-         [else v])]))
-
-  (define (decode-value* spec v)
-    (cond
-      [(eq? v (json-null)) (void)]
-      [else
-       (define k (spec-kind spec))
-       (cond
-         [(equal? k "optional") (decode-value* (hash-ref spec 'type) v)]
-         [(equal? k "nullable") (decode-value* (hash-ref spec 'type) v)]
-         [(equal? k "array")
-          (for/list ([x (in-list v)]) (decode-value* (hash-ref spec 'items) x))]
-         [(equal? k "map")
-          (for/hash ([(key val) (in-hash v)])
-            (values key (decode-value* (hash-ref spec 'values) val)))]
-         [(equal? k "record")
-          (define rname (hash-ref spec 'name))
-          (define fields (hash-ref records (string->symbol rname)))
-          (for/hash ([f (in-list fields)])
-            (define fname (hash-ref f 'name))
-            (values (string->symbol fname)
-                    (decode-value* (hash-ref f 'type)
-                                   (hash-ref v (string->symbol (kebab->camel fname))))))]
-         [else v])]))
+  (define record-table
+    (for/hash ([r (in-list (hash-ref schema 'records '()))])
+      (values (hash-ref r 'name) r)))
+  (define rpc-table
+    (for/hash ([r (in-list (hash-ref schema 'rpcs))])
+      (values (hash-ref r 'name) r)))
 
   (define (rpc-entry name)
-    (hash-ref rpcs name
+    (hash-ref rpc-table (symbol->string name)
               (lambda () (error 'bridge-codec "unknown rpc ~a" name))))
 
+  (define (json->wire v t)
+    (match (hash-ref t 'kind)
+      ["scalar"
+       (match (hash-ref t 'name)
+         ["Void" (void)]
+         ["Any" v]
+         ["Int64"
+          (unless (exact-integer? v)
+            (error 'bridge-codec "expected integer, got: ~e" v))
+          v]
+         ["Bool"
+          (unless (boolean? v)
+            (error 'bridge-codec "expected boolean, got: ~e" v))
+          v]
+         ["String"
+          (unless (string? v)
+            (error 'bridge-codec "expected string, got: ~e" v))
+          v]
+         ["Bytes"
+          (unless (string? v)
+            (error 'bridge-codec "expected base64 string, got: ~e" v))
+          (base64-decode (string->bytes/utf-8 v))]
+         [other (error 'bridge-codec "unsupported scalar type: ~a" other)])]
+      ["optional"
+       ;; Only JSON null means absent — #f and 0 are real values.
+       (if (eq? v (json-null))
+           (void)
+           (json->wire v (hash-ref t 'element)))]
+      ["list"
+       (unless (list? v)
+         (error 'bridge-codec "expected array, got: ~e" v))
+       (for/list ([x (in-list v)])
+         (json->wire x (hash-ref t 'element)))]
+      ["record"
+       (unless (hash? v)
+         (error 'bridge-codec "expected object for record ~a, got: ~e"
+                (hash-ref t 'name) v))
+       (define rec (hash-ref record-table (hash-ref t 'name)))
+       (for/list ([f (in-list (hash-ref rec 'fields))])
+         (define key (string->symbol (kebab->camel (hash-ref f 'name))))
+         (json->wire (hash-ref v key (json-null)) (hash-ref f 'type)))]
+      [kind (error 'bridge-codec "unsupported type kind: ~a" kind)]))
+
+  (define (wire->json v t)
+    (match (hash-ref t 'kind)
+      ["scalar"
+       (match (hash-ref t 'name)
+         ["Void" (json-null)]
+         ["Bytes"
+          (unless (bytes? v)
+            (error 'bridge-codec "expected bytes on wire, got: ~e" v))
+          (bytes->string/utf-8 (base64-encode v #""))]
+         ["Any" (if (void? v) (json-null) v)]
+         [else (if (void? v) (json-null) v)])]
+      ["optional"
+       (if (void? v) (json-null) (wire->json v (hash-ref t 'element)))]
+      ["list"
+       (for/list ([x (in-list v)])
+         (wire->json x (hash-ref t 'element)))]
+      ["record"
+       (define rec (hash-ref record-table (hash-ref t 'name)))
+       (define fields (hash-ref rec 'fields))
+       (unless (= (length fields) (length v))
+         (error 'bridge-codec "record ~a: wire arity ~a != schema arity ~a"
+                (hash-ref t 'name) (length v) (length fields)))
+       (for/hash ([f (in-list fields)] [x (in-list v)])
+         (values (string->symbol (kebab->camel (hash-ref f 'name)))
+                 (wire->json x (hash-ref f 'type))))]
+      [kind (error 'bridge-codec "unsupported type kind: ~a" kind)]))
+
+  ;; args: camelCase JSON object (hasheq); missing keys mean absent.
   (define (encode name args)
-    (define entry (rpc-entry name))
-    (define params (hash-ref entry 'params '()))
-    (unless (= (length args) (length params))
-      (error 'bridge-codec "~a expects ~a args, got ~a"
-             name (length params) (length args)))
-    (for/list ([spec (in-list params)] [v (in-list args)])
-      (encode-value* (hash-ref spec 'type) v)))
+    (define spec (rpc-entry name))
+    (for/list ([a (in-list (hash-ref spec 'arguments '()))])
+      (define key (string->symbol (kebab->camel (hash-ref a 'name))))
+      (json->wire (hash-ref args key (json-null)) (hash-ref a 'type))))
 
   (define (decode name result)
-    (define entry (rpc-entry name))
-    (decode-value* (hash-ref entry 'result) result))
+    (define spec (rpc-entry name))
+    (wire->json result (hash-ref spec 'result)))
 
   (define (bad-param-error name detail)
     (hash 'code "bad-param"

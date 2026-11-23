@@ -285,21 +285,24 @@ Installs the event callback. It receives the decoded event payload shaped
 
 @defproc[(make-bridge-codec [schema jsexpr?]) bridge-codec?]{
 Builds a schema-driven app-value codec from the product's rivet schema
-(@racket['rpcs], @racket['records], @racket['enums] keys, as produced by
-@racket[backend-schema] / @tt{raco rivet schema write}). Racket-side
-conventions: kebab-case record keys and @racket[void] for absent or null
-optionals; wire-side conventions: camelCase keys and explicit null. Record
-field order follows the schema declaration order.}
+(as written by @tt{raco rivet schema write}: @racket['rpcs],
+@racket['records], @racket['enums] lists of named entries). JSON-side
+conventions: camelCase object keys, explicit null for absent optionals,
+base64 strings for @tt{Bytes}; wire-side conventions: records are
+field-ordered lists in schema declaration order and @racket[void] marks
+absent optionals.}
 
 @defproc[(bridge-codec? [v any/c]) boolean?]{Recognizes a bridge codec.}
 
-@defproc[(bridge-codec-encode [c bridge-codec?] [name symbol?] [args list?])
-         jsexpr?]{
-Encodes positional RPC arguments into wire jsexpr; arity mismatches raise.}
+@defproc[(bridge-codec-encode [c bridge-codec?] [name symbol?] [args hash?])
+         list?]{
+Encodes a camelCase JSON argument object into the wire argument list;
+missing keys mean absent and scalar mismatches raise.}
 
-@defproc[(bridge-codec-decode [c bridge-codec?] [name symbol?] [result jsexpr?])
-         any/c]{
-Decodes an RPC result into Racket-side values.}
+@defproc[(bridge-codec-decode [c bridge-codec?] [name symbol?] [result any/c])
+         jsexpr?]{
+Decodes a wire result into camelCase JSON (records become objects,
+@racket[void] becomes null, @tt{Bytes} become base64 strings).}
 
 @defproc[(bridge-codec-bad-param-error [c bridge-codec?] [name symbol?] [detail any/c])
          jsexpr?]{
