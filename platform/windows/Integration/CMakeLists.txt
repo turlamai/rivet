@@ -15,6 +15,7 @@ add_executable(RivetIntegration
   main.cpp
   ../runtime/backend.cpp
   ../runtime/win32_pipe_transport.cpp
+  ${RIVET_ROOT}/runtime/src/embedded_backend.cpp
   ${RIVET_ROOT}/runtime/src/protocol.cpp
   ${RIVET_ROOT}/runtime/src/utf8.cpp
 )
