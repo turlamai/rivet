@@ -51,6 +51,9 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Label="Configuration">
+    <!-- See rivet-host.vcxproj: `raco rivet build` keeps build state out of the
+         Rivet checkout; the trailing separator is required. -->
+    <IntDir Condition="'$(RIVET_INTERMEDIATE_DIR)' != ''">$(RIVET_INTERMEDIATE_DIR)$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
     <RivetWinAppSDKVersion Condition="'$(RivetWinAppSDKVersion)' == ''">2.4.0</RivetWinAppSDKVersion>
     <RivetCppWinRTVersion Condition="'$(RivetCppWinRTVersion)' == ''">3.0.260818.1</RivetCppWinRTVersion>
     <ConfigurationType>StaticLibrary</ConfigurationType>

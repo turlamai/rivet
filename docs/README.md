@@ -25,8 +25,8 @@ complete. Protocol and architecture references stay English as the single
 normative definition.
 
 中文：英文页面是规范性技术来源。公开入门旅程已提供完整中文对照（见上方链接）；
-未标注“中文”的页面目前只有英文，不声称双语对等。翻译按“发布/更新 → 配置 →
-诊断 → 系统服务”的顺序补齐；协议与架构规范保持单一英文定义。
+未标注“中文”的页面目前只有英文，属于平台参考材料，不声称双语对等。
+协议与架构规范保持单一英文定义，中文指南链接到该定义而不是建立第二套规范。
 
 ## Build an application / 开发应用
 
