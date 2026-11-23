@@ -247,6 +247,69 @@ generation and tooling; registry structs and mutable State cells are private.}
 @defproc[(record-schema) list?]{Returns the registered Record schema.}
 @defproc[(enum-schema) list?]{Returns the registered Enum schema.}
 
+@subsection{In-Process Backend Bridge}
+
+@defmodule[rivet/bridge]
+
+The client half of @racket[serve] for hosts that embed the backend as a child
+process over a pipe pair (a Glaze shell, a test harness, any supervisor). The
+transport owns lifecycle and framing only; argument and result meaning stays
+with the product schema through a bridge codec. Extracted from Podlens so
+every embedding product shares one implementation (turlamai/glaze#159).
+
+@defproc[(start-bridge! [start-proc (-> (values thread? input-port? output-port?))])
+         void?]{
+Calls @racket[start-proc] under a fresh child custodian, performs the RVT1
+hello handshake, and starts the reader thread that demultiplexes responses,
+errors, and events. The caller creates the subprocess and its waiter thread
+under the current custodian; the bridge closes ports and shuts the custodian
+down on @racket[stop-bridge!].}
+
+@defproc[(stop-bridge!) void?]{
+Sends the shutdown frame, closes both ports, and shuts down the child
+custodian. Idempotent; safe to call before any start.}
+
+@defproc[(bridge-call [name (or/c string? symbol?)] [arg any/c] ...)
+         (values any/c any/c)]{
+One RPC over the wire. Returns @racket[(values result #f)] on success or
+@racket[(values #f error)] on a backend error frame; a dead backend or a
+timeout raises. Arguments and results are wire-level jsexpr — apply a bridge
+codec for product meaning.}
+
+@defproc[(bridge-alive?) boolean?]{
+Whether the backend waiter thread is still running.}
+
+@defproc[(set-bridge-event-handler! [proc procedure?]) void?]{
+Installs the event callback. It receives the decoded event payload shaped
+@racket[(list event-name value)], exactly as the RVT1 event frame carries it.}
+
+@defproc[(make-bridge-codec [schema jsexpr?]) bridge-codec?]{
+Builds a schema-driven app-value codec from the product's rivet schema
+(as written by @tt{raco rivet schema write}: @racket['rpcs],
+@racket['records], @racket['enums] lists of named entries). JSON-side
+conventions: camelCase object keys, explicit null for absent optionals,
+base64 strings for @tt{Bytes}; wire-side conventions: records are
+field-ordered lists in schema declaration order and @racket[void] marks
+absent optionals. Enums project as record kinds and validate against their
+case list.}
+
+@defproc[(bridge-codec? [v any/c]) boolean?]{Recognizes a bridge codec.}
+
+@defproc[(bridge-codec-encode [c bridge-codec?] [name symbol?] [args hash?])
+         list?]{
+Encodes a camelCase JSON argument object into the wire argument list;
+missing keys mean absent and scalar mismatches raise.}
+
+@defproc[(bridge-codec-decode [c bridge-codec?] [name symbol?] [result any/c])
+         jsexpr?]{
+Decodes a wire result into camelCase JSON (records become objects,
+@racket[void] becomes null, @tt{Bytes} become base64 strings).}
+
+@defproc[(bridge-codec-bad-param-error [c bridge-codec?] [name symbol?] [detail any/c])
+         jsexpr?]{
+Builds the product-side @tt{bad-param} structured error for argument
+validation failures before they reach the wire.}
+
 @subsection{RVT1 Framing and the Value Codec}
 
 @defmodule[rivet/protocol]
