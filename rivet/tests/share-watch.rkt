@@ -36,7 +36,10 @@
 (check-equal? (parse-net-use "ok z: \\\\server\\share") (hash "Z:" 'ok))
 (check-equal? (parse-net-use "Frozen Q: \\\\server\\share") (hash "Q:" 'other))
 
-(check-equal? (drive-for-path (string->path "/tmp/example")) #f)
+;; A rooted path without a volume belongs to the current drive on Windows, so
+;; only the other systems can expect no drive letter here.
+(unless (eq? (system-type 'os) 'windows)
+  (check-equal? (drive-for-path (string->path "/tmp/example")) #f))
 (when (eq? (system-type 'os) 'windows)
   (check-equal? (drive-for-path (string->path "Z:\\department")) "Z:"))
 (check-equal? (status-for-path (string->path "/tmp/example") (hash)) 'not-mapped)
