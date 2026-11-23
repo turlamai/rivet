@@ -7,6 +7,23 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- Internal: the Windows and Linux embedded-backend implementations no longer
+  carry two copies of everything below the native channel. Racket CS boot, the
+  reader/writer threads, request/cancel serialization and completion handling
+  moved into one transport-neutral `rivet::detail::EmbeddedBackendCore`
+  (`runtime/src/embedded_backend.cpp`); each platform now only opens its own
+  channel — named pipes on Windows, an AF_UNIX socketpair on Linux — and hands
+  the serve-fds endpoints to the core. `rivet::windows::*` and
+  `rivet::linux_runtime::*` keep the names downstream hosts use (they now
+  alias the shared types), the platform headers, the frame protocol and the
+  CLI are unchanged, and `rivet/tests/embedded-backend-core.rkt` guards against
+  the core being duplicated back into a platform directory. The shared unit
+  includes the Racket CS C API, so it is compiled by the platform builds (the
+  Windows runtime source props, the Windows integration sample and the Linux
+  platform fragment) and not by the portable `rivet_protocol` library.
+
 ### Added
 
 - In-process backend bridge `rivet/bridge` (turlamai/glaze#159): the RVT1
