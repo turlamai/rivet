@@ -36,8 +36,39 @@ project adheres to [Semantic Versioning](https://semver.org/).
   the transport so CI compiles the surface for iOS and watchOS. The gateway
   scope check stays authoritative; the surface is a usability aid only.
 
-## [0.17.0] - 2026-11-18
+### Fixed
 
+- Windows application builds no longer write MSBuild intermediate state into
+  the Rivet checkout. The referenced `rivet-host` and `rivet-chart` library
+  projects received `OutDir` from `raco rivet build` but kept their default
+  `IntDir`, so every build dropped objects, tracker logs and generated
+  cppwinrt headers under `platform/windows/<library>/x64/<configuration>/`
+  inside the framework tree — a permanently dirty linked checkout, and one
+  object graph shared by every application built against it. The build now
+  exports `RIVET_INTERMEDIATE_DIR` and the libraries keep their state under
+  the application's `.rivet/obj/`, separated by project, platform and
+  configuration; manual MSBuild builds without the variable are unchanged.
+
+- The Getting Started first-edit step asked readers to add a `greet` RPC that
+  the starter backend already declares, so following the guide verbatim failed
+  with `identifier already defined`. The guide (English and Chinese) now adds a
+  new `exclaim` RPC instead and names the starter's existing declarations.
+
+- Two Racket-suite tests failed on every Windows development machine,
+  independently of the code under test: `share-watch` asserted that a rooted
+  path without a volume has no drive letter (on Windows it belongs to the
+  current drive), and `windows-scaffold-icon-contract` matched source text
+  containing `\n` against a CRLF working copy.
+
+### Docs
+
+- `CONTRIBUTING.md` gained the Windows PowerShell equivalent of the
+  clear-`compiled`/`raco setup` rebuild step, which previously listed only the
+  Unix `find` form.
+- The documentation map's Chinese status paragraph no longer describes a
+  translation queue that has already been completed.
+
+## [0.17.0] - 2026-11-18
 This is the Racket framework source release. Standalone iOS host development
 remains experimental on the unmerged #472 branch and is not qualified or
 advertised as part of this release.
