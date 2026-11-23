@@ -37,7 +37,6 @@
          record-schema
          enum-schema)
 
-
 (struct rpc-info (name arg-names arg-types result-type procedure) #:transparent)
 (struct event-info (name type) #:transparent)
 (struct state-info (name type cell lock) #:transparent)
@@ -51,7 +50,6 @@
 (struct record-value (name fields) #:transparent)
 (struct enum-info (name cases) #:transparent)
 (struct enum-value (name case) #:transparent)
-
 
 (define registry (make-hash))
 (define event-registry (make-hash))
@@ -414,7 +412,6 @@
           [(list 'Optional inner)
            (or (void? value) (value-matches-type? inner value))]
           [_ #f])])]))
-
 
 (define (validate-value who label type value)
   (case (value-validation-result type value)
@@ -1119,7 +1116,6 @@
                               args
                               internal-state-request?
                               info)))))))))
-
 
   (define (cancel! id)
     (define action (cancel-action! id))

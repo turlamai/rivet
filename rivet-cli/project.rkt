@@ -457,7 +457,6 @@
 (define (project-windows-installer-bitmaps project)
   (project-ref project 'windows-installer-bitmaps (lambda () (hasheq))))
 
-
 (define (project-linux-icon project)
   (project-ref project 'linux-icon (lambda () #f)))
 

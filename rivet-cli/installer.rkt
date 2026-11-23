@@ -770,6 +770,5 @@
            whole-image-device
            disk-image-device-listed?))
 
-
 (module+ test-support
   (provide gpg-detach-sign!))

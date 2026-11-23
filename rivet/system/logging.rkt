@@ -123,7 +123,6 @@
          (unless (eq? (system-type 'os) 'windows)
            (file-or-directory-permissions complete permissions)))))))
 
-
 ;; The default crash reporter is a no-op, which is correct for a library but
 ;; invisible in the field. This reporter writes the same structured record the
 ;; log sink receives, plus the exception message, to a bounded crash file.

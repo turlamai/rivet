@@ -78,8 +78,6 @@
                   ("detach" "-force" "/dev/disk7"))
                 "an unmounted but attached image must be force-detached"))
 
-
-
 (let ([calls '()]
       [mounted? #t])
   (define (fake-run _who _hdiutil . arguments)

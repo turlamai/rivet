@@ -96,7 +96,6 @@
                            "RIVET_LINUX_SIGN_PUBLIC_KEY" public-key))
   public-key)
 
-
 (define (load-linux-gpg-signing)
   ;; Optional: unset means only the Ed25519 tarball signature is produced.
   (define key (non-empty-env "RIVET_LINUX_GPG_KEY"))
