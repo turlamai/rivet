@@ -178,7 +178,8 @@
 ;;
 ;; `schema` is the product's rivet schema jsexpr as written by
 ;; `raco rivet schema write`: `rpcs` / `records` / `enums` are lists of
-;; named entries; type specs use kinds scalar / optional / list / record.
+;; named entries; type specs use kinds scalar / optional / list / record
+;; (enums project as record kinds and validate against their case list).
 ;; JSON-side conventions: camelCase object keys, explicit null for absent
 ;; optionals, base64 strings for Bytes. Wire-side conventions: records are
 ;; field-ordered lists in schema declaration order, void for absent
@@ -211,6 +212,9 @@
   (define record-table
     (for/hash ([r (in-list (hash-ref schema 'records '()))])
       (values (hash-ref r 'name) r)))
+  (define enum-table
+    (for/hash ([e (in-list (hash-ref schema 'enums '()))])
+      (values (hash-ref e 'name) (hash-ref e 'cases))))
   (define rpc-table
     (for/hash ([r (in-list (hash-ref schema 'rpcs))])
       (values (hash-ref r 'name) r)))
@@ -253,13 +257,21 @@
        (for/list ([x (in-list v)])
          (json->wire x (hash-ref t 'element)))]
       ["record"
-       (unless (hash? v)
-         (error 'bridge-codec "expected object for record ~a, got: ~e"
-                (hash-ref t 'name) v))
-       (define rec (hash-ref record-table (hash-ref t 'name)))
-       (for/list ([f (in-list (hash-ref rec 'fields))])
-         (define key (string->symbol (kebab->camel (hash-ref f 'name))))
-         (json->wire (hash-ref v key (json-null)) (hash-ref f 'type)))]
+       (cond
+         [(hash-ref enum-table (hash-ref t 'name) #f)
+          => (lambda (cases)
+               (unless (and (string? v) (member v cases))
+                 (error 'bridge-codec "enum ~a expects one of ~a, got: ~e"
+                        (hash-ref t 'name) cases v))
+               v)]
+         [else
+          (unless (hash? v)
+            (error 'bridge-codec "expected object for record ~a, got: ~e"
+                   (hash-ref t 'name) v))
+          (define rec (hash-ref record-table (hash-ref t 'name)))
+          (for/list ([f (in-list (hash-ref rec 'fields))])
+            (define key (string->symbol (kebab->camel (hash-ref f 'name))))
+            (json->wire (hash-ref v key (json-null)) (hash-ref f 'type)))])]
       [kind (error 'bridge-codec "unsupported type kind: ~a" kind)]))
 
   (define (wire->json v t)
@@ -279,14 +291,17 @@
        (for/list ([x (in-list v)])
          (wire->json x (hash-ref t 'element)))]
       ["record"
-       (define rec (hash-ref record-table (hash-ref t 'name)))
-       (define fields (hash-ref rec 'fields))
-       (unless (= (length fields) (length v))
-         (error 'bridge-codec "record ~a: wire arity ~a != schema arity ~a"
-                (hash-ref t 'name) (length v) (length fields)))
-       (for/hash ([f (in-list fields)] [x (in-list v)])
-         (values (string->symbol (kebab->camel (hash-ref f 'name)))
-                 (wire->json x (hash-ref f 'type))))]
+       (cond
+         [(hash-ref enum-table (hash-ref t 'name) #f) v]
+         [else
+          (define rec (hash-ref record-table (hash-ref t 'name)))
+          (define fields (hash-ref rec 'fields))
+          (unless (= (length fields) (length v))
+            (error 'bridge-codec "record ~a: wire arity ~a != schema arity ~a"
+                   (hash-ref t 'name) (length v) (length fields)))
+          (for/hash ([f (in-list fields)] [x (in-list v)])
+            (values (string->symbol (kebab->camel (hash-ref f 'name)))
+                    (wire->json x (hash-ref f 'type))))])]
       [kind (error 'bridge-codec "unsupported type kind: ~a" kind)]))
 
   ;; args: camelCase JSON object (hasheq); missing keys mean absent.

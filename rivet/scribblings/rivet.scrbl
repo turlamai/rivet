@@ -290,7 +290,8 @@ Builds a schema-driven app-value codec from the product's rivet schema
 conventions: camelCase object keys, explicit null for absent optionals,
 base64 strings for @tt{Bytes}; wire-side conventions: records are
 field-ordered lists in schema declaration order and @racket[void] marks
-absent optionals.}
+absent optionals. Enums project as record kinds and validate against their
+case list.}
 
 @defproc[(bridge-codec? [v any/c]) boolean?]{Recognizes a bridge codec.}
 

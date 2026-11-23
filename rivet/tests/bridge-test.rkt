@@ -37,13 +37,16 @@
                     'result (optional (scalar "String")))
               (hash 'name "blob"
                     'arguments (list (hash 'name "data" 'type (scalar "Bytes")))
-                    'result (scalar "Bytes")))
+                    'result (scalar "Bytes"))
+              (hash 'name "tone"
+                    'arguments (list (hash 'name "c" 'type (record "tone")))
+                    'result (record "tone")))
         'records
         (list (hash 'name "item"
                     'fields (list (hash 'name "display-name" 'type (scalar "String"))
                                   (hash 'name "count" 'type (scalar "Int64"))
                                   (hash 'name "note" 'type (optional (scalar "String"))))))
-        'enums '()))
+        'enums (list (hash 'name "tone" 'cases '("red" "blue")))))
 
 (define codec (make-bridge-codec schema))
 (define (encode name args) (bridge-codec-encode codec name args))
@@ -75,6 +78,11 @@
   (define b64 (decode 'blob big))
   (check-false (regexp-match? #rx"[\r\n]" b64))
   (check-equal? (encode 'blob (hasheq 'data b64)) (list big)))
+
+(test-case "codec: enum projected as record validates cases"
+  (check-equal? (encode 'tone (hasheq 'c "red")) '("red"))
+  (check-equal? (decode 'tone "blue") "blue")
+  (check-exn exn:fail? (lambda () (encode 'tone (hasheq 'c "green")))))
 
 (test-case "codec: scalar validation and unknown rpc raise"
   (check-exn exn:fail? (lambda () (encode 'add (hasheq 'a "x" 'b 1))))
