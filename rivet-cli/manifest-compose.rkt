@@ -136,6 +136,3 @@
     (lambda (out)
       (write-signed-manifest composed signing-key key-id out)))
   output)
-
-
-

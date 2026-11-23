@@ -26,6 +26,17 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Racket source hygiene gate (`rivet/tests/source-hygiene.rkt`): every `.rkt`
+  file in the package must contain no tab characters, no trailing whitespace,
+  at most one consecutive blank line, and a final newline. The repository
+  deliberately does not adopt `raco fmt` — all 185 tracked Racket sources
+  follow one consistent hand-maintained style that differs from the
+  formatter's output, so a formatter gate would mean reformatting the whole
+  code base for no functional gain. The gate locks in the hygiene the code
+  base already kept; the 16 files that drifted (double blank lines between
+  top-level forms, five files without a final newline) were fixed with
+  whitespace-only edits.
+
 - In-process backend bridge `rivet/bridge` (turlamai/glaze#159): the RVT1
   client half of `serve` over a pipe pair (`start-bridge!`, `stop-bridge!`,
   `bridge-call`, `bridge-alive?`, `set-bridge-event-handler!`) plus a

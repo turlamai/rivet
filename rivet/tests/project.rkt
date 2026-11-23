@@ -143,7 +143,6 @@
     (check-exn #rx"non-empty single-line publisher string"
                (lambda () (load-project temp-root)))
 
-
     ;; Installation identity is a path component across MSI/DMG/Linux formats.
     ;; Reject traversal, absolute paths, embedded separators, spaces/control
     ;; characters and switch-like names before any installer is generated.

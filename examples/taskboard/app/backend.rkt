@@ -190,8 +190,6 @@
    (for/list ([sample (in-list (chart-series-window series span-ns))])
      (TimingSample (car sample) (cdr sample)))))
 
-
-
 (define initial-tasks
   (list
    (BoardTask 1
