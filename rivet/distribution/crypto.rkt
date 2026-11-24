@@ -21,8 +21,6 @@
          read-ed25519-public-key
          read-ed25519-private-key
          bytes->ed25519-public-key
-         generate-ed25519-private-key
-         ed25519-private-key->spki
          ed25519-sign
          ed25519-verify
          bytes->base64-string
@@ -263,6 +261,9 @@
 ;; factory when one exists, otherwise the pure backend. Returns the same key
 ;; types `read-ed25519-private-key` produces, so callers hand it straight to
 ;; `ed25519-sign`.
+;;
+;; Both helpers stay out of the pinned public API of rivet/distribution; the
+;; in-package callers reach them through the `keygen` submodule below.
 (define (generate-ed25519-private-key)
   (define factories (native-ed25519-factories))
   (cond
@@ -281,3 +282,9 @@
   (if (pure-ed25519-key? private-key)
       (pure-public-key->der (pure-public-key private-key))
       (pk-key->datum private-key 'SubjectPublicKeyInfo)))
+
+;; Internal entry points for the in-package key-generation callers; see the
+;; comment on `generate-ed25519-private-key`.
+(module* keygen #f
+  (provide generate-ed25519-private-key
+           ed25519-private-key->spki))

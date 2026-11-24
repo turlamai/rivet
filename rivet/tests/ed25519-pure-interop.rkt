@@ -15,7 +15,8 @@
          racket/file
          rackunit
          (prefix-in pure: "../distribution/crypto-pure.rkt")
-         "../distribution/crypto.rkt")
+         "../distribution/crypto.rkt"
+         (submod "../distribution/crypto.rkt" keygen))
 
 (crypto-factories (list libcrypto-factory))
 

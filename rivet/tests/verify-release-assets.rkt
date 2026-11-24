@@ -7,6 +7,7 @@
          racket/file
          racket/path
          "../distribution/crypto.rkt"
+         (submod "../distribution/crypto.rkt" keygen)
          "../distribution/manifest.rkt"
          "../../rivet-cli/verify-release-assets.rkt")
 
