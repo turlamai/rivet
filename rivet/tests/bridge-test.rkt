@@ -8,6 +8,7 @@
          racket/async-channel
          racket/runtime-path
          json
+         "../../rivet-cli/racket-executable.rkt"
          rivet/bridge)
 
 (define-runtime-path here ".")
@@ -100,9 +101,11 @@
 
 (define echo-path (build-path here "bridge-echo.rkt"))
 
+;; The package builder launches bin/racket by absolute path without putting
+;; the installation's bin directory on PATH, so PATH is only the fallback.
 (define (start-echo)
   (define-values (proc in out err)
-    (subprocess #f #f #f (find-executable-path "racket") (path->string echo-path)))
+    (subprocess #f #f #f (resolve-racket-executable) (path->string echo-path)))
   (values (thread (lambda () (subprocess-wait proc))) in out))
 
 (define events (make-async-channel))

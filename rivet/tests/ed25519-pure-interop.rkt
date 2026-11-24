@@ -154,3 +154,41 @@ native cross-verification halves skipped, pure halves remain green"))
     (ed25519-sign
      (read-ed25519-private-key (write-key-file private-key-bytes))
      message))))
+
+;; --- pure backend generates the released shapes --------------------------------
+
+;; The generator must be the inverse of the parsers: a fresh pure key is
+;; written in exactly the DER shapes pinned above, and reads back through the
+;; shared file API.
+(define generated (pure:generate-private-key))
+(define generated-seed (pure:pure-ed25519-key-raw generated))
+(check = (bytes-length generated-seed) 32)
+(check-equal? (pure:private-key->der generated)
+              (bytes-append private-key-prefix generated-seed))
+(define generated-spki (pure:public-key->der (pure:public-key generated)))
+(check-equal? (bytes-append spki-prefix (subbytes generated-spki 12)) generated-spki)
+(check-equal? (pure:pure-ed25519-key-raw (pure:decode-private-bytes 'test (pure:private-key->der generated)))
+              generated-seed)
+
+;; --- shared generator and a key the selected backend cannot sign -------------
+
+;; `generate-ed25519-private-key` returns the key type the shared API signs
+;; with, whichever backend the host selects, and pins the SPKI release form.
+(define shared (generate-ed25519-private-key))
+(define shared-signature (ed25519-sign shared message))
+(check-true (ed25519-verify
+             (bytes->ed25519-public-key (ed25519-private-key->spki shared))
+             message
+             shared-signature)
+            "a generated key verifies against its own SPKI")
+(check-false (ed25519-verify
+              (bytes->ed25519-public-key (ed25519-private-key->spki (generate-ed25519-private-key)))
+              message
+              shared-signature)
+             "a signature does not verify under another generated key")
+(when native-private
+  ;; A native key object presented while no native factory can sign — the
+  ;; libgcrypt state of the package builder — is reused through its 32-byte
+  ;; halves by the pure backend instead of failing.
+  (define signature (ed25519-sign native-private message))
+  (check-true (ed25519-verify pure-public message signature)))

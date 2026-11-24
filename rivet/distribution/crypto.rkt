@@ -3,10 +3,15 @@
 (require crypto
          (only-in racket/base [sha256-bytes racket-sha256-bytes])
          (only-in crypto/libcrypto libcrypto-factory)
-         "crypto-pure.rkt"
+         (rename-in "crypto-pure.rkt"
+                     [generate-private-key pure-generate-private-key]
+                     [public-key pure-public-key]
+                     [private-key->der pure-private-key->der]
+                     [public-key->der pure-public-key->der])
          net/base64
          racket/file
          racket/list
+         racket/match
          racket/port
          racket/string)
 
@@ -16,6 +21,8 @@
          read-ed25519-public-key
          read-ed25519-private-key
          bytes->ed25519-public-key
+         generate-ed25519-private-key
+         ed25519-private-key->spki
          ed25519-sign
          ed25519-verify
          bytes->base64-string
@@ -48,19 +55,73 @@
   (with-handlers ([exn:fail? (lambda (_) #f)])
     (dynamic-require 'crypto/nettle 'nettle-factory)))
 
+;; Advertising an EdDSA implementation is not proof that the library behind
+;; it can sign with Ed25519: the package builder's libgcrypt accepts the
+;; `eddsa` lookup and the key generation, then fails `pk-sign` with "Invalid
+;; object". Each factory therefore proves itself once with a fresh key and a
+;; sign/verify round trip; a factory that fails any step is treated as absent
+;; and the pure backend takes over.
+(define proven-factories (make-hash))
+
+(define probe-message #"rivet-ed25519-provider-probe")
+
+(define (proven-ed25519-factory? factory)
+  (hash-ref! proven-factories
+             factory
+             (lambda ()
+               (with-handlers ([exn:fail? (lambda (_) #f)])
+                 (define implementation (get-pk 'eddsa factory))
+                 (define key
+                   (generate-private-key implementation '((curve ed25519))))
+                 (define public
+                   (datum->pk-key (pk-key->datum key 'rkt-public)
+                                  'rkt-public
+                                  (list factory)))
+                 (define signature (pk-sign key probe-message))
+                 (and (= 64 (bytes-length signature))
+                      (pk-verify public probe-message signature))))))
+
 ;; Every native factory that can sign and verify Ed25519 right now, empty
 ;; when none can. The official Racket 9.3 package builder carries an OpenSSL
-;; that predates Ed25519 and no libnettle, so an empty result is a supported
-;; runtime state, not an error: decode/sign/verify then route through the
-;; pure RFC 8032 backend in crypto-pure.rkt. There is no alternative
-;; signature algorithm and no mock.
+;; that predates Ed25519, a libgcrypt that cannot sign with it and no
+;; libnettle, so an empty result is a supported runtime state, not an error:
+;; decode/sign/verify then route through the pure RFC 8032 backend in
+;; crypto-pure.rkt. There is no alternative signature algorithm and no mock.
 (define (native-ed25519-factories)
   (remove-duplicates
    (for/list ([factory (in-list (append (crypto-factories)
                                         (list libcrypto-factory)
                                         (list (nettle-candidate))))]
-              #:when (and factory (get-pk 'eddsa factory)))
+              #:when (and factory
+                          (get-pk 'eddsa factory)
+                          (proven-ed25519-factory? factory)))
      factory)))
+
+;; A native key object whose own factory failed the probe still carries the
+;; standard 32-byte halves in its `rkt-*` datum. Reuse them through the pure
+;; backend so a caller that generated the key through `crypto` (as the
+;; all-factories tests do) is not stuck with an object nobody can use.
+(define (ed25519-half? value)
+  (and (bytes? value) (= 32 (bytes-length value))))
+
+(define (pure-from-native key private?)
+  (and (available?)
+       (let ([datum (with-handlers ([exn:fail? (lambda (_) #f)])
+                      (pk-key->datum key (if private? 'rkt-private 'rkt-public)))])
+         (match datum
+           [(list 'eddsa (? symbol? kind) 'ed25519
+                  (? ed25519-half? public) (? ed25519-half? secret))
+            (and (eq? kind 'private) (pure-ed25519-key 'private secret))]
+           [(list 'eddsa 'public 'ed25519 (? ed25519-half? public))
+            (pure-ed25519-key 'public public)]
+           [_ #f]))))
+
+(define (no-native-provider who key)
+  (raise-arguments-error
+   who
+   "no native provider can use the Ed25519 key and the pure backend is unavailable"
+   "key" key
+   "factories configured" (crypto-factories)))
 
 (define (bytes->base64-string value)
   (bytes->string/utf-8 (base64-encode value #"")))
@@ -172,33 +233,51 @@
 
 (define (ed25519-sign private-key message)
   (define checked (ensure-ed25519 'ed25519-sign private-key #t))
+  (define factories (native-ed25519-factories))
   (cond
-    [(pure-ed25519-key? checked)
-     (sign checked message)]
-    [else
-     (define safe-key
-       (datum->pk-key (pk-key->datum checked 'rkt-private)
-                      'rkt-private
-                      (or (native-ed25519-factories)
-                          ;; The key exists as a native object, so a native
-                          ;; factory that understands Ed25519 existed when it
-                          ;; was produced; if none does now, fail loudly
-                          ;; rather than with a bare contract error.
-                          (raise-arguments-error
-                           'ed25519-sign
-                           "no native provider can parse the Ed25519 private key"
-                           "factories configured" (crypto-factories)))))
-     (pk-sign safe-key message)]))
+    [(pure-ed25519-key? checked) (sign checked message)]
+    [(pair? factories)
+     (pk-sign (datum->pk-key (pk-key->datum checked 'rkt-private)
+                             'rkt-private
+                             factories)
+              message)]
+    [(pure-from-native checked #t) => (lambda (key) (sign key message))]
+    [else (no-native-provider 'ed25519-sign checked)]))
 
 (define (ed25519-verify public-key message signature)
   (define checked (ensure-ed25519 'ed25519-verify public-key #f))
+  (define factories (native-ed25519-factories))
   (cond
-    [(pure-ed25519-key? checked)
-     (verify checked message signature)]
-    [else
+    [(pure-ed25519-key? checked) (verify checked message signature)]
+    [(pair? factories)
      (define safe-key
-       (datum->pk-key (pk-key->datum checked 'rkt-public)
-                      'rkt-public
-                      (native-ed25519-factories)))
+       (datum->pk-key (pk-key->datum checked 'rkt-public) 'rkt-public factories))
      (and (= (bytes-length signature) 64)
-          (pk-verify safe-key message signature))]))
+          (pk-verify safe-key message signature))]
+    [(pure-from-native checked #f)
+     =>
+     (lambda (key) (and (bytes? signature) (verify key message signature)))]
+    [else (no-native-provider 'ed25519-verify checked)]))
+
+;; A fresh Ed25519 private key for key generation and tests: a proven native
+;; factory when one exists, otherwise the pure backend. Returns the same key
+;; types `read-ed25519-private-key` produces, so callers hand it straight to
+;; `ed25519-sign`.
+(define (generate-ed25519-private-key)
+  (define factories (native-ed25519-factories))
+  (cond
+    [(pair? factories)
+     (generate-private-key (get-pk 'eddsa (car factories)) '((curve ed25519)))]
+    [(available?) (pure-generate-private-key)]
+    [else
+     (raise-arguments-error
+      'generate-ed25519-private-key
+      "no Ed25519 provider is available: install OpenSSL 3 or the ed25519 package")]))
+
+;; The SubjectPublicKeyInfo DER of a private key from
+;; `generate-ed25519-private-key`, the form the release tooling pins.
+(define (ed25519-private-key->spki private-key)
+  (ensure-ed25519 'ed25519-private-key->spki private-key #t)
+  (if (pure-ed25519-key? private-key)
+      (pure-public-key->der (pure-public-key private-key))
+      (pk-key->datum private-key 'SubjectPublicKeyInfo)))

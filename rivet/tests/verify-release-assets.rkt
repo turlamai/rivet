@@ -3,9 +3,7 @@
 ;; Publish-time tests exercise the signed wrapper and the *physical* bytes,
 ;; not merely an unsigned JSON fixture or filename heuristics.
 
-(require crypto
-         (only-in crypto/libcrypto libcrypto-factory)
-         rackunit
+(require rackunit
          racket/file
          racket/path
          "../distribution/crypto.rkt"
@@ -13,25 +11,10 @@
          "../../rivet-cli/verify-release-assets.rkt")
 
 ;; Do not require crypto/all here: importing every factory loads the gmp FFI
-;; module, which kills the process on the official package-builder VM (no
-;; OpenSSL 3, no libgmp). Select the same lazy Ed25519 provider that
-;; rivet/distribution/crypto uses: OpenSSL 3 when available, otherwise Nettle.
-(define ed25519-factory
-  (cond
-    [(get-pk 'eddsa libcrypto-factory) libcrypto-factory]
-    [else
-     (define nettle
-       (with-handlers ([exn:fail? (lambda (_) #f)])
-         (dynamic-require 'crypto/nettle 'nettle-factory)))
-     (and nettle (get-pk 'eddsa nettle) nettle)]))
-
-(unless ed25519-factory
-  (error 'verify-release-assets-test
-         "no Ed25519 provider available; cannot exercise the release-asset gate"))
-
-(define (with-ed25519 thunk)
-  (parameterize ([crypto-factories (list ed25519-factory)])
-    (thunk)))
+;; module, which kills the process on the official package-builder VM. Key
+;; generation goes through rivet/distribution/crypto, which picks a proven
+;; native Ed25519 provider and otherwise falls back to the pure RFC 8032
+;; backend, so this gate runs on every builder that can run Rivet at all.
 
 (define root (make-temporary-file "rivet-release-asset-gate-~a" 'directory))
 (define assets (build-path root "assets"))
@@ -39,16 +22,11 @@
 (define asset (build-path assets "example-1.2.3-linux-x64.tar.gz"))
 (call-with-output-file asset
   (lambda (out) (write-bytes (make-bytes 4096 42) out)))
-(define key
-  (with-ed25519 (lambda () (generate-private-key 'eddsa '((curve ed25519))))))
-(define other-key
-  (with-ed25519 (lambda () (generate-private-key 'eddsa '((curve ed25519))))))
+(define key (generate-ed25519-private-key))
+(define other-key (generate-ed25519-private-key))
 (define pub-path (build-path root "pub.der"))
 (call-with-output-file pub-path
-  (lambda (out)
-    (write-bytes (with-ed25519
-                  (lambda () (pk-key->datum key 'SubjectPublicKeyInfo)))
-                 out)))
+  (lambda (out) (write-bytes (ed25519-private-key->spki key) out)))
 (define base "https://github.com/turlamai/example/releases/download/v1.2.3")
 (define entry
   (update-artifact 'linux 'x64
