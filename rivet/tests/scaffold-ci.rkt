@@ -39,6 +39,22 @@
     (define readme (file->string (build-path project "README.md")))
     (check-true (string-contains? readme ".github/workflows/native.yml"))
     (check-true (string-contains? readme "linux-icon"))
+    ;; The first run must reach a launched app before the full done-check.
+    ;; `acceptance --json` rebuilds the native host, so listing it before `dev`
+    ;; made every new developer build twice (about two extra minutes) before
+    ;; seeing the window.
+    ;; Locate the fenced block that follows the heading literally.
+    (define block-open (regexp-match-positions #rx"## Start here\n\n```bash\n" readme))
+    (check-true (pair? block-open) "the README must have a Start here code block")
+    (define block-close
+      (regexp-match-positions #rx"\n```" readme (cdar block-open)))
+    (check-true (pair? block-close) "the Start here code block must be closed")
+    (define start-here
+      (substring readme (cdar block-open) (caar block-close)))
+    (check-true (string-suffix? start-here "raco rivet dev")
+                "the Start here block must end by launching the app")
+    (check-false (string-contains? start-here "raco rivet acceptance")
+                 "the Start here block must not run the full done-check before dev")
 
     ;; Every generated GTK4 app must use the product's own identity. A
     ;; hard-coded default GApplication ID allows one Rivet app to steal
