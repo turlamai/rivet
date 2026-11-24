@@ -87,6 +87,10 @@ project adheres to [Semantic Versioning](https://semver.org/).
   path without a volume has no drive letter (on Windows it belongs to the
   current drive), and `windows-scaffold-icon-contract` matched source text
   containing `\n` against a CRLF working copy.
+- The `acceptance` test's temp-directory teardown could fail on Windows with
+  "Permission denied" when a just-exited `racket` subprocess still held the
+  directory, turning a passing run into a failure; teardown now retries
+  briefly before giving up.
 
 ### Docs
 

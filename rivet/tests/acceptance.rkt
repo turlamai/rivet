@@ -391,5 +391,15 @@ RKT
               (lambda ()
                 (run-acceptance-command project '("--dry-run")))))
  (lambda ()
-   (when (directory-exists? temp-root)
-     (delete-directory/files temp-root))))
+   ;; The suite spawns `racket` subprocesses whose working directory is
+   ;; inside temp-root. On Windows a just-exited process (or the search
+   ;; indexer) can still hold the directory for a moment, so retry briefly
+   ;; instead of turning a passing run into a teardown failure.
+   (let teardown ([attempts 20])
+     (when (directory-exists? temp-root)
+       (with-handlers ([exn:fail:filesystem?
+                        (lambda (error)
+                          (unless (zero? attempts)
+                            (sleep 0.25)
+                            (teardown (sub1 attempts))))])
+         (delete-directory/files temp-root))))))
