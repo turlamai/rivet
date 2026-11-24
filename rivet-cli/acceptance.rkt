@@ -14,7 +14,8 @@
          racket/string
          racket/system
          "../rivet/distribution/crypto.rkt"
-         "project.rkt")
+         "project.rkt"
+         "racket-executable.rkt")
 
 (provide default-acceptance-manifest-name
          acceptance-kinds
@@ -338,19 +339,23 @@
     (if path-like?
         (path->complete-path candidate (rivet-project-root project))
         (or (find-executable-path raw)
-            ;; On official package builders the current Racket executable is
+            ;; On official package builders the current Racket installation is
             ;; available via an absolute path but need not be on PATH. Only
-            ;; resolve the `racket` command this way; missing external tools
-            ;; must continue to fail explicitly.
-            (and (or (string=? raw "racket")
-                     (and (eq? (system-type 'os) 'windows)
-                          (string-ci=? raw "racket.exe")))
-                 (let* ([exe (find-system-path 'exec-file)]
-                        [name (and (path? exe) (file-name-from-path exe))])
-                   (and name
-                        (regexp-match? #px"(?i:^racket(?:\\.exe)?$)"
-                                       (path->string name))
-                        exe))))))
+            ;; resolve the `racket` and `raco` commands through the running
+            ;; installation; missing external tools must continue to fail
+            ;; explicitly.
+            (let ([command (cond
+                             [(or (string=? raw "racket")
+                                  (and (eq? (system-type 'os) 'windows)
+                                       (string-ci=? raw "racket.exe")))
+                              resolve-racket-executable]
+                             [(or (string=? raw "raco")
+                                  (and (eq? (system-type 'os) 'windows)
+                                       (string-ci=? raw "raco.exe")))
+                              resolve-raco-executable]
+                             [else #f])])
+              (and command
+                   (with-handlers ([exn:fail? (lambda (_) #f)]) (command)))))))
   (unless (and resolved (file-exists? resolved))
     (raise-arguments-error 'acceptance-report
                            "suite executable was not found"

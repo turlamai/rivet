@@ -15,6 +15,7 @@
 (require net/base64
          racket/bytes
          racket/list
+         racket/random
          racket/string)
 
 (provide pure-ed25519-key
@@ -24,6 +25,10 @@
          available?
          decode-private-bytes
          decode-public-bytes
+         generate-private-key
+         public-key
+         private-key->der
+         public-key->der
          sign
          verify)
 
@@ -79,6 +84,35 @@
         "could not decode Ed25519 public key without a native provider"
         "accepted formats" '(SubjectPublicKeyInfo openssh-public)
         "bytes length" (if (bytes? raw) (bytes-length raw) raw))))
+
+;; Key generation and the DER encoders inverse to the parsers above. The
+;; private seed is 32 bytes of OS entropy and the wire shapes are exactly the
+;; ones OpenSSL 3 writes for Ed25519 (48-byte PKCS#8, 44-byte SPKI), so a key
+;; generated without a native provider is still read back by every tool in
+;; the release flow.
+(define (generate-private-key)
+  (pure-ed25519-key 'private (crypto-random-bytes 32)))
+
+(define (public-key private-key)
+  (unless (and (pure-ed25519-key? private-key)
+               (eq? (pure-ed25519-key-kind private-key) 'private))
+    (raise-argument-error 'public-key "pure-ed25519 private key" private-key))
+  (dynamic-require 'ed25519 #f)
+  (pure-ed25519-key
+   'public
+   ((dynamic-require 'ed25519 'secret->public) (pure-ed25519-key-raw private-key))))
+
+(define (private-key->der private-key)
+  (unless (and (pure-ed25519-key? private-key)
+               (eq? (pure-ed25519-key-kind private-key) 'private))
+    (raise-argument-error 'private-key->der "pure-ed25519 private key" private-key))
+  (bytes-append private-key-prefix (pure-ed25519-key-raw private-key)))
+
+(define (public-key->der public-key)
+  (unless (and (pure-ed25519-key? public-key)
+               (eq? (pure-ed25519-key-kind public-key) 'public))
+    (raise-argument-error 'public-key->der "pure-ed25519 public key" public-key))
+  (bytes-append spki-prefix (pure-ed25519-key-raw public-key)))
 
 ;; The OpenSSH single-line form: "ssh-ed25519 <base64> [comment]", where the
 ;; decoded wire blob is the length-prefixed algorithm name followed by the

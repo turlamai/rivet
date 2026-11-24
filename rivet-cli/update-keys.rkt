@@ -18,6 +18,11 @@
          racket/string
          racket/system
          "openssl-tool.rkt"
+         (rename-in "../rivet/distribution/crypto-pure.rkt"
+                    [generate-private-key pure-generate-private-key]
+                    [public-key pure-public-key]
+                    [private-key->der pure-private-key->der]
+                    [public-key->der pure-public-key->der])
          "project.rkt")
 
 (provide parse-update-keys-arguments
@@ -53,8 +58,8 @@
 ;; Generate through libcrypto only: its PKCS#8 encoding is the one OpenSSL
 ;; (and therefore the PEM path in `sign-manifest`) reads back. Sodium and
 ;; decaf can sign and verify, but their private-key datum is not guaranteed
-;; to be OpenSSL-compatible; the OpenSSL 3 fallback below writes the
-;; standard encoding instead.
+;; to be OpenSSL-compatible; the OpenSSL 3 and pure-Racket fallbacks below
+;; write the standard encoding instead.
 (define (native-ed25519-key)
   (with-handlers ([exn:fail? (lambda (_) #f)])
     (define implementation (get-pk 'eddsa libcrypto-factory))
@@ -143,9 +148,12 @@
      "the private key already exists; delete it or pass --force to replace it"
      "key" key-path))
   ;; Prefer OpenSSL 3 for generation: its PKCS#8 PEM is the encoding every
-  ;; product verifier and `sign-manifest` read back. Racket keygen remains
-  ;; the fallback for hosts without an OpenSSL 3 binary.
+  ;; product verifier and `sign-manifest` read back. Racket keygen through a
+  ;; proven native factory is next, and the pure RFC 8032 backend last: it
+  ;; writes the same 48-byte PKCS#8 and 44-byte SPKI shapes OpenSSL 3 does,
+  ;; so the key stays usable wherever the release flow reads it.
   (define openssl (openssl-3-executable))
+  (define native (and (not openssl) (native-ed25519-key)))
   (define-values (der spki)
     (cond
       [openssl
@@ -154,15 +162,21 @@
        (unless (eq? (system-type 'os) 'windows)
          (file-or-directory-permissions key-path #o600))
        (values der spki)]
-      [else
-       (define key (native-ed25519-key))
-       (unless key
-         (raise-arguments-error
-          'update-keys
-          "no Ed25519 provider is available: install OpenSSL 3 or set OPENSSL_BIN"))
-       (define der (pk-key->datum key 'PrivateKeyInfo))
+      [native
+       (define der (pk-key->datum native 'PrivateKeyInfo))
        (write-private-key! key-path der force?)
-       (values der (pk-key->datum key 'SubjectPublicKeyInfo))]))
+       (values der (pk-key->datum native 'SubjectPublicKeyInfo))]
+      [(available?)
+       (define key (pure-generate-private-key))
+       (define der (pure-private-key->der key))
+       (write-private-key! key-path der force?)
+       (values der (pure-public-key->der (pure-public-key key)))]
+      [else
+       (raise-arguments-error
+        'update-keys
+        (string-append
+         "no Ed25519 provider is available: install OpenSSL 3, set OPENSSL_BIN, "
+         "or install the pure-Racket ed25519 package"))]))
   (define raw-key
     (subbytes spki (- (bytes-length spki) 32)))
   (define der-base64 (bytes->string/utf-8 (base64-encode der #"")))
