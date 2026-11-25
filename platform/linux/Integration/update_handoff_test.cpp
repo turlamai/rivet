@@ -1,5 +1,6 @@
 #include "update_handoff.hpp"
 
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
