@@ -219,6 +219,12 @@ not cover them:
 
 ## Release gate
 
+New projects include `.github/workflows/release.yml.example`, an intentionally
+inactive, comment-only release checklist. It does not publish or sign anything.
+Implement the product-specific workflow and review the protected environment,
+credentials, exact native CI revision, artifacts and recovery policy before
+renaming it to `release.yml`. Do not treat the example as release evidence.
+
 Before pushing a tag, require all native-host jobs above and the product's
 Racket tests. The protected release job can then add production packaging,
 signing, notarization, update-manifest signing, and artifact publication. It
