@@ -36,9 +36,21 @@
     (define installed (installed-rivet-release-version))
     (when installed
       (check-true (string-contains? text (string-append "rivet.git#v" installed))))
+    (define release-example
+      (build-path project ".github" "workflows" "release.yml.example"))
+    (check-true (file-exists? release-example))
+    (check-false (file-exists? (build-path project ".github" "workflows" "release.yml")))
+    (define release-text (file->string release-example))
+    (for ([line (in-list (string-split release-text "\n"))])
+      (check-true (string-prefix? line "#") line))
+    (for ([needle (in-list '("doctor --release" "acceptance --json"
+                             "protected environment" "signed update manifests"
+                             "recovery and uninstall"))])
+      (check-true (string-contains? release-text needle) needle))
     (define readme (file->string (build-path project "README.md")))
     (check-true (string-contains? readme ".github/workflows/native.yml"))
     (check-true (string-contains? readme "linux-icon"))
+    (check-true (string-contains? readme "release.yml.example"))
     ;; The first run must reach a launched app before the full done-check.
     ;; `acceptance --json` rebuilds the native host, so listing it before `dev`
     ;; made every new developer build twice (about two extra minutes) before
