@@ -26,6 +26,10 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Generated projects now include an inactive `release.yml.example` checklist
+  for protected signing, native acceptance, verified publication and recovery.
+  It deliberately does not enable automatic publishing or require credentials.
+
 - Racket source hygiene gate (`rivet/tests/source-hygiene.rkt`): every `.rkt`
   file in the package must contain no tab characters, no trailing whitespace,
   at most one consecutive blank line, and a final newline. The repository
