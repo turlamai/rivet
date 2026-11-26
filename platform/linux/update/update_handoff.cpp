@@ -200,21 +200,14 @@ std::string handoff_script(std::string const& application_id,
   script += "if ! rivet_lock_acquired; then\n";
   script += "  rivet_fail transaction-busy\n";
   script += "fi\n";
-  script += "# A previous handoff that died between the two renames must not\n";
-  script += "# leave the launch path without an executable: bring the\n";
-  script += "# installation back to a runnable state before starting.\n";
+  // An interrupted transaction may have a signed no-rollback policy.
+  // Never infer health or permission to roll back from file presence.
+  // Leave the journal and backup intact for explicit backend recovery.
   script += "rivet_preflight() {\n";
-  script += "  if [ ! -f \"$RIVET_TARGET\" ] && [ -f \"$RIVET_BACKUP\" ]; then\n";
-  script += "    mv -f \"$RIVET_BACKUP\" \"$RIVET_TARGET\"\n";
+  script += "  if [ -e \"$RIVET_BACKUP\" ] || [ -e \"$RIVET_EMPTY\" ] || [ -e \"$RIVET_JOURNAL\" ]; then\n";
+  script += "    rivet_fail recovery-required\n";
   script += "  fi\n";
-  script += "  # Target and backup together mean the swap completed but the\n";
-  script += "  # commit did not; the target is already the verified candidate,\n";
-  script += "  # so dropping the backup finishes that transaction.\n";
-  script += "  if [ -f \"$RIVET_TARGET\" ] && [ -f \"$RIVET_BACKUP\" ]; then\n";
-  script += "    rm -f \"$RIVET_BACKUP\"\n";
-  script += "  fi\n";
-  script += "  rm -rf \"$RIVET_STAGING\"\n";
-  script += "  rm -f \"$RIVET_JOURNAL\"\n";
+  script += "  rm -rf \"$RIVET_STAGING\" || rivet_fail staging-cleanup-failed\n";
   script += "}\n";
   script += "rivet_preflight\n";
   script += "rivet_write_journal prepared\n";
