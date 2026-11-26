@@ -130,9 +130,14 @@ Outcome wait_for_outcome(pid_t child, std::filesystem::path const& target,
   for (;;) {
     auto const failure = *attempt / "failure.txt";
     if (std::filesystem::is_regular_file(failure)) {
-      return Outcome{*attempt, read_text(failure)};
+      auto message = read_text(failure);
+      if (!message.empty() && message.back() == '\n') {
+        message.pop_back();
+        return Outcome{*attempt, message};
+      }
     }
-    if (!std::filesystem::is_regular_file(journal_for(target))) {
+    if (read_text(*attempt / "success.txt") == "committed\n" &&
+        !std::filesystem::is_regular_file(journal_for(target))) {
       return Outcome{*attempt, std::string()};
     }
     if (std::chrono::steady_clock::now() > deadline) {
@@ -152,6 +157,10 @@ int main() {
          LinuxInstallKind::package_manager);
   assert(DetectLinuxInstallKind("/usr/bin/example", "") ==
          LinuxInstallKind::package_manager);
+  assert(DetectLinuxInstallKind("/app/bin/RivetHost", "") ==
+         LinuxInstallKind::package_manager);
+  assert(DetectLinuxInstallKind("/optical/RivetHost", "  ") ==
+         LinuxInstallKind::portable);
   assert(DetectLinuxInstallKind("./RivetHost", "") ==
          LinuxInstallKind::portable);
 
@@ -164,7 +173,7 @@ int main() {
   auto const old_appimage = workspace / "old.AppImage";
   auto const new_appimage = workspace / "new.AppImage";
   std::string const old_payload = "#!/bin/sh\nsleep 4\n";
-  std::string const replacement_payload = "#!/bin/sh\nsleep 4\n";
+  std::string const replacement_payload = "#!/bin/sh\n# replacement version\nsleep 4\n";
   write_executable(old_appimage, old_payload);
   write_executable(new_appimage, replacement_payload);
   auto const digest = sha256_of(new_appimage);
