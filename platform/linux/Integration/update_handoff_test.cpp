@@ -178,6 +178,42 @@ int main() {
   write_executable(new_appimage, replacement_payload);
   auto const digest = sha256_of(new_appimage);
 
+  // A successful exec must preserve argument boundaries and release the
+  // single-instance lease before the new process begins executing.
+  {
+    auto const probe = workspace / "relaunch probe.AppImage";
+    auto const receipt = workspace / "relaunch-receipt";
+    auto const lease = workspace / "lease-released";
+    write_executable(probe,
+        "#!/bin/sh\n[ -f \"$2\" ] || exit 10\n"
+        "printf '%s\\n' \"$3\" \"$4\" > \"$1\"\n");
+    auto const child = ::fork();
+    assert(child >= 0);
+    if (child == 0) {
+      try {
+        rivet::update::RelaunchInstalledAppImage(
+            probe, {receipt.string(), lease.string(), "with spaces", "$literal"},
+            [&] { std::ofstream marker(lease); marker << "released"; });
+      } catch (...) {
+        ::_exit(11);
+      }
+    }
+    int status = 0;
+    assert(::waitpid(child, &status, 0) == child);
+    assert(WIFEXITED(status) && WEXITSTATUS(status) == 0);
+    assert(read_text(receipt) == "with spaces\n$literal\n");
+
+    bool released = false;
+    bool rejected = false;
+    try {
+      rivet::update::RelaunchInstalledAppImage(
+          workspace / "missing.AppImage", {}, [&] { released = true; });
+    } catch (std::system_error const&) {
+      rejected = true;
+    }
+    assert(rejected && !released);
+  }
+
   // Successful handoff: the replacement survives the settle window, the
   // backup is gone, no failure marker remains, and the target now holds the
   // candidate payload.
