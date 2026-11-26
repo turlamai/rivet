@@ -85,6 +85,24 @@ jobs:
             test -s "$host/runtime/$boot.boot"
           done
           test -s "$host/res/core.zo"
+      - name: Resolve Swift package from the exact tested checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          project = Path("platform/ios/host/project.xcodeproj/project.pbxproj")
+          text = project.read_text()
+          pattern = r'isa = XCRemoteSwiftPackageReference;\s*repositoryURL = "https://github\.com/turlamai/rivet\.git";\s*requirement = \{\s*kind = branch;\s*branch = feat/mobile-hosts;\s*\};'
+          text, count = re.subn(pattern, 'isa = XCLocalSwiftPackageReference;\n\t\t\trelativePath = ../../..;', text)
+          if count != 1:
+              raise SystemExit("expected exactly one experimental Rivet package reference")
+          text = text.replace('XCRemoteSwiftPackageReference', 'XCLocalSwiftPackageReference')
+          project.write_text(text)
+          PY
+          test -f Package.swift
+          plutil -lint platform/ios/host/project.xcodeproj/project.pbxproj
       - name: Boot clean iOS Simulator and require real RVT1 XCTest
         shell: bash
         run: |
