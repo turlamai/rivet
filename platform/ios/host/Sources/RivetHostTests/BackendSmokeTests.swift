@@ -62,7 +62,12 @@ final class BackendSmokeTests: XCTestCase {
         // Stop through the shared owner, not the bare backend: stopping the
         // backend alone leaves SharedBackend.started=true and its stale
         // reference allocated, so a subsequent start() becomes a no-op.
-        SharedBackend.stop()
+        SharedBackend.requestStop()
+        XCTAssertNil(SharedBackend.current, "a stopping VM must not accept new RPCs")
+        SharedBackend.start()
+        XCTAssertNil(SharedBackend.current, "do not publish a second VM before teardown completes")
+        await SharedBackend.stop()
+        XCTAssertFalse(SharedBackend.started)
 
         SharedBackend.start()
         let after = await SharedBackend.waitForStart(timeout: 180)
