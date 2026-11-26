@@ -69,7 +69,21 @@ if [ "$stage" != "host-base" ] && [ -z "$base_dir" ]; then
 fi
 
 work_dir="$(mktemp -d "${TMPDIR:-/tmp}/rivet-ios-racket.XXXXXX")"
-trap 'rm -rf "$work_dir"' EXIT
+cleanup() {
+  local status=$?
+  if [ "$status" -ne 0 ]; then
+    local diagnostics="$output/diagnostics/$stage"
+    mkdir -p "$diagnostics"
+    while IFS= read -r -d '' log; do
+      local relative="${log#"$work_dir"/}"
+      mkdir -p "$diagnostics/$(dirname "$relative")"
+      cp "$log" "$diagnostics/$relative"
+    done < <(find "$work_dir" -name config.log -type f -print0)
+    echo "=== Build failed; configure diagnostics: $diagnostics" >&2
+  fi
+  rm -rf "$work_dir"
+}
+trap cleanup EXIT
 
 if [ -z "$source_dir" ]; then
   archive="$work_dir/racket-minimal-$racket_version-src-builtpkgs.tgz"
@@ -102,7 +116,7 @@ fi
 base_racket="$base_dir/bin/racket"
 if [ "$stage" != "host-base" ]; then
   [ -x "$base_racket" ] || { echo "host-base racket not found: $base_racket" >&2; exit 1; }
-  [ -n "$scheme_dir" ] || [ -d "$scheme_dir" ] || { echo "Chez bootstrap dir not found under --base-dir: $base_dir" >&2; exit 1; }
+  [ -n "$scheme_dir" ] && [ -d "$scheme_dir" ] || { echo "Chez bootstrap dir not found under --base-dir: $base_dir" >&2; exit 1; }
 fi
 
 # Pinned Racket 9.3's libffi disables its existing Apple ARM64 Mach
@@ -289,6 +303,13 @@ ZUO
       mkdir -p "$build_dir"
       (
         cd "$build_dir"
+        # Pin compiler and target for both compilation and linking.
+        target="arm64-apple-ios$ios_min_version"
+        if [ "$stage" = "simulator" ]; then target="$target-simulator"; fi
+        compiler="$(xcrun -sdk "$sdk_name" --find clang)"
+        CC="$compiler -target $target" \
+        CFLAGS="-isysroot $sdk" \
+        LDFLAGS="-isysroot $sdk" \
         PKG_CONFIG_PATH="$libffi_prefix/lib/pkgconfig" \
         "$source_dir/src/configure" \
           --prefix="$(cd "$output" && pwd)" --enable-xonx \
