@@ -409,6 +409,40 @@ void launch_detached(std::filesystem::path const& attempt,
 
 }  // namespace
 
+[[noreturn]] void RelaunchInstalledAppImage(
+    std::filesystem::path const& appimage,
+    std::vector<std::string> arguments,
+    std::function<void()> release_lease) {
+  if (!appimage.is_absolute() || !std::filesystem::is_regular_file(appimage)) {
+    throw std::system_error(std::make_error_code(std::errc::invalid_argument),
+                            "AppImage must be an absolute existing file");
+  }
+  auto executable = appimage.string();
+  if (executable.find('\0') != std::string::npos) {
+    throw std::system_error(std::make_error_code(std::errc::invalid_argument),
+                            "AppImage path contains NUL");
+  }
+  for (auto const& argument : arguments) {
+    if (argument.find('\0') != std::string::npos) {
+      throw std::system_error(std::make_error_code(std::errc::invalid_argument),
+                              "AppImage argument contains NUL");
+    }
+  }
+  if (::access(executable.c_str(), X_OK) != 0) {
+    throw std::system_error(errno, std::generic_category(),
+                            "AppImage is not executable");
+  }
+  std::vector<char*> argv;
+  argv.reserve(arguments.size() + 2);
+  argv.push_back(executable.data());
+  for (auto& argument : arguments) argv.push_back(argument.data());
+  argv.push_back(nullptr);
+  if (release_lease) release_lease();
+  ::execv(executable.c_str(), argv.data());
+  throw std::system_error(errno, std::generic_category(),
+                          "could not relaunch installed AppImage");
+}
+
 std::optional<AppImageHandoff::Failure> AppImageHandoff::ConsumeFailure(
     std::string const& application_id) {
   auto const marker = newest_failure(update_root(application_id));
