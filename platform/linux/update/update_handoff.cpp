@@ -190,28 +190,16 @@ std::string handoff_script(std::string const& application_id,
   script += "  printf '%s\\n' \"$1\" > \"$RIVET_FAILURE\"\n";
   script += "  exit 1\n";
   script += "}\n";
-  // A missing owner PID means the lock is stale from a dead helper; a live
-  // owner means another handoff owns the installation right now.
+  // The detached helper owns the lock, not the exiting application.
+  // Use an advisory kernel lock on a stable inode; never unlink a live lock.
+  // Close fd 9 in the relaunched application so it cannot retain the lease.
   script += "rivet_lock_acquired() {\n";
-  script += "  if mkdir \"$RIVET_LOCK\" 2>/dev/null; then\n";
-  script += "    printf '%s\\n' \"$RIVET_OLD_PID\" > \"$RIVET_LOCK/pid\"\n";
-  script += "    return 0\n";
-  script += "  fi\n";
-  script += "  RIVET_OTHER=$(cat \"$RIVET_LOCK/pid\" 2>/dev/null)\n";
-  script += "  if [ -n \"$RIVET_OTHER\" ] && ! kill -0 \"$RIVET_OTHER\" "
-            "2>/dev/null; then\n";
-  script += "    rm -rf \"$RIVET_LOCK\"\n";
-  script += "    if mkdir \"$RIVET_LOCK\" 2>/dev/null; then\n";
-  script += "      printf '%s\\n' \"$RIVET_OLD_PID\" > \"$RIVET_LOCK/pid\"\n";
-  script += "      return 0\n";
-  script += "    fi\n";
-  script += "  fi\n";
-  script += "  return 1\n";
+  script += "  flock -n 9\n";
   script += "}\n";
+  script += "exec 9>\"$RIVET_LOCK.flock\" || rivet_fail lock-open-failed\n";
   script += "if ! rivet_lock_acquired; then\n";
   script += "  rivet_fail transaction-busy\n";
   script += "fi\n";
-  script += "trap 'rm -rf \"$RIVET_LOCK\"' EXIT\n";
   script += "# A previous handoff that died between the two renames must not\n";
   script += "# leave the launch path without an executable: bring the\n";
   script += "# installation back to a runnable state before starting.\n";
@@ -279,7 +267,7 @@ std::string handoff_script(std::string const& application_id,
   script += "fi\n";
   script += "rivet_write_journal installed\n";
   script += "rivet_write_journal restarting\n";
-  script += "\"$RIVET_TARGET\"" + arguments + " </dev/null &\n";
+  script += "\"$RIVET_TARGET\"" + arguments + " 9>&- </dev/null &\n";
   script += "RIVET_NEW_PID=$!\n";
   script += "rivet_write_journal restarted\n";
   script += "rivet_write_journal checking\n";
