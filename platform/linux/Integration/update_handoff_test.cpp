@@ -234,6 +234,39 @@ int main() {
   write_executable(old_appimage, old_payload);
   write_executable(new_appimage, replacement_payload);
 
+  // Hold the first transaction in its health-check window. The original
+  // launching process has exited, but a competing helper must still fail.
+  {
+    auto const slow = workspace / "slow.AppImage";
+    auto const ready = workspace / "replacement-ready";
+    write_executable(slow,
+        "#!/bin/sh\nprintf ready > \"$1\"\nsleep 8\n");
+    AppImageHandoffOptions first;
+    first.version = "2.0.0";
+    first.artifact_sha256 = sha256_of(slow);
+    first.settle_seconds = 4;
+    first.relaunch_arguments = {ready.string()};
+    auto const owner = launch_from_child(slow, old_appimage, first, 10, 0);
+    for (int n = 0; n < 100 && !std::filesystem::exists(ready); ++n) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+    assert(std::filesystem::exists(ready));
+    AppImageHandoffOptions second;
+    second.version = "3.0.0";
+    second.artifact_sha256 = digest;
+    second.settle_seconds = 1;
+    auto const competitor =
+        launch_from_child(new_appimage, old_appimage, second, 10, 0);
+    assert(wait_for_outcome(competitor, old_appimage, 30).failure ==
+           "transaction-busy");
+    assert(wait_for_outcome(owner, old_appimage, 30).failure.empty());
+    assert(read_text(old_appimage) == read_text(slow));
+  }
+
+  scratch_workspace();
+  write_executable(old_appimage, old_payload);
+  write_executable(new_appimage, replacement_payload);
+
   // Unhealthy replacement rolls back to the previous AppImage and records
   // the failure for the next launch.
   {
