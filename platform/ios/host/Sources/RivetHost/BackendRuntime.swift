@@ -87,6 +87,7 @@ enum SharedBackend {
 
     static func start() {
         guard backend == nil, !started else { return }
+        startupError = nil
         started = true
         // The VM boot blocks until the server thread is ready (tens of
         // seconds while core.zo loads); never block the calling thread —
@@ -134,11 +135,17 @@ enum SharedBackend {
     /// Nil means startup failed or did not become ready before the deadline.
     @MainActor
     static func waitForStart(timeout: TimeInterval = 180) async -> EmbeddedRacketBackend? {
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
+        guard timeout.isFinite, timeout > 0 else { return nil }
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(timeout))
+        while clock.now < deadline && !Task.isCancelled {
             if startupError != nil { return nil }
             if let running = backend, running.isReady { return running }
-            try? await Task.sleep(nanoseconds: 200_000_000)
+            do {
+                try await clock.sleep(until: min(deadline, clock.now.advanced(by: .milliseconds(200))))
+            } catch {
+                return nil
+            }
         }
         return nil
     }
