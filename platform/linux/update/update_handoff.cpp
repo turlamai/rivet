@@ -290,6 +290,7 @@ std::string handoff_script(std::string const& application_id,
   script += "  rm -f \"$RIVET_BACKUP\" \"$RIVET_EMPTY\"\n";
   script += "  rivet_write_journal committed\n";
   script += "  rm -f \"$RIVET_JOURNAL\"\n";
+  script += "  printf '%s\\n' committed > \"${RIVET_FAILURE%/*}/success.txt\"\n";
   script += "  exit 0\n";
   script += "fi\n";
   script += "if [ " +
