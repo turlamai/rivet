@@ -109,7 +109,7 @@ enum SharedBackend {
                 // queue until the boot completes.
                 await MainActor.run {
                     SharedBackend.backend = started_backend
-                    ApplicationDelegate.orderlyShutdown = { started_backend.stop() }
+                    ApplicationDelegate.orderlyShutdown = { SharedBackend.stop() }
                 }
                 try started_backend.start()
             } catch {
@@ -121,10 +121,15 @@ enum SharedBackend {
         }
     }
 
+    // Never enter the synchronous native stop path while startup is in
+    // flight. A boot stuck inside Chez cannot be interrupted safely.
+    // Retain ownership and prohibit a second process-scoped VM.
     static func stop() {
-        backend?.stop()
+        guard let running = backend, running.isReady else { return }
+        running.stop()
         backend = nil
         started = false
+        ApplicationDelegate.orderlyShutdown = nil
     }
 
     static var current: EmbeddedRacketBackend? { backend }
