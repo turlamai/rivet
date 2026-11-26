@@ -14,12 +14,30 @@ import RivetRuntime
 /// documented initial value).
 @MainActor
 final class BackendSmokeTests: XCTestCase {
+    func testInvalidAndCancelledReadinessWaitsFailClosed() async {
+        for timeout in [0.0, -1.0, Double.infinity, Double.nan] {
+            let result = await SharedBackend.waitForStart(timeout: timeout)
+            XCTAssertNil(result, "invalid deadlines must not return a backend")
+        }
+
+        // This task inherits MainActor. Cancel before yielding so the
+        // cancellation is deterministic even when the host is already ready.
+        let wait = Task {
+            await SharedBackend.waitForStart(timeout: 180)
+        }
+        wait.cancel()
+        let result = await wait.value
+        XCTAssertNil(result, "cancelled readiness waits must fail closed")
+    }
+
     func testBackendBootsAndServesContract() async throws {
         SharedBackend.start()
         let maybeBackend = await SharedBackend.waitForStart()
         let backend = try XCTUnwrap(maybeBackend,
                                     "embedded VM did not become ready within 180s; startup error: \(String(describing: SharedBackend.lastError))")
         XCTAssertTrue(backend.isReady, "do not issue RPCs before the embedded VM is serving")
+        SharedBackend.start()
+        XCTAssertTrue(SharedBackend.current === backend, "start must preserve the single VM owner")
         let api = RivetAPI(client: backend.client)
 
         let greeting = try await api.greet(name: "iOS")
