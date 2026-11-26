@@ -305,6 +305,28 @@ int main() {
     assert(read_text(old_appimage) == "#!/bin/sh\nexit 1\n");
   }
 
+  // A prior no-rollback failure is unresolved. A new transaction must not
+  // discard its original backup, overwrite the journal, or silently restore it.
+  {
+    auto const backup = std::filesystem::path(old_appimage.string() + ".rivet-backup");
+    auto const journal = journal_for(old_appimage);
+    auto const previous_journal = read_text(journal);
+    auto const previous_target = read_text(old_appimage);
+    assert(!previous_journal.empty());
+    assert(read_text(backup) == old_payload);
+    AppImageHandoffOptions options;
+    options.version = "3.0.0";
+    options.artifact_sha256 = digest;
+    auto const child = launch_from_child(new_appimage, old_appimage, options, 10, 0);
+    assert(wait_for_outcome(child, old_appimage, 30).failure == "recovery-required");
+    assert(read_text(backup) == old_payload);
+    assert(read_text(journal) == previous_journal);
+    assert(read_text(old_appimage) == previous_target);
+    // Test fixture reset only; production must use explicit recovery.
+    std::filesystem::remove(backup);
+    std::filesystem::remove(journal);
+  }
+
   scratch_workspace();
   write_executable(old_appimage, old_payload);
   write_executable(new_appimage, replacement_payload);
@@ -322,6 +344,8 @@ int main() {
     assert(read_text(old_appimage) == old_payload);
   }
 
+  // Reset the intentionally failed transaction before the independent test.
+  std::filesystem::remove(journal_for(old_appimage));
   scratch_workspace();
   write_executable(old_appimage, old_payload);
   write_executable(new_appimage, replacement_payload);
