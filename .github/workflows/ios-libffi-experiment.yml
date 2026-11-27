@@ -128,6 +128,13 @@ jobs:
           xcrun simctl boot "$device"
           xcrun simctl bootstatus "$device" -b
           toolchain="$RUNNER_TEMP/rivet-ios-pb"
+          # Each invocation launches a separate hosted app process. The first
+          # suite retires its VM; the second must boot a fresh VM and serve RPC.
+          for phase in initial relaunch; do
+            args=()
+            if [[ "$phase" == relaunch ]]; then
+              args+=("-only-testing:RivetHostTests/BackendSmokeTests/testBackendBootsAndServesContract")
+            fi
           xcodebuild \
             -project platform/ios/host/project.xcodeproj \
             -scheme RivetHostTests \
@@ -135,20 +142,21 @@ jobs:
             -destination "platform=iOS Simulator,id=$device" \
             -configuration Debug \
             -derivedDataPath "$RUNNER_TEMP/rivet-ios-derived" \
-            -resultBundlePath "$RUNNER_TEMP/rivet-ios-simulator.xcresult" \
+            -resultBundlePath "$RUNNER_TEMP/rivet-ios-simulator-$phase.xcresult" \
             -parallel-testing-enabled NO \
             ARCHS=arm64 \
             "RIVET_IOS_RACKET_LIB_DIR=$toolchain/simulator/lib" \
             "OTHER_CFLAGS=-I$toolchain/simulator/include" \
             CODE_SIGNING_ALLOWED=NO \
-            test
-          echo "Clean simulator served actual RVT1 Hello, typed RPC and restart."
+            "${args[@]}" test
+          done
+          echo "Independent hosted test launches served real RVT1; terminal teardown verified."
       - name: Preserve actual simulator diagnostics
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ios-pb-simulator-evidence
           path: |
-            ${{ runner.temp }}/rivet-ios-simulator.xcresult
+            ${{ runner.temp }}/rivet-ios-simulator-*.xcresult
             ${{ runner.temp }}/rivet-ios-pb/*/diagnostics/
           if-no-files-found: warn
