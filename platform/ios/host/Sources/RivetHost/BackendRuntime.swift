@@ -83,12 +83,17 @@ enum BackendRuntimeError: Error, CustomStringConvertible {
 enum SharedBackend {
     private static var backend: EmbeddedRacketBackend?
     private static var startupError: Error?
+    // A second racket_boot in the same iOS process crashed in CI 45930838481.
+    // The process owns exactly one boot attempt; fresh boots require a fresh process.
+    private static var bootAttempted = false
+    private(set) static var retired = false
     private static var stopping = false
     private static var stopTask: Task<Void, Never>?
     private(set) static var started = false
 
     static func start() {
-        guard backend == nil, !started, !stopping else { return }
+        guard backend == nil, !started, !stopping, !bootAttempted else { return }
+        bootAttempted = true
         startupError = nil
         started = true
         // The VM boot blocks until the server thread is ready (tens of
@@ -118,6 +123,7 @@ enum SharedBackend {
                 await MainActor.run {
                     SharedBackend.startupError = error
                     SharedBackend.started = false
+                    SharedBackend.retired = true
                 }
             }
         }
@@ -136,6 +142,7 @@ enum SharedBackend {
             await Task.detached { running.stop() }.value
             backend = nil
             started = false
+            retired = true
             stopping = false
             stopTask = nil
         }
@@ -158,7 +165,7 @@ enum SharedBackend {
         let clock = ContinuousClock()
         let deadline = clock.now.advanced(by: .seconds(timeout))
         while clock.now < deadline && !Task.isCancelled {
-            if startupError != nil || stopping { return nil }
+            if startupError != nil || stopping || retired { return nil }
             if let running = backend, running.isReady { return running }
             do {
                 try await clock.sleep(until: min(deadline, clock.now.advanced(by: .milliseconds(200))))
