@@ -23,7 +23,7 @@
     ;; Ed25519 — the package builder's OpenSSL and verify-only embedded
     ;; processes both qualify. Floor is the lowest version this suite covers.
     ["ed25519" #:version "0.1"]
-    ["keel" #:version "0.3.1"]
+    ["keel" #:version "0.4"]
     "net-lib"))
 
 (define build-deps

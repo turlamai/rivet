@@ -7,6 +7,8 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- Reuse Keel 0.4 SemVer precedence (new minimum dependency), correcting numeric-like alphanumeric prerelease ordering while retaining Rivet channel policy, argument errors, JSON feeds and native installer handoff policy.
+
 ### Changed
 
 - Internal: the Windows and Linux embedded-backend implementations no longer
