@@ -1,0 +1,162 @@
+name: Experimental iOS libffi and pb simulator
+
+# An actual iOS Simulator XCTest, not a substitute macOS Swift unit test.
+# This intentionally fails until the pinned pb runtime can boot, serve RVT1
+# Hello/typed RPC, and restart. Device signing/Release remain separate gates.
+on:
+  pull_request:
+    branches: [feat/mobile-hosts]
+    paths:
+      - 'platform/ios/**'
+      - '.github/workflows/ios-libffi-experiment.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-libffi-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  backend-bytecode:
+    name: Build the actual Racket backend with Linux pb compiler
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build pinned pb compiler and bundle executable backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          toolchain="$RUNNER_TEMP/rivet-ios-pb"
+          bash platform/ios/build-embedded-racket.sh \
+            --stage host-base --output "$toolchain/host-base" --jobs 4
+          bash platform/ios/build-embedded-racket.sh \
+            --stage host-compiler --output "$toolchain/host-compiler" \
+            --base-dir "$toolchain/host-base" --jobs 4
+          pb_raco="$toolchain/host-compiler/bin/raco"
+          "$pb_raco" pkg install --auto --no-docs --name rivet --link "$GITHUB_WORKSPACE"
+          # racket_embedded_load_file registers the bundled module under its
+          # source basename; the generated host requires the symbol backend.
+          fixture="$RUNNER_TEMP/ios-fixture/backend.rkt"
+          mkdir -p "$(dirname "$fixture")"
+          cp "$GITHUB_WORKSPACE/platform/ios/tests/simulator-backend.rkt" "$fixture"
+          mkdir -p "$RUNNER_TEMP/ios-backend"
+          "$pb_raco" make "$fixture"
+          "$pb_raco" ctool --mods "$RUNNER_TEMP/ios-backend/core.zo" "$fixture"
+          test -s "$RUNNER_TEMP/ios-backend/core.zo"
+      - name: Transfer pb bundle to Apple simulator
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ios-pb-backend
+          path: ${{ runner.temp }}/ios-backend/core.zo
+          if-no-files-found: error
+
+  simulator-toolchain:
+    name: Apple ARM64 pb runtime + real iOS Simulator Hello/RPC/restart
+    needs: backend-bytecode
+    # macos-15-arm64 remained queued for many hours on this repository.
+    # Use the hosted macos-latest pool and assert arm64 before any cross build.
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ios-pb-backend
+          path: ${{ runner.temp }}/ios-backend
+      - name: Validate Apple libffi patch syntax
+        shell: bash
+        run: bash -n platform/ios/build-embedded-racket.sh
+      - name: Cross-build pinned Racket CS simulator archive and stage runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = arm64
+          toolchain="$RUNNER_TEMP/rivet-ios-pb"
+          bash platform/ios/build-embedded-racket.sh \
+            --stage host-base --output "$toolchain/host-base" --jobs 4
+          bash platform/ios/build-embedded-racket.sh \
+            --stage simulator --output "$toolchain/simulator" \
+            --base-dir "$toolchain/host-base" --jobs 4
+          test -s "$toolchain/simulator/lib/libracketcs.a"
+          host="$GITHUB_WORKSPACE/platform/ios/host"
+          mkdir -p "$host/runtime" "$host/res"
+          cp "$toolchain/simulator/runtime/"*.boot "$host/runtime/"
+          cp "$RUNNER_TEMP/ios-backend/core.zo" "$host/res/core.zo"
+          for boot in petite scheme racket; do
+            test -s "$host/runtime/$boot.boot"
+          done
+          test -s "$host/res/core.zo"
+      - name: Resolve Swift package from the exact tested checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          project = Path("platform/ios/host/project.xcodeproj/project.pbxproj")
+          text = project.read_text()
+          pattern = r'isa = XCRemoteSwiftPackageReference;\s*repositoryURL = "https://github\.com/turlamai/rivet\.git";\s*requirement = \{\s*kind = branch;\s*branch = feat/mobile-hosts;\s*\};'
+          text, count = re.subn(pattern, 'isa = XCLocalSwiftPackageReference;\n\t\t\trelativePath = ../../..;', text)
+          if count != 1:
+              raise SystemExit("expected exactly one experimental Rivet package reference")
+          text = text.replace('XCRemoteSwiftPackageReference', 'XCLocalSwiftPackageReference')
+          project.write_text(text)
+          PY
+          test -f Package.swift
+          plutil -lint platform/ios/host/project.xcodeproj/project.pbxproj
+      - name: Boot clean iOS Simulator and require real RVT1 XCTest
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Select an actual iPhone Simulator from Xcode's installed runtimes.
+          device="$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          groups = json.load(sys.stdin)["devices"]
+          choices = [d["udid"] for runtime, devices in groups.items()
+                     if "iOS" in runtime
+                     for d in devices
+                     if d.get("isAvailable", True) and d["name"].startswith("iPhone")]
+          print(choices[0] if choices else "")
+          ')"
+          if [[ -z "$device" ]]; then
+            echo "no installed iOS iPhone Simulator available on this runner" >&2
+            exit 1
+          fi
+          xcrun simctl boot "$device"
+          xcrun simctl bootstatus "$device" -b
+          toolchain="$RUNNER_TEMP/rivet-ios-pb"
+          # Each invocation launches a separate hosted app process. The first
+          # suite retires its VM; the second must boot a fresh VM and serve RPC.
+          for phase in initial relaunch; do
+            args=(test)
+            if [[ "$phase" == relaunch ]]; then
+              args+=("-only-testing:RivetHostTests/BackendSmokeTests/testBackendBootsAndServesContract")
+            fi
+          xcodebuild \
+            -project platform/ios/host/project.xcodeproj \
+            -scheme RivetHostTests \
+            -sdk iphonesimulator \
+            -destination "platform=iOS Simulator,id=$device" \
+            -configuration Debug \
+            -derivedDataPath "$RUNNER_TEMP/rivet-ios-derived" \
+            -resultBundlePath "$RUNNER_TEMP/rivet-ios-simulator-$phase.xcresult" \
+            -parallel-testing-enabled NO \
+            ARCHS=arm64 \
+            "RIVET_IOS_RACKET_LIB_DIR=$toolchain/simulator/lib" \
+            "OTHER_CFLAGS=-I$toolchain/simulator/include" \
+            CODE_SIGNING_ALLOWED=NO \
+            "${args[@]}"
+          done
+          echo "Independent hosted test launches served real RVT1; terminal teardown verified."
+      - name: Preserve actual simulator diagnostics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ios-pb-simulator-evidence
+          path: |
+            ${{ runner.temp }}/rivet-ios-simulator-*.xcresult
+            ${{ runner.temp }}/rivet-ios-pb/*/diagnostics/
+          if-no-files-found: warn

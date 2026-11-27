@@ -32,7 +32,7 @@ let package = Package(
             targets: ["RivetDeviceAppleTransport"]
         ),
         .library(name: "RivetWatchConnectivity", targets: ["RivetWatchConnectivity"]),
-        .library(name: "RivetEmbedding", targets: ["RivetEmbedding"]),
+        .library(name: "RivetEmbedding", type: .static, targets: ["RivetEmbedding"]),
         .library(name: "RivetSystem", targets: ["RivetSystem"]),
         .library(name: "RivetUpdate", targets: ["RivetUpdate"]),
         .library(name: "RivetUI", targets: ["RivetUI"])
