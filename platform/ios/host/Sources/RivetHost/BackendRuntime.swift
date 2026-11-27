@@ -83,10 +83,13 @@ enum BackendRuntimeError: Error, CustomStringConvertible {
 enum SharedBackend {
     private static var backend: EmbeddedRacketBackend?
     private static var startupError: Error?
+    private static var stopping = false
+    private static var stopTask: Task<Void, Never>?
     private(set) static var started = false
 
     static func start() {
-        guard backend == nil, !started else { return }
+        guard backend == nil, !started, !stopping else { return }
+        startupError = nil
         started = true
         // The VM boot blocks until the server thread is ready (tens of
         // seconds while core.zo loads); never block the calling thread —
@@ -108,7 +111,7 @@ enum SharedBackend {
                 // queue until the boot completes.
                 await MainActor.run {
                     SharedBackend.backend = started_backend
-                    ApplicationDelegate.orderlyShutdown = { started_backend.stop() }
+                    ApplicationDelegate.orderlyShutdown = { SharedBackend.requestStop() }
                 }
                 try started_backend.start()
             } catch {
@@ -120,26 +123,50 @@ enum SharedBackend {
         }
     }
 
-    static func stop() {
-        backend?.stop()
-        backend = nil
-        started = false
+    // Never enter the synchronous native stop path while startup is in
+    // flight. A boot stuck inside Chez cannot be interrupted safely.
+    // Retain ownership and prohibit a second process-scoped VM.
+    static func requestStop() {
+        guard !stopping, let running = backend, running.isReady else { return }
+        stopping = true
+        ApplicationDelegate.orderlyShutdown = nil
+        stopTask = Task {
+            // Keep the main actor responsive and retain the sole VM owner
+            // until the native thread actually exits.
+            await Task.detached { running.stop() }.value
+            backend = nil
+            started = false
+            stopping = false
+            stopTask = nil
+        }
     }
 
-    static var current: EmbeddedRacketBackend? { backend }
+    static func stop() async {
+        requestStop()
+        await stopTask?.value
+    }
 
-    /// Waits (bounded) for the detached boot to finish AND the embedded
-    /// VM to reach its serving state, returning the running backend — or
-    /// nil when startup failed (see `lastError`).
+    static var current: EmbeddedRacketBackend? { stopping ? nil : backend }
+
+    /// Waits (bounded) until the detached VM reaches serving state.
+    /// Never expose a merely allocated backend after a boot timeout: doing
+    /// so makes clients issue RPCs into a VM that may be stuck in libffi.
+    /// Nil means startup failed or did not become ready before the deadline.
     @MainActor
     static func waitForStart(timeout: TimeInterval = 180) async -> EmbeddedRacketBackend? {
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if let error = startupError { _ = error; return nil }
+        guard timeout.isFinite, timeout > 0 else { return nil }
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(timeout))
+        while clock.now < deadline && !Task.isCancelled {
+            if startupError != nil || stopping { return nil }
             if let running = backend, running.isReady { return running }
-            try? await Task.sleep(nanoseconds: 200_000_000)
+            do {
+                try await clock.sleep(until: min(deadline, clock.now.advanced(by: .milliseconds(200))))
+            } catch {
+                return nil
+            }
         }
-        return backend
+        return nil
     }
     static var lastError: Error? { startupError }
 }
