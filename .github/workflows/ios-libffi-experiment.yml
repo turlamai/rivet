@@ -37,7 +37,11 @@ jobs:
             --base-dir "$toolchain/host-base" --jobs 4
           pb_raco="$toolchain/host-compiler/bin/raco"
           "$pb_raco" pkg install --auto --no-docs --name rivet --link "$GITHUB_WORKSPACE"
-          fixture="$GITHUB_WORKSPACE/platform/ios/tests/simulator-backend.rkt"
+          # racket_embedded_load_file registers the bundled module under its
+          # source basename; the generated host requires the symbol backend.
+          fixture="$RUNNER_TEMP/ios-fixture/backend.rkt"
+          mkdir -p "$(dirname "$fixture")"
+          cp "$GITHUB_WORKSPACE/platform/ios/tests/simulator-backend.rkt" "$fixture"
           mkdir -p "$RUNNER_TEMP/ios-backend"
           "$pb_raco" make "$fixture"
           "$pb_raco" ctool --mods "$RUNNER_TEMP/ios-backend/core.zo" "$fixture"
