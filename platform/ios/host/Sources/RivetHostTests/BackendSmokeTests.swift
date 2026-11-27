@@ -33,6 +33,10 @@ final class BackendSmokeTests: XCTestCase {
         XCTAssertTrue(SharedBackend.current === backend, "start must preserve the single VM owner")
         let api = RivetAPI(client: backend.client)
 
+        // Both initial and relaunch invocations must see fresh in-memory state.
+        let initial = try await api.get_counter()
+        XCTAssertEqual(initial, 0, "a fresh process must not retain the previous VM counter")
+
         let greeting = try await api.greet(name: "iOS")
         XCTAssertEqual(greeting, "Hello, iOS!")
 
