@@ -131,7 +131,7 @@ jobs:
           # Each invocation launches a separate hosted app process. The first
           # suite retires its VM; the second must boot a fresh VM and serve RPC.
           for phase in initial relaunch; do
-            args=()
+            args=(test)
             if [[ "$phase" == relaunch ]]; then
               args+=("-only-testing:RivetHostTests/BackendSmokeTests/testBackendBootsAndServesContract")
             fi
@@ -148,7 +148,7 @@ jobs:
             "RIVET_IOS_RACKET_LIB_DIR=$toolchain/simulator/lib" \
             "OTHER_CFLAGS=-I$toolchain/simulator/include" \
             CODE_SIGNING_ALLOWED=NO \
-            "${args[@]}" test
+            "${args[@]}"
           done
           echo "Independent hosted test launches served real RVT1; terminal teardown verified."
       - name: Preserve actual simulator diagnostics
