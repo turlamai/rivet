@@ -1,0 +1,15 @@
+{
+  "originHash" : "f897a67d90b4f509823b945569c77653a1cdb86f4c0996825581e85a3327f677",
+  "pins" : [
+    {
+      "identity" : "rivet",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/turlamai/rivet.git",
+      "state" : {
+        "revision" : "b293385aa9321294b6278954c4a912083a102815",
+        "version" : "0.15.1"
+      }
+    }
+  ],
+  "version" : 3
+}

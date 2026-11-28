@@ -374,18 +374,22 @@ private func helloFrame() throws -> Data {
     )
     let running = Task { try await server.run() }
 
-    for _ in 0..<2_000 {
+    // Wait for the specific rejection, not a scheduler-dependent number
+    // of yields. Always shut down the server before asserting the result.
+    let clock = ContinuousClock()
+    let deadline = clock.now.advanced(by: .seconds(10))
+    while clock.now < deadline {
         if await stream.sentCount() >= 2 { break }
-        await Task.yield()
+        try await clock.sleep(for: .milliseconds(10))
     }
     let sent = try await stream.sentFrames()
+    let starts = await host.startCount()
+    await stream.enqueue(try encodedFrame(RivetFrame(type: .shutdown, id: 0)))
+    try await running.value
     let rejected = try #require(sent.first(where: { $0.id == 65 }))
     #expect(rejected.type == .error)
     #expect(try decodeRivetValue(rejected.payload) == .string("too many pending requests"))
-    #expect(await host.startCount() <= rivetDeviceDefaultMaximumPendingRequests)
-
-    await stream.enqueue(try encodedFrame(RivetFrame(type: .shutdown, id: 0)))
-    try await running.value
+    #expect(starts <= rivetDeviceDefaultMaximumPendingRequests)
     #expect(await gateway.sessionCount() == 0)
 }
 

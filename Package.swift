@@ -40,7 +40,7 @@ let package = Package(
             name: "RivetDeviceAppleCompanionUI",
             targets: ["RivetDeviceAppleCompanionUI"]
         ),
-        .library(name: "RivetEmbedding", targets: ["RivetEmbedding"]),
+        .library(name: "RivetEmbedding", type: .static, targets: ["RivetEmbedding"]),
         .library(name: "RivetSystem", targets: ["RivetSystem"]),
         .library(name: "RivetUpdate", targets: ["RivetUpdate"]),
         .library(name: "RivetUI", targets: ["RivetUI"])

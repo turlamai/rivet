@@ -185,6 +185,10 @@
      (define build-project! (command "build" 'build-project!))
      (define output (build-project! (current-project!)))
      (say "built ~a" output)]
+    [(list "build" "--ios")
+     (define build-project! (command "build" 'build-project!))
+     (define output (build-project! (current-project!) #:ios? #t))
+     (say "built ~a" output)]
     [(list "dev")
      (define dev-project! (command "build" 'dev-project!))
      (dev-project! (current-project!))]
