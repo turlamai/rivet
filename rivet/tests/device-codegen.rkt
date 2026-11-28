@@ -51,6 +51,9 @@
 (define-rpc (raw-value [value : Any] : Any)
   value)
 
+(define-rpc (device-echo [value : String] : String)
+  value)
+
 (define (start in-fd out-fd)
   (serve-fds in-fd out-fd))
 RKT
@@ -147,7 +150,38 @@ RKT
                (lambda () (schema-snapshot (load-project project-root))))
     (set-device-rpcs! '(missing-rpc))
     (check-exn #rx"does not declare"
-               (lambda () (generate-clients! (load-project project-root)))))
+               (lambda () (generate-clients! (load-project project-root))))
+
+    ;; Issue #489: the same allowlist also drives a typed RVT1 network-channel
+    ;; surface over RivetDeviceAppleRVT1Client. v1 covers the closed scalar
+    ;; tag set; RPCs needing Record/Enum/Optional/List are listed in a
+    ;; comment instead of drifting silently, and the whole surface hides
+    ;; behind canImport so hosts without the transport module skip it.
+    (set-device-rpcs! '(fetch-profile refresh device-echo))
+    (generate-clients! (load-project project-root))
+    (define rvt1-swift
+      (file->string
+       (build-path project-root "macos-host" "Sources" "RivetHost"
+                   "GeneratedBackend.swift")))
+    (for ([fragment (in-list
+                     '("#if canImport(RivetDeviceAppleTransport)"
+                       "import RivetDeviceAppleTransport"
+                       "private func rivetRVT1Data(_ value: RivetValue) throws -> Data"
+                       "public extension RivetDeviceAppleRVT1Client"
+                       "func device_echo(value: String) async throws -> String"
+                       "try rivetRVT1String(try await call(\"device-echo\", arguments: [.string(value)]))"
+                       "func refresh() async throws {"
+                       "_ = try await call(\"refresh\")"
+                       "Not yet covered by the RVT1 scalar surface"
+                       "// - fetch-profile"
+                       "#endif"))])
+      (check-true (string-contains? rvt1-swift fragment) fragment))
+    ;; The skip comment is the only trace of fetch-profile in the RVT1
+    ;; block; its typed method stays WC-only until the second batch.
+    (define rvt1-block
+      (cadr (regexp-split #rx"#if canImport\\(RivetDeviceAppleTransport\\)"
+                          rvt1-swift)))
+    (check-false (string-contains? rvt1-block "func fetch_profile")))
   (lambda ()
     (when (directory-exists? temp-root)
       (delete-directory/files temp-root))))

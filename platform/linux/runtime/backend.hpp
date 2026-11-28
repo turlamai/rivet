@@ -1,64 +1,27 @@
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
-#include <exception>
-#include <functional>
-#include <future>
 #include <memory>
-#include <optional>
 #include <string>
 #include <utility>
-#include <vector>
 
+#include "rivet/detail/embedded_backend.hpp"
 #include "rivet/diagnostics.hpp"
 #include "rivet/protocol.hpp"
 
 namespace rivet::linux_runtime {
 
-struct RacketRuntimeConfig {
-  std::string executable_path;
-  std::string petite_boot;
-  std::string scheme_boot;
-  std::string racket_boot;
-  std::string backend_bundle;
-  std::string collects_dir;
-  std::string config_dir;
-  std::string module_name{"backend"};
-  std::string entry_symbol{"start"};
-  std::size_t max_pending_requests{1024};
-  DiagnosticSink diagnostic_sink{default_diagnostic_sink()};
-};
+// The runtime config and call types are shared with every embedded host; the
+// platform namespace keeps the names downstream GTK code already uses. The
+// Windows-only dll_dir field of the shared config is ignored here.
+using RacketRuntimeConfig = detail::EmbeddedRuntimeConfig;
+using PendingCall = detail::PendingCall;
+using CallResult = detail::CallResult;
+using CompletionHandler = detail::CompletionHandler;
+using EventHandler = detail::EventHandler;
 
-struct PendingCall {
-  std::uint64_t id{};
-  std::future<Value> result;
-};
-
-struct CallResult {
-  std::optional<Value> value;
-  std::exception_ptr error;
-
-  bool succeeded() const noexcept { return value.has_value() && !error; }
-};
-
-using CompletionHandler = std::function<void(CallResult)>;
-using EventHandler = std::function<void(std::string const&, Value const&)>;
-
-// Owns one embedded Racket CS instance and its RVT1 transport.
-//
-// Threading contract (mirrors rivet::windows::Backend):
-//   * start()/stop()/request()/request_async()/cancel() may be used by the UI
-//     layer.
-//   * Racket CS is booted and entered on a dedicated worker thread.
-//   * one reader thread resolves native futures and receives RPC completions.
-//   * completion handlers are not UI-thread-affine: normal replies run them on
-//     the reader thread, while immediate submission/shutdown failures can run
-//     them on the initiating/shutdown thread. Always dispatch before touching
-//     GTK objects.
-//   * event handlers run on the reader thread and require the same UI dispatch.
-//   * completion/event handler exceptions are isolated from the transport loop.
-//   * no Racket value crosses either native thread boundary.
+// Owns one embedded Racket CS instance and its RVT1 transport over an
+// AF_UNIX socketpair. The threading contract is the one documented on
+// rivet::detail::EmbeddedBackendCore.
 class Backend final {
  public:
   explicit Backend(RacketRuntimeConfig config);
@@ -114,8 +77,7 @@ class Backend final {
   void set_event_handler(EventHandler handler);
 
  private:
-  class Impl;
-  std::unique_ptr<Impl> impl_;
+  std::unique_ptr<detail::EmbeddedBackendCore> impl_;
 };
 
 }  // namespace rivet::linux_runtime

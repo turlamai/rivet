@@ -29,6 +29,10 @@
     <ClCompile Include="$(RivetSourceRoot)platform\windows\device\schannel_transport.cpp" />
     <ClCompile Include="$(RivetSourceRoot)platform\windows\runtime\backend.cpp" />
     <ClCompile Include="$(RivetSourceRoot)platform\windows\runtime\win32_pipe_transport.cpp" />
+    <!-- Embedded-backend core shared with the Linux runtime; it includes the
+         Racket CS C API, so the portable rivet_protocol library does not own
+         it (issue #238 packaged-consumption path compiles it here). -->
+    <ClCompile Include="$(RivetSourceRoot)runtime\src\embedded_backend.cpp" />
     <ClCompile Include="$(RivetSourceRoot)platform\windows\system\system_services.cpp" />
     <ClCompile Include="$(RivetSourceRoot)platform\windows\update\update_handoff.cpp" />
     <ClCompile Include="$(RivetSourceRoot)runtime\src\device_session.cpp" />

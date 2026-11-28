@@ -10,11 +10,25 @@ namespace rivet::update {
 
 enum class LinuxInstallKind { appimage, package_manager, portable };
 
-// Mirrors rivet/distribution's installation policy for GTK hosts that need to
-// choose localized UI before asking the backend to download anything.
-LinuxInstallKind DetectLinuxInstallKind(
+// Conservative native UI hint. The backend's package-ownership probe and
+// authenticated installer policy remain authoritative.
+inline LinuxInstallKind DetectLinuxInstallKind(
     std::filesystem::path const& executable,
-    char const* appimage_environment = nullptr);
+    char const* appimage_environment = nullptr) {
+  if (appimage_environment != nullptr &&
+      std::string(appimage_environment).find_first_not_of(" \t\r\n\f\v") !=
+          std::string::npos) {
+    return LinuxInstallKind::appimage;
+  }
+  auto const path = executable.lexically_normal().generic_string();
+  for (char const* root : {"/opt", "/usr", "/app", "/snap", "/nix/store"}) {
+    std::string const prefix(root);
+    if (path == prefix || path.rfind(prefix + "/", 0) == 0) {
+      return LinuxInstallKind::package_manager;
+    }
+  }
+  return LinuxInstallKind::portable;
+}
 
 // Relaunches the AppImage that rivet/distribution has already authenticated
 // and atomically installed. `release_lease` runs immediately before exec so a

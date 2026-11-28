@@ -101,18 +101,18 @@ Rivet 会自动完成：编译 Racket 后端、生成 native client、构建当�
 app/backend.rkt
 ```
 
-脚手架已经包含 Event 和 State：
+脚手架已经包含 Event、State，以及两个 RPC（`greet` 和 `notify`）：
 
 ```racket
 (define-event notification : String)
 (define-state counter : Int64 0)
 ```
 
-可以加入一个类型化 RPC：
+在它们旁边加一个新的类型化 RPC（重复声明 `greet` 会报 `identifier already defined`）：
 
 ```racket
-(define-rpc (greet [name : String] : String)
-  (format "Hello, ~a!" name))
+(define-rpc (exclaim [text : String] : String)
+  (format "~a!" text))
 ```
 
 保存后再次运行：

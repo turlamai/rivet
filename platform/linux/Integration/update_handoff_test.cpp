@@ -1,5 +1,6 @@
 #include "update_handoff.hpp"
 
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -129,9 +130,14 @@ Outcome wait_for_outcome(pid_t child, std::filesystem::path const& target,
   for (;;) {
     auto const failure = *attempt / "failure.txt";
     if (std::filesystem::is_regular_file(failure)) {
-      return Outcome{*attempt, read_text(failure)};
+      auto message = read_text(failure);
+      if (!message.empty() && message.back() == '\n') {
+        message.pop_back();
+        return Outcome{*attempt, message};
+      }
     }
-    if (!std::filesystem::is_regular_file(journal_for(target))) {
+    if (read_text(*attempt / "success.txt") == "committed\n" &&
+        !std::filesystem::is_regular_file(journal_for(target))) {
       return Outcome{*attempt, std::string()};
     }
     if (std::chrono::steady_clock::now() > deadline) {
@@ -151,6 +157,10 @@ int main() {
          LinuxInstallKind::package_manager);
   assert(DetectLinuxInstallKind("/usr/bin/example", "") ==
          LinuxInstallKind::package_manager);
+  assert(DetectLinuxInstallKind("/app/bin/RivetHost", "") ==
+         LinuxInstallKind::package_manager);
+  assert(DetectLinuxInstallKind("/optical/RivetHost", "  ") ==
+         LinuxInstallKind::portable);
   assert(DetectLinuxInstallKind("./RivetHost", "") ==
          LinuxInstallKind::portable);
 
@@ -163,10 +173,46 @@ int main() {
   auto const old_appimage = workspace / "old.AppImage";
   auto const new_appimage = workspace / "new.AppImage";
   std::string const old_payload = "#!/bin/sh\nsleep 4\n";
-  std::string const replacement_payload = "#!/bin/sh\nsleep 4\n";
+  std::string const replacement_payload = "#!/bin/sh\n# replacement version\nsleep 4\n";
   write_executable(old_appimage, old_payload);
   write_executable(new_appimage, replacement_payload);
   auto const digest = sha256_of(new_appimage);
+
+  // A successful exec must preserve argument boundaries and release the
+  // single-instance lease before the new process begins executing.
+  {
+    auto const probe = workspace / "relaunch probe.AppImage";
+    auto const receipt = workspace / "relaunch-receipt";
+    auto const lease = workspace / "lease-released";
+    write_executable(probe,
+        "#!/bin/sh\n[ -f \"$2\" ] || exit 10\n"
+        "printf '%s\\n' \"$3\" \"$4\" > \"$1\"\n");
+    auto const child = ::fork();
+    assert(child >= 0);
+    if (child == 0) {
+      try {
+        rivet::update::RelaunchInstalledAppImage(
+            probe, {receipt.string(), lease.string(), "with spaces", "$literal"},
+            [&] { std::ofstream marker(lease); marker << "released"; });
+      } catch (...) {
+        ::_exit(11);
+      }
+    }
+    int status = 0;
+    assert(::waitpid(child, &status, 0) == child);
+    assert(WIFEXITED(status) && WEXITSTATUS(status) == 0);
+    assert(read_text(receipt) == "with spaces\n$literal\n");
+
+    bool released = false;
+    bool rejected = false;
+    try {
+      rivet::update::RelaunchInstalledAppImage(
+          workspace / "missing.AppImage", {}, [&] { released = true; });
+    } catch (std::system_error const&) {
+      rejected = true;
+    }
+    assert(rejected && !released);
+  }
 
   // Successful handoff: the replacement survives the settle window, the
   // backup is gone, no failure marker remains, and the target now holds the
@@ -182,6 +228,39 @@ int main() {
     assert(read_text(old_appimage) == replacement_payload);
     assert(!std::filesystem::exists(old_appimage.string() + ".rivet-backup"));
     assert(!std::filesystem::exists(outcome.attempt / "failure.txt"));
+  }
+
+  scratch_workspace();
+  write_executable(old_appimage, old_payload);
+  write_executable(new_appimage, replacement_payload);
+
+  // Hold the first transaction in its health-check window. The original
+  // launching process has exited, but a competing helper must still fail.
+  {
+    auto const slow = workspace / "slow.AppImage";
+    auto const ready = workspace / "replacement-ready";
+    write_executable(slow,
+        "#!/bin/sh\nprintf ready > \"$1\"\nsleep 8\n");
+    AppImageHandoffOptions first;
+    first.version = "2.0.0";
+    first.artifact_sha256 = sha256_of(slow);
+    first.settle_seconds = 4;
+    first.relaunch_arguments = {ready.string()};
+    auto const owner = launch_from_child(slow, old_appimage, first, 10, 0);
+    for (int n = 0; n < 100 && !std::filesystem::exists(ready); ++n) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+    assert(std::filesystem::exists(ready));
+    AppImageHandoffOptions second;
+    second.version = "3.0.0";
+    second.artifact_sha256 = digest;
+    second.settle_seconds = 1;
+    auto const competitor =
+        launch_from_child(new_appimage, old_appimage, second, 10, 0);
+    assert(wait_for_outcome(competitor, old_appimage, 30).failure ==
+           "transaction-busy");
+    assert(wait_for_outcome(owner, old_appimage, 30).failure.empty());
+    assert(read_text(old_appimage) == read_text(slow));
   }
 
   scratch_workspace();
@@ -226,6 +305,28 @@ int main() {
     assert(read_text(old_appimage) == "#!/bin/sh\nexit 1\n");
   }
 
+  // A prior no-rollback failure is unresolved. A new transaction must not
+  // discard its original backup, overwrite the journal, or silently restore it.
+  {
+    auto const backup = std::filesystem::path(old_appimage.string() + ".rivet-backup");
+    auto const journal = journal_for(old_appimage);
+    auto const previous_journal = read_text(journal);
+    auto const previous_target = read_text(old_appimage);
+    assert(!previous_journal.empty());
+    assert(read_text(backup) == old_payload);
+    AppImageHandoffOptions options;
+    options.version = "3.0.0";
+    options.artifact_sha256 = digest;
+    auto const child = launch_from_child(new_appimage, old_appimage, options, 10, 0);
+    assert(wait_for_outcome(child, old_appimage, 30).failure == "recovery-required");
+    assert(read_text(backup) == old_payload);
+    assert(read_text(journal) == previous_journal);
+    assert(read_text(old_appimage) == previous_target);
+    // Test fixture reset only; production must use explicit recovery.
+    std::filesystem::remove(backup);
+    std::filesystem::remove(journal);
+  }
+
   scratch_workspace();
   write_executable(old_appimage, old_payload);
   write_executable(new_appimage, replacement_payload);
@@ -243,6 +344,8 @@ int main() {
     assert(read_text(old_appimage) == old_payload);
   }
 
+  // Reset the intentionally failed transaction before the independent test.
+  std::filesystem::remove(journal_for(old_appimage));
   scratch_workspace();
   write_executable(old_appimage, old_payload);
   write_executable(new_appimage, replacement_payload);

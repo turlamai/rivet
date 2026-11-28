@@ -7,6 +7,117 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- Reuse Keel 0.4 SemVer precedence (new minimum dependency), correcting numeric-like alphanumeric prerelease ordering while retaining Rivet channel policy, argument errors, JSON feeds and native installer handoff policy.
+
+### Changed
+
+- Internal: the Windows and Linux embedded-backend implementations no longer
+  carry two copies of everything below the native channel. Racket CS boot, the
+  reader/writer threads, request/cancel serialization and completion handling
+  moved into one transport-neutral `rivet::detail::EmbeddedBackendCore`
+  (`runtime/src/embedded_backend.cpp`); each platform now only opens its own
+  channel — named pipes on Windows, an AF_UNIX socketpair on Linux — and hands
+  the serve-fds endpoints to the core. `rivet::windows::*` and
+  `rivet::linux_runtime::*` keep the names downstream hosts use (they now
+  alias the shared types), the platform headers, the frame protocol and the
+  CLI are unchanged, and `rivet/tests/embedded-backend-core.rkt` guards against
+  the core being duplicated back into a platform directory. The shared unit
+  includes the Racket CS C API, so it is compiled by the platform builds (the
+  Windows runtime source props, the Windows integration sample and the Linux
+  platform fragment) and not by the portable `rivet_protocol` library.
+
+### Added
+
+- Generated projects now include an inactive `release.yml.example` checklist
+  for protected signing, native acceptance, verified publication and recovery.
+  It deliberately does not enable automatic publishing or require credentials.
+
+- Racket source hygiene gate (`rivet/tests/source-hygiene.rkt`): every `.rkt`
+  file in the package must contain no tab characters, no trailing whitespace,
+  at most one consecutive blank line, and a final newline. The repository
+  deliberately does not adopt `raco fmt` — all 185 tracked Racket sources
+  follow one consistent hand-maintained style that differs from the
+  formatter's output, so a formatter gate would mean reformatting the whole
+  code base for no functional gain. The gate locks in the hygiene the code
+  base already kept; the 16 files that drifted (double blank lines between
+  top-level forms, five files without a final newline) were fixed with
+  whitespace-only edits.
+
+- In-process backend bridge `rivet/bridge` (turlamai/glaze#159): the RVT1
+  client half of `serve` over a pipe pair (`start-bridge!`, `stop-bridge!`,
+  `bridge-call`, `bridge-alive?`, `set-bridge-event-handler!`) plus a
+  schema-driven app-value codec (`make-bridge-codec` and accessors) extracted
+  from Podlens so every embedding product shares one implementation instead
+  of per-product copies. The transport owns lifecycle and framing only;
+  argument/result meaning stays with the product schema. Schema grammar
+  matches `raco rivet schema write` (named lists; scalar/optional/list/record
+  kinds): camelCase JSON objects with explicit null and base64 `Bytes` on the
+  JSON side, field-ordered record lists with `void` for absent optionals on
+  the wire. Covered by `rivet/tests/bridge-test.rkt` against a real child
+  serve loop.
+
+- Typed network-channel device surface in codegen (issue #489): the same
+  `device-rpcs` allowlist that drives the JSON-envelope WatchConnectivity
+  surface now also emits a typed `RivetDeviceAppleRVT1Client` extension into
+  `GeneratedBackend.swift`, so products binding the accepted RVT1 stream no
+  longer hand-roll a per-RPC adapter (Payback's #63 was the first to need
+  one). v1 covers the closed RVT1 scalar tag set — `Bytes`, `String`,
+  `Int64`, `Bool` arguments/results plus `Void` — with `Bytes` results
+  returned raw; RPCs needing `Record`/`Enum`/`Optional`/`List` are listed in
+  a generated comment until the second batch. The block hides behind
+  `#if canImport(RivetDeviceAppleTransport)`, keeping hosts without the
+  transport module compiling unchanged, and the codegen fixture now links
+  the transport so CI compiles the surface for iOS and watchOS. The gateway
+  scope check stays authoritative; the surface is a usability aid only.
+
+### Fixed
+
+- Windows application builds no longer write MSBuild intermediate state into
+  the Rivet checkout. The referenced `rivet-host` and `rivet-chart` library
+  projects received `OutDir` from `raco rivet build` but kept their default
+  `IntDir`, so every build dropped objects, tracker logs and generated
+  cppwinrt headers under `platform/windows/<library>/x64/<configuration>/`
+  inside the framework tree — a permanently dirty linked checkout, and one
+  object graph shared by every application built against it. The build now
+  exports `RIVET_INTERMEDIATE_DIR` and the libraries keep their state under
+  the application's `.rivet/obj/`, separated by project, platform and
+  configuration; manual MSBuild builds without the variable are unchanged.
+
+- The Getting Started first-edit step asked readers to add a `greet` RPC that
+  the starter backend already declares, so following the guide verbatim failed
+  with `identifier already defined`. The guide (English and Chinese) now adds a
+  new `exclaim` RPC instead and names the starter's existing declarations.
+
+- Two Racket-suite tests failed on every Windows development machine,
+  independently of the code under test: `share-watch` asserted that a rooted
+  path without a volume has no drive letter (on Windows it belongs to the
+  current drive), and `windows-scaffold-icon-contract` matched source text
+  containing `\n` against a CRLF working copy.
+- The `acceptance` test's temp-directory teardown could fail on Windows with
+  "Permission denied" when a just-exited `racket` subprocess still held the
+  directory, turning a passing run into a failure; teardown now retries
+  briefly before giving up.
+
+### Docs
+
+- The README generated by `raco rivet new` no longer lists `acceptance --json`
+  before `dev` under "Start here". Acceptance's `native-build` suite rebuilds
+  the host (about two minutes on a developer machine), so every new developer
+  built twice before seeing the app window. "Start here" now ends with `dev`,
+  and a following paragraph explains that acceptance is the done-check to run
+  after a change and before shipping (it already opened "Ship a build").
+  `scaffold-ci` guards the order.
+- `CONTRIBUTING.md` gained the Windows PowerShell equivalent of the
+  clear-`compiled`/`raco setup` rebuild step, which previously listed only the
+  Unix `find` form.
+- The documentation map's Chinese status paragraph no longer describes a
+  translation queue that has already been completed.
+
+## [0.17.0] - 2026-11-18
+This is the Racket framework source release. Standalone iOS host development
+remains experimental on the unmerged #472 branch and is not qualified or
+advertised as part of this release.
+
 ### Added
 
 - Flatpak bundle support in `raco rivet release` (issue #449): add
@@ -77,6 +188,28 @@ project adheres to [Semantic Versioning](https://semver.org/).
   `List`/`Optional` combinations now recursively decode RVT1 wire forms into
   typed Racket values before invoking the backend handler (issue #480).
   Malformed DTO fields and unknown Enum cases remain request-local errors.
+- The production verify gate reads the hardened-runtime CodeDirectory flag
+  from the `codesign -dv` flags word instead of matching the exact
+  `(runtime)` spelling, so composite flag words such as
+  `flags=0x10002(adhoc,runtime)` or `(runtime,linker-signed)` no longer
+  fail an otherwise valid production package (PR #488; PodLens v0.8.0 was
+  the first release to hit the false negative). The shapes codesign emits
+  are pinned by unit tests, including the Racket `#rx` POSIX-class
+  limitation that dictated the `[^ ]+` capture.
+- Apple device identity creation compiles on every Apple SDK again
+  (PR #487): macOS keeps the public `SecIdentityCreateWithCertificate`
+  (the legacy `SecIdentityCreate` symbol is absent from the macOS 15 SDK
+  headers that macos-15 runners pin, which broke consumers such as
+  Payback), while the iOS/watchOS builds of `RivetDeviceAppleTransport`
+  keep the legacy spelling, which is the only one the iOS SDK ships. The
+  two duplicated call sites now share one `makeIdentity` helper gated per
+  platform.
+- The root `rivet` package now exposes `RivetDeviceAppleCompanion` and
+  `RivetDeviceAppleCompanionUI` as package products (PR #486), so a
+  downstream host consuming Rivet via `.package(path:)` can import the
+  iOS/iPadOS companion orchestrator and its SwiftUI surface instead of
+  failing with "Missing package product" (first hit by Payback's iOS
+  app).
 
 ## [0.16.0] - 2026-11-12
 

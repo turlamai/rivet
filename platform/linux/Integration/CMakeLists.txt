@@ -98,7 +98,14 @@ target_compile_features(RivetActivationInboxTest PRIVATE cxx_std_17)
 target_include_directories(RivetActivationInboxTest PRIVATE ../system)
 target_compile_options(RivetActivationInboxTest PRIVATE -Wall -Wextra -Wpedantic)
 
+# The CI build uses Release; keep assert-based test checks (and their
+# side effects) enabled without changing production targets.
+foreach(test_target IN ITEMS RivetThemeTest RivetUpdateHandoffTest RivetLayoutTest)
+  target_compile_options(${test_target} PRIVATE -UNDEBUG)
+endforeach()
+
 enable_testing()
+add_test(NAME RivetThemeTest COMMAND RivetThemeTest)
 add_test(NAME RivetUpdateHandoffTest COMMAND RivetUpdateHandoffTest)
 add_test(NAME RivetLayoutTest COMMAND RivetLayoutTest)
 add_test(NAME RivetActivationInboxTest COMMAND RivetActivationInboxTest)

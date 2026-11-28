@@ -190,43 +190,24 @@ std::string handoff_script(std::string const& application_id,
   script += "  printf '%s\\n' \"$1\" > \"$RIVET_FAILURE\"\n";
   script += "  exit 1\n";
   script += "}\n";
-  // A missing owner PID means the lock is stale from a dead helper; a live
-  // owner means another handoff owns the installation right now.
+  // The detached helper owns the lock, not the exiting application.
+  // Use an advisory kernel lock on a stable inode; never unlink a live lock.
+  // Close fd 9 in the relaunched application so it cannot retain the lease.
   script += "rivet_lock_acquired() {\n";
-  script += "  if mkdir \"$RIVET_LOCK\" 2>/dev/null; then\n";
-  script += "    printf '%s\\n' \"$RIVET_OLD_PID\" > \"$RIVET_LOCK/pid\"\n";
-  script += "    return 0\n";
-  script += "  fi\n";
-  script += "  RIVET_OTHER=$(cat \"$RIVET_LOCK/pid\" 2>/dev/null)\n";
-  script += "  if [ -n \"$RIVET_OTHER\" ] && ! kill -0 \"$RIVET_OTHER\" "
-            "2>/dev/null; then\n";
-  script += "    rm -rf \"$RIVET_LOCK\"\n";
-  script += "    if mkdir \"$RIVET_LOCK\" 2>/dev/null; then\n";
-  script += "      printf '%s\\n' \"$RIVET_OLD_PID\" > \"$RIVET_LOCK/pid\"\n";
-  script += "      return 0\n";
-  script += "    fi\n";
-  script += "  fi\n";
-  script += "  return 1\n";
+  script += "  flock -n 9\n";
   script += "}\n";
+  script += "exec 9>\"$RIVET_LOCK.flock\" || rivet_fail lock-open-failed\n";
   script += "if ! rivet_lock_acquired; then\n";
   script += "  rivet_fail transaction-busy\n";
   script += "fi\n";
-  script += "trap 'rm -rf \"$RIVET_LOCK\"' EXIT\n";
-  script += "# A previous handoff that died between the two renames must not\n";
-  script += "# leave the launch path without an executable: bring the\n";
-  script += "# installation back to a runnable state before starting.\n";
+  // An interrupted transaction may have a signed no-rollback policy.
+  // Never infer health or permission to roll back from file presence.
+  // Leave the journal and backup intact for explicit backend recovery.
   script += "rivet_preflight() {\n";
-  script += "  if [ ! -f \"$RIVET_TARGET\" ] && [ -f \"$RIVET_BACKUP\" ]; then\n";
-  script += "    mv -f \"$RIVET_BACKUP\" \"$RIVET_TARGET\"\n";
+  script += "  if [ -e \"$RIVET_BACKUP\" ] || [ -e \"$RIVET_EMPTY\" ] || [ -e \"$RIVET_JOURNAL\" ]; then\n";
+  script += "    rivet_fail recovery-required\n";
   script += "  fi\n";
-  script += "  # Target and backup together mean the swap completed but the\n";
-  script += "  # commit did not; the target is already the verified candidate,\n";
-  script += "  # so dropping the backup finishes that transaction.\n";
-  script += "  if [ -f \"$RIVET_TARGET\" ] && [ -f \"$RIVET_BACKUP\" ]; then\n";
-  script += "    rm -f \"$RIVET_BACKUP\"\n";
-  script += "  fi\n";
-  script += "  rm -rf \"$RIVET_STAGING\"\n";
-  script += "  rm -f \"$RIVET_JOURNAL\"\n";
+  script += "  rm -rf \"$RIVET_STAGING\" || rivet_fail staging-cleanup-failed\n";
   script += "}\n";
   script += "rivet_preflight\n";
   script += "rivet_write_journal prepared\n";
@@ -279,7 +260,7 @@ std::string handoff_script(std::string const& application_id,
   script += "fi\n";
   script += "rivet_write_journal installed\n";
   script += "rivet_write_journal restarting\n";
-  script += "\"$RIVET_TARGET\"" + arguments + " </dev/null &\n";
+  script += "\"$RIVET_TARGET\"" + arguments + " 9>&- </dev/null &\n";
   script += "RIVET_NEW_PID=$!\n";
   script += "rivet_write_journal restarted\n";
   script += "rivet_write_journal checking\n";
@@ -290,6 +271,7 @@ std::string handoff_script(std::string const& application_id,
   script += "  rm -f \"$RIVET_BACKUP\" \"$RIVET_EMPTY\"\n";
   script += "  rivet_write_journal committed\n";
   script += "  rm -f \"$RIVET_JOURNAL\"\n";
+  script += "  printf '%s\\n' committed > \"${RIVET_FAILURE%/*}/success.txt\"\n";
   script += "  exit 0\n";
   script += "fi\n";
   script += "if [ " +
@@ -407,6 +389,40 @@ void launch_detached(std::filesystem::path const& attempt,
 }
 
 }  // namespace
+
+[[noreturn]] void RelaunchInstalledAppImage(
+    std::filesystem::path const& appimage,
+    std::vector<std::string> arguments,
+    std::function<void()> release_lease) {
+  if (!appimage.is_absolute() || !std::filesystem::is_regular_file(appimage)) {
+    throw std::system_error(std::make_error_code(std::errc::invalid_argument),
+                            "AppImage must be an absolute existing file");
+  }
+  auto executable = appimage.string();
+  if (executable.find('\0') != std::string::npos) {
+    throw std::system_error(std::make_error_code(std::errc::invalid_argument),
+                            "AppImage path contains NUL");
+  }
+  for (auto const& argument : arguments) {
+    if (argument.find('\0') != std::string::npos) {
+      throw std::system_error(std::make_error_code(std::errc::invalid_argument),
+                              "AppImage argument contains NUL");
+    }
+  }
+  if (::access(executable.c_str(), X_OK) != 0) {
+    throw std::system_error(errno, std::generic_category(),
+                            "AppImage is not executable");
+  }
+  std::vector<char*> argv;
+  argv.reserve(arguments.size() + 2);
+  argv.push_back(executable.data());
+  for (auto& argument : arguments) argv.push_back(argument.data());
+  argv.push_back(nullptr);
+  if (release_lease) release_lease();
+  ::execv(executable.c_str(), argv.data());
+  throw std::system_error(errno, std::generic_category(),
+                          "could not relaunch installed AppImage");
+}
 
 std::optional<AppImageHandoff::Failure> AppImageHandoff::ConsumeFailure(
     std::string const& application_id) {

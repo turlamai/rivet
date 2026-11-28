@@ -309,6 +309,18 @@
   (set-path! #"RIVET_ROOT" (simplify-path rivet-root #t))
   (set-path! #"RIVET_RACKET_INCLUDE" (racket-runtime-include-dir runtime))
   (set-path! #"RIVET_RACKET_IMPORT_LIB" import-lib)
+  ;; MSBuild writes objects, tracker logs and generated cppwinrt headers to each
+  ;; project's IntDir. `OutDir` flows to the referenced Rivet static libraries
+  ;; from the command line, but `IntDir` does not, so its default would place
+  ;; that state beside the library projects inside the (often linked) Rivet
+  ;; checkout: one dirty framework tree per application build, and one shared
+  ;; object graph for every application built against it. Keep the application's
+  ;; copy under its own generated tree; the library projects append their name,
+  ;; platform and configuration below this root.
+  (define intermediate-root
+    (path->directory-path (build-path (rivet-project-root project) ".rivet" "obj")))
+  (make-directory* intermediate-root)
+  (set-path! #"RIVET_INTERMEDIATE_DIR" intermediate-root)
   (environment-variables-set!
    env
    #"RIVET_WINDOWS_MIN_VERSION"

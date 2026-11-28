@@ -166,7 +166,6 @@
     load-linux-production-verification)
    (path->string public-key)))
 
-
 (check-false (with-signing-env '() load-linux-gpg-signing))
 
 (when (find-executable-path "gpg")

@@ -14,10 +14,17 @@ Prefer a focused pull request with a clear failure mode and regression test. Avo
 
 Apps install rivet as a linked checkout (`raco pkg install --link`). After pulling the checkout across commits that split or move modules under `rivet-cli/`, `raco rivet` can fail with `instantiate-linklet: mismatch ... reference to a variable that is not exported`, and `raco setup rivet` alone does not clear it. A half-stale cache can also make `raco rivet build` succeed while emitting wrong generated files (spurious diffs, deleted scaffolds) downstream.
 
-After every pull, rebuild clean:
+After every pull, rebuild clean (from the repository root):
 
 ```bash
+# macOS / Linux
 find . -name compiled -type d -prune -exec rm -rf {} +
+raco setup rivet
+```
+
+```powershell
+# Windows PowerShell
+Get-ChildItem -Recurse -Directory -Filter compiled | Remove-Item -Recurse -Force
 raco setup rivet
 ```
 

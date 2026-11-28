@@ -10,7 +10,9 @@
 ;; In particular, a literal backslash-n after a // comment would comment out
 ;; ApplyAppIcon and leave the default WinUI title bar icon in every new host.
 (define-runtime-path source "../../platform/windows/host/MainWindow.xaml.cpp")
-(define text (file->string source))
+;; A Windows checkout under core.autocrlf=true holds CRLF; the contract is
+;; about line structure, not the checkout's newline convention.
+(define text (string-replace (file->string source) "\r\n" "\n"))
 
 (check-true
  (string-contains? text

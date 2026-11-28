@@ -8,8 +8,8 @@
 ;; native artifacts remain three-component SemVer via `release-version`; keep
 ;; this field synced to the release-version major.minor so the catalog
 ;; advertises what the tags actually ship.
-(define version "0.16")
-(define release-version "0.16.0")
+(define version "0.17")
+(define release-version "0.17.0")
 (define pkg-desc "Native application foundation for Racket")
 (define pkg-authors '(turlamai))
 (define license 'MIT)
@@ -23,7 +23,7 @@
     ;; Ed25519 — the package builder's OpenSSL and verify-only embedded
     ;; processes both qualify. Floor is the lowest version this suite covers.
     ["ed25519" #:version "0.1"]
-    ["keel" #:version "0.3.1"]
+    ["keel" #:version "0.4"]
     "net-lib"))
 
 (define build-deps

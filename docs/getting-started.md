@@ -95,18 +95,18 @@ native UI → generated client → RVT1 → embedded Racket CS → State → nat
 
 ## 5. Make your first backend change
 
-Open `app/backend.rkt`. The starter backend already declares an event and shared state:
+Open `app/backend.rkt`. The starter backend already declares an event, shared state, and two RPCs (`greet` and `notify`):
 
 ```racket
 (define-event notification : String)
 (define-state counter : Int64 0)
 ```
 
-Add a typed RPC:
+Add a new typed RPC beside them (redeclaring `greet` fails with `identifier already defined`):
 
 ```racket
-(define-rpc (greet [name : String] : String)
-  (format "Hello, ~a!" name))
+(define-rpc (exclaim [text : String] : String)
+  (format "~a!" text))
 ```
 
 Save the file and run:

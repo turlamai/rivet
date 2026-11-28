@@ -70,7 +70,7 @@ jobs:
           distribution: full
           variant: CS
           version: '9.3'
-      - run: raco pkg install --auto --no-docs 'https://github.com/turlamai/rivet.git#v0.16.0'
+      - run: raco pkg install --auto --no-docs 'https://github.com/turlamai/rivet.git#v0.17.0'
       - run: raco rivet doctor
       - run: raco rivet schema check rivet-schema.json
       - run: raco rivet acceptance --json > acceptance-report.json
@@ -96,7 +96,7 @@ jobs:
           distribution: full
           variant: CS
           version: '9.3'
-      - run: raco pkg install --auto --no-docs 'https://github.com/turlamai/rivet.git#v0.16.0'
+      - run: raco pkg install --auto --no-docs 'https://github.com/turlamai/rivet.git#v0.17.0'
       - run: raco rivet doctor
       - run: raco rivet schema check rivet-schema.json
       - run: raco rivet acceptance --json > acceptance-report.json
@@ -113,13 +113,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Set up embeddable Racket CS
-        uses: turlamai/rivet/.github/actions/setup-embed-racket@v0.16.0
+        uses: turlamai/rivet/.github/actions/setup-embed-racket@v0.17.0
       - name: Install GTK4 development files
         run: |
           sudo apt-get update
           sudo apt-get install --yes libgtk-4-dev
       - name: Install the matching Rivet package and dependencies
-        run: raco pkg install --auto --no-docs 'https://github.com/turlamai/rivet.git#v0.16.0'
+        run: raco pkg install --auto --no-docs 'https://github.com/turlamai/rivet.git#v0.17.0'
       - run: raco rivet doctor
       - run: raco rivet schema check rivet-schema.json
       - run: raco rivet acceptance --json > acceptance-report.json
@@ -218,6 +218,12 @@ not cover them:
   clients for projects that do not commit the Kotlin companion output.
 
 ## Release gate
+
+New projects include `.github/workflows/release.yml.example`, an intentionally
+inactive, comment-only release checklist. It does not publish or sign anything.
+Implement the product-specific workflow and review the protected environment,
+credentials, exact native CI revision, artifacts and recovery policy before
+renaming it to `release.yml`. Do not treat the example as release evidence.
 
 Before pushing a tag, require all native-host jobs above and the product's
 Racket tests. The protected release job can then add production packaging,

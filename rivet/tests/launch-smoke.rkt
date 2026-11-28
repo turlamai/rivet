@@ -53,7 +53,6 @@
  (lambda ()
    (launch-smoke! racket-executable #:seconds 0)))
 
-
 ;; A descendant may inherit the pipes after the direct child exits. Closing
 ;; our read ends must bound the wait instead of hanging release forever.
 (unless (eq? (system-type 'os) 'windows)

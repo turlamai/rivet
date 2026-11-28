@@ -336,3 +336,19 @@ public extension RivetDeviceRouter {
         }
     }
 }
+
+#if canImport(RivetDeviceAppleTransport)
+import RivetDeviceAppleTransport
+
+// Typed network-channel surface for the same `device-rpcs` allowlist as
+// RivetDeviceClient above (issue #489): each allowlisted request becomes
+// call("<name>", [RivetValue…]) with positional typed arguments. Bytes
+// results are returned raw — decode them exactly like the desktop host
+// does. The gateway scope check stays authoritative; this surface is a
+// usability aid, not an authorization decision.
+// Not yet covered by the RVT1 scalar surface (second batch:
+// Record/Enum/Optional/List arguments and results):
+// - list-tasks
+// - get-task
+// - select-task
+#endif
